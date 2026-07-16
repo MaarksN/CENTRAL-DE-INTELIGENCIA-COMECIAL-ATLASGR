@@ -1,0 +1,6 @@
+{
+  "name": "Atlas Smart CRM",
+  "description": "Smart CRM and Prospecting Tool for Atlas",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
