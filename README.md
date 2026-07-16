@@ -1,20 +1,54 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# PROSPECTOR-ATLAS
 
-# Run and deploy your AI Studio app
+Prospector-Atlas é uma plataforma de inteligência logística focada em prospecção e gestão de leads no setor B2B, atuando como um CRM inteligente impulsionado por IA.
 
-This contains everything you need to run your app locally.
+## Estrutura da Aplicação
+O repositório foi reestruturado para ser modular, escalável e de fácil manutenção, preparando a base para o desenvolvimento das próximas fases.
 
-View your app in AI Studio: https://ai.studio/apps/ff0751c8-dabf-48b4-99bb-38abd3dad954
+A estrutura atual conta com:
+- `src/components`: Componentes reutilizáveis de interface (`ui` e `layout`).
+- `src/features`: Módulos da aplicação (ex: CRM, Prospector).
+- `src/hooks`: Custom hooks.
+- `src/lib`: Bibliotecas e integrações de terceiros (como o cliente do Prisma).
+- `src/services`: Camada de serviços (ex: chamadas de API).
+- `src/types`: Definições de tipagem e interfaces TypeScript.
+- `src/utils`: Funções utilitárias globais (ex: formatadores, classes de Erro).
+- `src/styles`: Arquivos de estilos globais.
 
-## Run Locally
+## Tecnologias e Configuração
+- React 19 + Vite 6
+- Tailwind CSS v4 para estilização com classes utilitárias
+- Prisma (ORM e persistência)
+- Express para API local e fallback SSR/SPA.
+- ESLint (Flat Config) e Prettier para padronização.
+- Github Actions configurado para CI (Type Check, Lint, e Build).
 
-**Prerequisites:**  Node.js
+## Instalação
 
+```bash
+npm install
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Execução
+
+Execute o servidor de desenvolvimento:
+```bash
+npm run dev
+```
+
+## Variáveis de Ambiente
+Crie um arquivo `.env` na raiz do projeto com base no `.env.example`.
+Variáveis requeridas:
+- `GEMINI_API_KEY`: Chave de API para as funções de IA.
+- `DATABASE_URL`: URL do banco PostgreSQL (Para o Prisma).
+
+## Scripts Disponíveis
+- `npm run dev`: Inicia o servidor backend (que injeta o Vite para HMR/middleware).
+- `npm run build`: Compila tanto a parte de client (Vite) quanto o server (esbuild).
+- `npm run lint`: Roda o ESLint validando toda a pasta `src/`.
+- `npm run start`: Inicia o servidor compilado.
+
+## Convenções Adotadas
+- Imports utilizando paths relativos/alias padronizados.
+- Tipagens fortes usando TypeScript estrito.
+- Tratamento de erro global implementado em `server.ts` e classes em `src/utils`.
