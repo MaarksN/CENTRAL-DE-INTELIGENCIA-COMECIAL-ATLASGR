@@ -43,7 +43,7 @@ Nenhum texto adicional, sem formatação markdown (como \`\`\`json), apenas o JS
                 }
             });
             
-            const text = response.text() || "[]";
+            const text = response.text || "[]";
             const leads = JSON.parse(text);
             res.json(leads);
         } catch (error) {
@@ -82,7 +82,7 @@ Nenhum texto adicional, sem formatação markdown (como \`\`\`json), apenas o JS
                 contents: prompt,
             });
             
-            res.json({ result: response.text() });
+            res.json({ result: response.text });
         } catch (error) {
             console.error('Error generating intelligence:', error);
             res.status(500).json({ error: 'Failed to generate content' });
@@ -103,6 +103,19 @@ Nenhum texto adicional, sem formatação markdown (como \`\`\`json), apenas o JS
             res.sendFile(path.join(distPath, 'index.html'));
         });
     }
+
+
+    // Error handling middleware
+    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+        console.error('Global Error Handler:', err);
+        const status = err.statusCode || 500;
+        res.status(status).json({
+            error: {
+                message: err.message || 'Internal Server Error',
+                status
+            }
+        });
+    });
 
     app.listen(PORT, "0.0.0.0", () => {
         console.log(`Server running on http://0.0.0.0:${PORT}`);
