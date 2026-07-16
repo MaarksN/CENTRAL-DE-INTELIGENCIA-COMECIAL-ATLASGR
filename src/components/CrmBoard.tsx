@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lead, LeadStatus } from '../types';
+import { Lead, LeadStatus } from '../types/index';
 import { Building2, MapPin, MoreHorizontal, ArrowRight, Phone, TrendingUp, Mail, MessageCircle } from 'lucide-react';
 
 interface CrmBoardProps {

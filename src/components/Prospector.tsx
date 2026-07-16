@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, Save, MapPin, Building2, Users, Database, Globe, CheckCircle2, TrendingUp, Cpu } from 'lucide-react';
-import { Lead, SearchCriteria } from '../types';
+import { Lead, SearchCriteria } from '../types/index';
 
 interface ProspectorProps {
     onSaveLead: (lead: Omit<Lead, 'id' | 'status'>) => void;
@@ -31,7 +31,7 @@ export function Prospector({ onSaveLead }: ProspectorProps) {
     useEffect(() => {
         let interval: ReturnType<typeof setInterval>;
         if (isSearching) {
-            setLoadingStepIdx(0);
+
             interval = setInterval(() => {
                 setLoadingStepIdx(prev => Math.min(prev + 1, loadingSteps.length - 1));
             }, 800);
