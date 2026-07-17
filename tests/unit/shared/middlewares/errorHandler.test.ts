@@ -24,7 +24,7 @@ describe('errorHandler Middleware', () => {
         expect(res.json).toHaveBeenCalledWith({
             success: false,
             error: 'Erro de Validação',
-            details: error.errors
+            details: error.issues
         });
     });
 

@@ -17,9 +17,9 @@ describe('ActivityService Integration', () => {
       const lead = await prisma.lead.create({ data: LeadFactory.build({ companyId: company.id }) as never });
       
       const data = ActivityFactory.build({ leadId: lead.id, date: new Date().toISOString() as never });
-      delete (data as never).lead;
+      delete (data as any).lead;
 
-      const result = await activityService.create(data as never);
+      const result = await activityService.create('test-org-id', data as any);
       expect(result.leadId).toBe(lead.id);
 
       const timelineEvents = await prisma.timelineEvent.findMany({ where: { leadId: lead.id, type: 'activity' } });

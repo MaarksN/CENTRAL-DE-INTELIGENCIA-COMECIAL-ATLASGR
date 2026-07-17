@@ -8,8 +8,8 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
     try {
         const result = await authService.register(req.body);
         res.status(201).json(result);
-    } catch (error: any) {
-        if (error.message === 'User already exists' || error.message === 'Invalid credentials') {
+    } catch (error: unknown) {
+        if (error instanceof Error && (error.message === 'User already exists' || error.message === 'Invalid credentials')) {
              res.status(400).json({ error: error.message });
         } else {
             console.error('Register error:', error);
@@ -22,8 +22,8 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
     try {
         const result = await authService.login(req.body);
         res.json(result);
-    } catch (error: any) {
-        if (error.message === 'Invalid credentials') {
+    } catch (error: unknown) {
+        if (error instanceof Error && error.message === 'Invalid credentials') {
              res.status(400).json({ error: error.message });
         } else {
              console.error('Login error:', error);
@@ -36,8 +36,8 @@ router.get('/me', authenticateToken, async (req: Request, res: Response, next: N
     try {
         const profile = await authService.getProfile((req as any).user.id);
         res.json(profile);
-    } catch (error: any) {
-        if (error.message === 'User not found') {
+    } catch (error: unknown) {
+        if (error instanceof Error && error.message === 'User not found') {
              res.status(404).json({ error: error.message });
         } else {
              res.status(500).json({ error: 'Failed to fetch profile' });
@@ -49,7 +49,7 @@ router.put('/profile', authenticateToken, async (req: Request, res: Response, ne
     try {
         const profile = await authService.updateProfile((req as any).user.id, req.body.name);
         res.json(profile);
-    } catch (error: any) {
+    } catch (error: unknown) {
         res.status(500).json({ error: 'Failed to update profile' });
     }
 });

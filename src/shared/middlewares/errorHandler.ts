@@ -21,14 +21,14 @@ export class AppError extends Error {
     }
 }
 
-export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+export const errorHandler = (err: Error & { statusCode?: number, details?: any }, req: Request, res: Response, next: NextFunction) => {
     console.error('Global Error Handler:', err);
 
     if (err instanceof ZodError) {
         return res.status(400).json({
             success: false,
             error: 'Erro de Validação',
-            details: err.errors
+            details: err.issues
         });
     }
 

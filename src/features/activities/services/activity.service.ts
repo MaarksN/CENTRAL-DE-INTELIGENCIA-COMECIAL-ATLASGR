@@ -4,8 +4,8 @@ import { activitySchema } from '../../../lib/zod';
 import { z } from 'zod';
 
 export class ActivityService {
-    async findAll(dateStr?: string) {
-        const where: Prisma.ActivityWhereInput = {};
+    async findAll(organizationId: string, dateStr?: string) {
+        const where: Prisma.ActivityWhereInput = { organizationId };
         if (dateStr) {
             const searchDate = new Date(dateStr);
             where.date = {
@@ -20,11 +20,12 @@ export class ActivityService {
         });
     }
 
-    async create(data: z.infer<typeof activitySchema>) {
+    async create(organizationId: string, data: z.infer<typeof activitySchema>) {
         const validated = activitySchema.parse(data);
         return prisma.activity.create({
             data: {
                 ...validated,
+                organizationId,
                 date: new Date(validated.date)
             }
         }).then(async (activity) => {
@@ -39,8 +40,8 @@ export class ActivityService {
         });
     }
 
-    async update(id: string, data: Partial<z.infer<typeof activitySchema>>) {
-        const currentActivity = await prisma.activity.findUnique({ where: { id } });
+    async update(organizationId: string, id: string, data: Partial<z.infer<typeof activitySchema>>) {
+        const currentActivity = await prisma.activity.findFirst({ where: { id, organizationId } });
         if (!currentActivity) throw new Error('Activity not found');
 
         const updateData: Prisma.ActivityUpdateInput = { ...data };
@@ -63,7 +64,9 @@ export class ActivityService {
         });
     }
 
-    async delete(id: string) {
+    async delete(organizationId: string, id: string) {
+        const existing = await prisma.activity.findFirst({ where: { id, organizationId } });
+        if (!existing) throw new Error('Activity not found');
         return prisma.activity.delete({ where: { id } });
     }
 }

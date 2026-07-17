@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker';
 import type { Prisma } from '@prisma/client';
 
 export const CompanyFactory = {
-  build: (overrides?: Partial<Prisma.CompanyCreateInput>): Prisma.CompanyCreateInput => ({
+  build: (overrides?: any): any => ({
     legalName: faker.company.name(),
     tradeName: faker.company.name(),
     cnpj: faker.string.numeric(14),
@@ -20,7 +20,7 @@ export const CompanyFactory = {
 };
 
 export const ContactFactory = {
-  build: (overrides?: Partial<Prisma.ContactCreateInput>): Prisma.ContactCreateInput => {
+  build: (overrides?: any): any => {
     return {
       name: faker.person.fullName(),
       email: faker.internet.email(),
@@ -36,7 +36,7 @@ export const ContactFactory = {
 };
 
 export const LeadFactory = {
-  build: (overrides?: Partial<Prisma.LeadCreateInput>): Prisma.LeadCreateInput => ({
+  build: (overrides?: any): any => ({
     status: 'Novo Lead',
     source: faker.helpers.arrayElement(['Inbound', 'Outbound', 'Referral']),
     temperature: faker.helpers.arrayElement(['Frio', 'Morno', 'Quente']),
@@ -47,7 +47,7 @@ export const LeadFactory = {
 };
 
 export const ActivityFactory = {
-  build: (overrides?: Partial<Prisma.ActivityCreateInput>): Prisma.ActivityCreateInput => ({
+  build: (overrides?: any): any => ({
     type: faker.helpers.arrayElement(['Ligação', 'E-mail', 'Reunião', 'Visita']),
     owner: faker.person.fullName(),
     date: faker.date.recent(),
@@ -60,7 +60,7 @@ export const ActivityFactory = {
 };
 
 export const NoteFactory = {
-  build: (overrides?: Partial<Prisma.NoteCreateInput>): Prisma.NoteCreateInput => ({
+  build: (overrides?: any): any => ({
     content: faker.lorem.paragraph(),
     author: faker.person.fullName(),
     lead: overrides?.lead || {
@@ -71,7 +71,7 @@ export const NoteFactory = {
 };
 
 export const TimelineEventFactory = {
-  build: (overrides?: Partial<Prisma.TimelineEventCreateInput>): Prisma.TimelineEventCreateInput => ({
+  build: (overrides?: any): any => ({
     type: 'generic',
     description: faker.lorem.sentence(),
     lead: overrides?.lead || {

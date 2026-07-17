@@ -31,14 +31,14 @@ describe('CompanyService', () => {
 
   it('should find all companies without query', async () => {
     vi.mocked(prisma.company.findMany).mockResolvedValue([mockCompany as never]);
-    const result = await companyService.('test-org-id', );
+    const result = await companyService.findAll('test-org-id');
     expect(prisma.company.findMany).toHaveBeenCalledWith({ where: {}, orderBy: { createdAt: 'desc' } });
     expect(result).toEqual([mockCompany]);
   });
 
   it('should find all companies with query', async () => {
     vi.mocked(prisma.company.findMany).mockResolvedValue([mockCompany as never]);
-    const result = await companyService.('test-org-id', 'Test');
+    const result = await companyService.findAll('test-org-id', 'Test');
     expect(prisma.company.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         OR: [
@@ -54,7 +54,7 @@ describe('CompanyService', () => {
 
   it('should find company by id', async () => {
     vi.mocked(prisma.company.findUnique).mockResolvedValue(mockCompany as never);
-    const result = await companyService.('test-org-id', '1');
+    const result = await companyService.findById('test-org-id', '1');
     expect(prisma.company.findUnique).toHaveBeenCalledWith({
       where: { id: '1' },
       include: { contacts: true, leads: true }
@@ -65,14 +65,14 @@ describe('CompanyService', () => {
   it('should create a company', async () => {
     const input = { legalName: 'New Corp', tradeName: 'Corp' };
     vi.mocked(prisma.company.create).mockResolvedValue({ id: '2', ...input } as never);
-    const result = await companyService.('test-org-id', input);
+    const result = await companyService.create('test-org-id', input as any);
     expect(prisma.company.create).toHaveBeenCalled();
     expect(result.id).toBe('2');
   });
 
   it('should update a company', async () => {
     vi.mocked(prisma.company.update).mockResolvedValue({ ...mockCompany, tradeName: 'Updated' } as never);
-    const result = await companyService.('test-org-id', '1', { tradeName: 'Updated' });
+    const result = await companyService.update('test-org-id', '1', { tradeName: 'Updated' });
     expect(prisma.company.update).toHaveBeenCalledWith({
       where: { id: '1' },
       data: { tradeName: 'Updated' }
@@ -82,7 +82,7 @@ describe('CompanyService', () => {
 
   it('should delete a company', async () => {
     vi.mocked(prisma.company.delete).mockResolvedValue(mockCompany as never);
-    await companyService.('test-org-id', '1');
+    await companyService.delete('test-org-id', '1');
     expect(prisma.company.delete).toHaveBeenCalledWith({ where: { id: '1' } });
   });
 });
