@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Building, Edit, Mail, Phone, Plus, Search, Trash, User } from 'lucide-react';
+import { Building, Edit, Mail, Phone, Plus, Search, Trash, User, Sparkles, Loader2 } from 'lucide-react';
 
 import { Contact } from '../../../types';
 import { ContactForm } from './ContactForm';
@@ -11,6 +11,7 @@ export function ContactList() {
     const [loading, setLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+    const [enrichingId, setEnrichingId] = useState<string | null>(null);
 
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -67,12 +68,24 @@ export function ContactList() {
         fetchContacts();
     };
 
+    const handleEnrich = async (id: string) => {
+        setEnrichingId(id);
+        try {
+            const result = await api.post<{ contact: Contact }>(`/api/contacts/${id}/enrich`);
+            setContacts(prev => prev.map(c => c.id === id ? result.contact : c));
+        } catch (error) {
+            console.error('Error enriching contact:', error);
+        } finally {
+            setEnrichingId(null);
+        }
+    };
+
     return (
         <div className="flex-1 overflow-y-auto bg-gray-50/50 p-8">
             <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h1 className="text-2xl font-semibold text-gray-900">Contatos</h1>
+                        <h1 className="text-2xl font-semibold text-gray-900">👥 Contatos</h1>
                         <p className="text-gray-500 mt-1">Gerencie pessoas e pontos de contato</p>
                     </div>
                     <button
@@ -80,7 +93,7 @@ export function ContactList() {
                         className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
                     >
                         <Plus className="w-5 h-5" />
-                        Novo Contato
+                        ➕ Novo Contato
                     </button>
                 </div>
 
@@ -89,7 +102,7 @@ export function ContactList() {
                                 <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                 <input
                                     type="text"
-                                    placeholder="Buscar por nome, e-mail..."
+                                    placeholder="🔎 Buscar por nome, e-mail, telefone, cargo, empresa..."
                                     value={searchTerm}
                                     onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
                                     className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
@@ -114,14 +127,14 @@ export function ContactList() {
                                                 <td colSpan={4} className="p-8 text-center text-gray-500">
                                                     <div className="flex justify-center items-center gap-2">
                                                         <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                                                        Carregando contatos...
+                                                        ⏳ Carregando contatos...
                                                     </div>
                                                 </td>
                                             </tr>
                                         ) : contacts.length === 0 ? (
                                             <tr>
                                                 <td colSpan={4} className="p-8 text-center text-gray-500">
-                                                    Nenhum contato encontrado.
+                                                    🔍 Nenhum contato encontrado.
                                                 </td>
                                             </tr>
                                         ) : (
@@ -152,6 +165,14 @@ export function ContactList() {
                                                     </td>
                                                     <td className="p-4 text-right">
                                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={() => handleEnrich(contact.id)}
+                                                                disabled={enrichingId === contact.id || !contact.companyId}
+                                                                className="p-2 text-gray-400 hover:text-atlas-orange hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-50"
+                                                                title={contact.companyId ? '✨ Enriquecer empresa com IA' : 'Contato sem empresa vinculada'}
+                                                            >
+                                                                {enrichingId === contact.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                                            </button>
                                                             <button
                                                                 onClick={() => { setSelectedContact(contact); setIsFormOpen(true); }}
                                                                 className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

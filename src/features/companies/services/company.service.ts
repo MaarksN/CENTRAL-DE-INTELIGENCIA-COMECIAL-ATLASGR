@@ -21,7 +21,14 @@ export class CompanyService {
             where.OR = [
                 { legalName: { contains: query, mode: 'insensitive' } },
                 { tradeName: { contains: query, mode: 'insensitive' } },
-                { cnpj: { contains: query } }
+                { cnpj: { contains: query } },
+                { segment: { contains: query, mode: 'insensitive' } },
+                { cnae: { contains: query, mode: 'insensitive' } },
+                { city: { contains: query, mode: 'insensitive' } },
+                { state: { contains: query, mode: 'insensitive' } },
+                { address: { contains: query, mode: 'insensitive' } },
+                { website: { contains: query, mode: 'insensitive' } },
+                { tags: { has: query } },
             ];
         }
 
