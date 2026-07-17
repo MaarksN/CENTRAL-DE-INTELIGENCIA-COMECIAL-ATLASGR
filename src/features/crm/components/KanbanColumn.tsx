@@ -2,6 +2,17 @@ import React from "react";
 import { LeadStatus, Lead } from '../../../types';
 import { KanbanCard } from './KanbanCard';
 
+const STATUS_EMOJI: Record<LeadStatus, string> = {
+    'Novo Lead': '🆕',
+    'Qualificação': '🔎',
+    'Primeiro Contato': '☎️',
+    'Diagnóstico': '🩺',
+    'Proposta': '📄',
+    'Negociação': '🤝',
+    'Fechado Ganho': '🏆',
+    'Fechado Perdido': '❌',
+};
+
 interface KanbanColumnProps {
     key?: string;
     status: LeadStatus;
@@ -27,7 +38,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({ status, leads, on
         >
             <div className="p-4 border-b border-gray-200 bg-gray-50/80 rounded-t-2xl sticky top-0 backdrop-blur-sm z-10 flex justify-between items-center">
                 <h3 className="font-semibold text-gray-700 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <span>{STATUS_EMOJI[status] || '📌'}</span>
                     {status}
                 </h3>
                 <span className="bg-gray-200 text-gray-600 text-xs font-medium px-2.5 py-1 rounded-full">
@@ -47,7 +58,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({ status, leads, on
                 ))}
                 {leads.length === 0 && (
                     <div className="h-full min-h-[100px] border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center text-gray-400 text-sm">
-                        Solte cards aqui
+                        📥 Solte cards aqui
                     </div>
                 )}
             </div>

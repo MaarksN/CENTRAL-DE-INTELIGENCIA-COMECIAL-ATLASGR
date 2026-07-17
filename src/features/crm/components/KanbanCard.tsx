@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Lead } from '../../../types';
 import { Building2, User, Calendar, Sparkles, Loader2 } from 'lucide-react';
 
+const TEMPERATURE_EMOJI: Record<string, string> = { Quente: '🔥', Morno: '🌤️', Frio: '❄️' };
+
 interface KanbanCardProps {
     key?: string;
     lead: Lead;
@@ -42,7 +44,7 @@ export const KanbanCard = React.memo(function KanbanCard({ lead, onDragStart, on
                 </h4>
                 {lead.score && (
                     <span className="text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-1 rounded-lg">
-                        {lead.score}
+                        {lead.temperature ? `${TEMPERATURE_EMOJI[lead.temperature] || ''} ` : ''}{lead.score}
                     </span>
                 )}
             </div>

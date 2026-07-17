@@ -96,7 +96,7 @@ export function CrmBoard() {
         <div className="flex-1 flex flex-col h-full bg-white animate-in fade-in duration-500 overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
                 <div>
-                    <h2 className="font-bold text-2xl text-gray-900">Pipeline de Vendas</h2>
+                    <h2 className="font-bold text-2xl text-gray-900">🎯 Pipeline de Vendas</h2>
                     <p className="text-gray-500 text-sm mt-1">Arraste os cards para atualizar o estágio da negociação</p>
                 </div>
             </div>
