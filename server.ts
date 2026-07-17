@@ -5,6 +5,10 @@ import { GoogleGenAI } from '@google/genai';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from './src/lib/prisma.js';
+import { initializeWorkflowEngine } from './server/services/workflow/registry/index.js';
+
+// Initialize Workflow Engine (EventBus, Triggers, Registry)
+initializeWorkflowEngine();
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
