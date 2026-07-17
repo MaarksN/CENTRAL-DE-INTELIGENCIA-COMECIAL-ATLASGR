@@ -90,6 +90,11 @@ model Company {
   enrichmentSource  String?
   enrichedAt        DateTime?
 
+  // Google Maps / My Business Enrichment
+  googleRating       Float?
+  googleReviewsCount Int?
+  businessHours      Json?
+
   contacts       Contact[]
   leads          Lead[]
   enrichmentLogs EnrichmentLog[]
@@ -126,6 +131,7 @@ model Contact {
   birthDate    DateTime?
   observations String?
   status       ContactStatus @default(Ativo)
+  source       String? // ex: "Apollo"
 
   companyId      String
   company        Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
