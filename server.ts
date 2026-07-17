@@ -6,26 +6,46 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from './src/lib/prisma.js';
 import { initializeWorkflowEngine } from './server/services/workflow/registry/index.js';
+import { setupSecurityHeaders, setupCors, setupRateLimiter, setupCookieParser, addTraceId } from './server/security/middleware.js';
+import { AuditService } from './server/security/AuditService.js';
+import { requireTenant, requirePermission } from './server/security/authorization.js';
+import { validateRequest, registerSchema, loginSchema, profileUpdateSchema, prospectCriteriaSchema, intelligenceToolSchema } from './server/security/validation.js';
 
 // Initialize Workflow Engine (EventBus, Triggers, Registry)
 initializeWorkflowEngine();
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-dev';
+import { generateAccessToken, generateRefreshToken, verifyToken, checkReplayAttack } from './server/security/auth.js';
 
 // Middleware to verify JWT token
 const authenticateToken = (req: any, res: any, next: any) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
-    if (!token) return res.status(401).json({ error: 'Access denied' });
+    if (!token) {
+        res.status(401).json({ error: 'Access denied' });
+        return;
+    }
 
-    jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-        if (err) return res.status(403).json({ error: 'Invalid token' });
+    try {
+        const user = verifyToken(token);
         req.user = user;
+
+        // Replay attack protection if nonce is provided
+        const nonce = req.headers['x-nonce'];
+        if (nonce && typeof nonce === 'string') {
+            if (!checkReplayAttack(nonce)) {
+                res.status(401).json({ error: 'Replay attack detected' });
+                return;
+            }
+        }
+
         next();
-    });
+    } catch (err) {
+        res.status(403).json({ error: 'Invalid token' });
+        return;
+    }
 };
 
 
@@ -33,10 +53,17 @@ async function startServer() {
     const app = express();
     const PORT = 3000;
 
+    // Security Middlewares
+    app.use(setupSecurityHeaders());
+    app.use(setupCors());
+    app.use(setupRateLimiter());
+    app.use(setupCookieParser());
+    app.use(addTraceId);
+
     app.use(express.json());
 
     // Auth Routes
-    app.post('/api/auth/register', async (req, res) => {
+    app.post('/api/auth/register', validateRequest(registerSchema), async (req, res) => {
         try {
             const { name, email, password } = req.body;
 
@@ -64,6 +91,8 @@ async function startServer() {
                 }
             });
 
+            await AuditService.logEvent('USER_REGISTERED', 'User', req, user.id);
+
             res.status(201).json({ message: 'User registered successfully' });
         } catch (error) {
             console.error('Register error:', error);
@@ -71,7 +100,7 @@ async function startServer() {
         }
     });
 
-    app.post('/api/auth/login', async (req, res) => {
+    app.post('/api/auth/login', validateRequest(loginSchema), async (req, res) => {
         try {
             const { email, password } = req.body;
             const user = await prisma.user.findUnique({ where: { email } });
@@ -85,16 +114,55 @@ async function startServer() {
                 return res.status(400).json({ error: 'Invalid credentials' });
             }
 
-            const token = jwt.sign(
-                { id: user.id, email: user.email, role: user.role, organizationId: user.organizationId },
-                JWT_SECRET,
-                { expiresIn: '24h' }
-            );
+            const payload = { id: user.id, email: user.email, role: user.role, organizationId: user.organizationId };
+            const accessToken = generateAccessToken(payload);
+            const refreshToken = generateRefreshToken(payload);
 
-            res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+            res.cookie('refreshToken', refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            });
+
+            await AuditService.logEvent('USER_LOGIN', 'User', { ...req, user }, user.id);
+
+            res.json({ token: accessToken, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
         } catch (error) {
             console.error('Login error:', error);
+            await AuditService.logEvent('USER_LOGIN_FAILED', 'User', req, undefined, { error: 'Internal error' });
             res.status(500).json({ error: 'Login failed' });
+        }
+    });
+
+    app.post('/api/auth/refresh', async (req: any, res: any) => {
+        try {
+            const refreshToken = req.cookies.refreshToken;
+            if (!refreshToken) {
+                 return res.status(401).json({ error: 'Refresh token required' });
+            }
+
+            const payload = verifyToken(refreshToken, true);
+            const user = await prisma.user.findUnique({ where: { id: payload.id } });
+
+            if (!user) {
+                return res.status(403).json({ error: 'User no longer exists' });
+            }
+
+            const newPayload = { id: user.id, email: user.email, role: user.role, organizationId: user.organizationId };
+            const newAccessToken = generateAccessToken(newPayload);
+            const newRefreshToken = generateRefreshToken(newPayload);
+
+            res.cookie('refreshToken', newRefreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000
+            });
+
+            res.json({ token: newAccessToken });
+        } catch (error) {
+            res.status(403).json({ error: 'Invalid refresh token' });
         }
     });
 
@@ -108,27 +176,30 @@ async function startServer() {
         }
     });
 
-    app.put('/api/auth/profile', authenticateToken, async (req: any, res: any) => {
+    app.put('/api/auth/profile', authenticateToken, validateRequest(profileUpdateSchema), async (req: any, res: any) => {
         try {
             const { name } = req.body;
             const user = await prisma.user.update({
                 where: { id: req.user.id },
                 data: { name }
             });
+            await AuditService.logEvent('PROFILE_UPDATED', 'User', req, user.id);
             res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
         } catch (error) {
             res.status(500).json({ error: 'Failed to update profile' });
         }
     });
 
-    // Logout is handled client side by removing token, but providing an endpoint if needed
     app.post('/api/auth/logout', (req, res) => {
+        res.clearCookie('refreshToken');
         res.json({ message: 'Logged out successfully' });
     });
 
     // API Routes
-    app.post('/api/prospect', async (req, res) => {
+    // Enforce Tenant Isolation and ABAC/RBAC on Core APIs
+    app.post('/api/prospect', authenticateToken, requireTenant, requirePermission('use:intelligence'), validateRequest(prospectCriteriaSchema), async (req: any, res: any) => {
         try {
+            const tenantId = req.tenantId; // In a full implementation, Prisma queries would be scoped by this ID.
             const criteria = req.body;
             const prompt = `Você é um assistente de prospecção B2B (SDR/BDR) da Atlas (empresa de inteligência logística).
 Baseado nestes critérios, gere uma lista de 4 a 6 leads reais (empresas do Brasil) que se encaixam no perfil:
@@ -160,6 +231,9 @@ Nenhum texto adicional, sem formatação markdown (como \`\`\`json), apenas o JS
             
             const text = response.text || "[]";
             const leads = JSON.parse(text);
+
+            await AuditService.logEvent('PROSPECT_GENERATED', 'AI', req);
+
             res.json(leads);
         } catch (error) {
             console.error('Error generating leads:', error);
@@ -167,8 +241,9 @@ Nenhum texto adicional, sem formatação markdown (como \`\`\`json), apenas o JS
         }
     });
 
-    app.post('/api/intelligence', async (req, res) => {
+    app.post('/api/intelligence', authenticateToken, requireTenant, requirePermission('use:intelligence'), validateRequest(intelligenceToolSchema), async (req: any, res: any) => {
         try {
+            const tenantId = req.tenantId;
             const { tool } = req.body;
             let prompt = `Você é um consultor de vendas B2B experiente da Atlas, uma plataforma SaaS de inteligência logística focada em reduzir custos com gestão de exceções e sinistros para transportadoras. Responda em português do Brasil de forma extremamente persuasiva e profissional.`;
             
@@ -197,6 +272,8 @@ Nenhum texto adicional, sem formatação markdown (como \`\`\`json), apenas o JS
                 contents: prompt,
             });
             
+            await AuditService.logEvent('INTELLIGENCE_USED', 'AI', req, undefined, { tool });
+
             res.json({ result: response.text });
         } catch (error) {
             console.error('Error generating intelligence:', error);
