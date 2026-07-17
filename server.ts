@@ -35,6 +35,22 @@ async function startServer() {
 
     app.use(express.json());
 
+    // Health Checks
+    app.get('/health/live', (req, res) => {
+        res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
+
+    app.get('/health/ready', async (req, res) => {
+        try {
+            // Check Database connection
+            await prisma.$queryRaw`SELECT 1`;
+            res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+        } catch (error) {
+            console.error('Readiness probe failed:', error);
+            res.status(503).json({ status: 'error', message: 'Database unavailable' });
+        }
+    });
+
     // Auth Routes
     app.post('/api/auth/register', async (req, res) => {
         try {
