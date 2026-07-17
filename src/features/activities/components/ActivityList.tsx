@@ -24,7 +24,7 @@ export function ActivityList() {
     }, []);
 
     const handleStatusToggle = async (activity: Activity) => {
-        const newStatus = activity.status === 'Pendente' ? 'Concluído' : 'Pendente';
+        const newStatus = activity.status === 'Pendente' ? 'Concluída' : 'Pendente';
         try {
             await api.put(`/api/activities/${activity.id}`, { status: newStatus });
             setActivities(prev => prev.map(a => a.id === activity.id ? { ...a, status: newStatus } : a));
@@ -65,7 +65,7 @@ export function ActivityList() {
                                 <div key={activity.id} className="p-4 hover:bg-gray-50/50 transition-colors flex items-center gap-4 group">
                                     <button
                                         onClick={() => handleStatusToggle(activity)}
-                                        className={`shrink-0 transition-colors ${activity.status === 'Concluído' ? 'text-green-500' : 'text-gray-300 hover:text-green-500'}`}
+                                        className={`shrink-0 transition-colors ${activity.status === 'Concluída' ? 'text-green-500' : 'text-gray-300 hover:text-green-500'}`}
                                     >
                                         <CheckCircle2 className="w-6 h-6" />
                                     </button>

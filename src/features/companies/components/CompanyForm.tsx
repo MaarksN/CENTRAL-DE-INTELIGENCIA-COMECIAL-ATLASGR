@@ -87,10 +87,10 @@ export function CompanyForm({ company, onClose, onSave }: CompanyFormProps) {
                             </div>
                             <div className="space-y-2 md:col-span-2">
                                 <label className="text-sm font-medium text-gray-700">Status</label>
-                                <select value={formData.status || 'Ativo'} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+                                <select value={formData.status || 'Ativo'} onChange={e => setFormData({...formData, status: e.target.value as Company['status']})} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
                                     <option value="Ativo">Ativo</option>
                                     <option value="Inativo">Inativo</option>
-                                    <option value="Prospect">Prospect</option>
+                                    <option value="Em análise">Em análise</option>
                                 </select>
                             </div>
                             <div className="space-y-2 md:col-span-2">

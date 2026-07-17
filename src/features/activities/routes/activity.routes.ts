@@ -2,12 +2,13 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { activityService } from '../services/activity.service.js';
 import { validateRequest } from '../../../shared/middlewares/validateRequest.js';
 import { activitySchema } from '../../../lib/zod.js';
+import type { AuthRequest } from '../../../shared/middlewares/authenticateToken.js';
 
 const router = Router();
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         const activities = await activityService.findAll(orgId, req.query.date as string | undefined);
         res.json({ success: true, data: activities });
     } catch (error) {
@@ -17,7 +18,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.post('/', validateRequest(activitySchema), async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         const activity = await activityService.create(orgId, req.body);
         res.status(201).json({ success: true, data: activity });
     } catch (error) {
@@ -27,7 +28,7 @@ router.post('/', validateRequest(activitySchema), async (req: Request, res: Resp
 
 router.put('/:id', validateRequest(activitySchema.partial()), async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         const activity = await activityService.update(orgId, req.params.id, req.body);
         res.json({ success: true, data: activity });
     } catch (error) {
@@ -37,7 +38,7 @@ router.put('/:id', validateRequest(activitySchema.partial()), async (req: Reques
 
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         await activityService.delete(orgId, req.params.id);
         res.status(204).send();
     } catch (error) {
