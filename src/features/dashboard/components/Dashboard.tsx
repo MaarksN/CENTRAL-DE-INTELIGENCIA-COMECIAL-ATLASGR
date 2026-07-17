@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Building2, Target, Activity, CheckCircle2 } from 'lucide-react';
-import { Lead, Activity as ActivityType } from '../../../types';
+import { Lead, Activity as ActivityType, Company } from '../../../types';
+import { api } from '../../../lib/api';
 
 export function Dashboard() {
     const [stats, setStats] = useState({
@@ -14,24 +15,18 @@ export function Dashboard() {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const [companiesRes, leadsRes, activitiesRes] = await Promise.all([
-                    fetch('/api/companies'),
-                    fetch('/api/leads'),
-                    fetch('/api/activities')
+                const [companies, leads, activities] = await Promise.all([
+                    api.get<Company[]>('/api/companies'),
+                    api.get<Lead[]>('/api/leads'),
+                    api.get<ActivityType[]>('/api/activities')
                 ]);
 
-                if (companiesRes.ok && leadsRes.ok && activitiesRes.ok) {
-                    const companies = await companiesRes.json();
-                    const leads = await leadsRes.json();
-                    const activities = await activitiesRes.json();
-
-                    setStats({
-                        totalCompanies: companies.length,
-                        activeLeads: leads.filter((l: Lead) => l.status !== 'Fechado Ganho' && l.status !== 'Fechado Perdido').length,
-                        pendingActivities: activities.filter((a: ActivityType) => a.status === 'Pendente').length,
-                        wonDeals: leads.filter((l: Lead) => l.status === 'Fechado Ganho').length
-                    });
-                }
+                setStats({
+                    totalCompanies: companies.length,
+                    activeLeads: leads.filter((l: Lead) => l.status !== 'Fechado Ganho' && l.status !== 'Fechado Perdido').length,
+                    pendingActivities: activities.filter((a: ActivityType) => a.status === 'Pendente').length,
+                    wonDeals: leads.filter((l: Lead) => l.status === 'Fechado Ganho').length
+                });
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
             } finally {

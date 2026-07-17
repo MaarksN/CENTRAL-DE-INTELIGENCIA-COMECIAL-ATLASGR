@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { TimelineEvent } from '../../../types';
+import { TimelineEvent, Lead } from '../../../types';
 import { History, Activity, MessageCircle, ArrowRight, User } from 'lucide-react';
+import { api } from '../../../lib/api';
 
 interface TimelineProps {
     leadId: string;
@@ -14,11 +15,8 @@ export function Timeline({ leadId }: TimelineProps) {
         const fetchTimeline = async () => {
             try {
                 // In a real app, this would be a dedicated endpoint or included in the lead details
-                const res = await fetch(`/api/leads/${leadId}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setEvents(data.timeline || []);
-                }
+                const data = await api.get<Lead>(`/api/leads/${leadId}`);
+                setEvents(data.timeline || []);
             } catch (error) {
                 console.error('Error fetching timeline:', error);
             } finally {
@@ -65,7 +63,7 @@ export function Timeline({ leadId }: TimelineProps) {
                 {events.map((event) => (
                     <div key={event.id} className="relative pl-6">
                         <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border flex items-center justify-center ${getEventColor(event.type)}`}>
-                            {React.cloneElement(getEventIcon(event.type) as React.ReactElement<any>, { className: 'w-2.5 h-2.5' })}
+                            {React.cloneElement(getEventIcon(event.type) as React.ReactElement<{ className?: string }>, { className: 'w-2.5 h-2.5' })}
                         </div>
                         <div>
                             <p className="text-sm text-gray-900">{event.description}</p>

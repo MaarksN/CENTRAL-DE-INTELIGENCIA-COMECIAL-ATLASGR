@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../../lib/prisma';
 import { contactSchema } from '../../../lib/zod';
 import { z } from 'zod';
@@ -6,8 +7,8 @@ export class ContactService {
     async findAll(query?: string) {
         const where = query ? {
             OR: [
-                { name: { contains: query, mode: 'insensitive' } as any },
-                { email: { contains: query, mode: 'insensitive' } as any }
+                { name: { contains: query, mode: 'insensitive' } },
+                { email: { contains: query, mode: 'insensitive' } }
             ]
         } : {};
         return prisma.contact.findMany({ where, include: { company: true }, orderBy: { createdAt: 'desc' } });
@@ -31,7 +32,7 @@ export class ContactService {
     }
 
     async update(id: string, data: Partial<z.infer<typeof contactSchema>>) {
-        const updateData: any = { ...data };
+        const updateData: Prisma.ContactUpdateInput = { ...data };
         if (data.birthDate) updateData.birthDate = new Date(data.birthDate);
         return prisma.contact.update({
             where: { id },

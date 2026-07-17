@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Plus, Building2, MapPin, Building, Edit, Trash } from 'lucide-react';
 import { Company } from '../../../types';
 import { CompanyForm } from './CompanyForm';
 import { CompanyDetail } from './CompanyDetail';
+import { api } from '../../../lib/api';
 
 export function CompanyList() {
     const [companies, setCompanies] = useState<Company[]>([]);
@@ -12,36 +13,31 @@ export function CompanyList() {
     const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
     const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
 
-    const fetchCompanies = async () => {
+    const fetchCompanies = useCallback(async () => {
         setLoading(true);
         try {
             const url = searchTerm ? `/api/companies?q=${encodeURIComponent(searchTerm)}` : '/api/companies';
-            const res = await fetch(url);
-            if (res.ok) {
-                const data = await res.json();
-                setCompanies(data);
-            }
+            const data = await api.get<Company[]>(url);
+            setCompanies(data);
         } catch (error) {
             console.error('Error fetching companies:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchTerm]);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
             fetchCompanies();
         }, 300);
         return () => clearTimeout(timeoutId);
-    }, [searchTerm]);
+    }, [fetchCompanies]);
 
     const handleDelete = async (id: string) => {
         if (!confirm('Tem certeza que deseja excluir esta empresa?')) return;
         try {
-            const res = await fetch(`/api/companies/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                setCompanies(prev => prev.filter(c => c.id !== id));
-            }
+            await api.delete(`/api/companies/${id}`);
+            setCompanies(prev => prev.filter(c => c.id !== id));
         } catch (error) {
             console.error('Error deleting company:', error);
         }
