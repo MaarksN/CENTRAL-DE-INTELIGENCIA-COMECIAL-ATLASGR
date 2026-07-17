@@ -1,10 +1,10 @@
 import React from 'react';
 import { Badge } from '../../ui/Badge';
-import { Building2, Mail, Phone, MapPin, User, Calendar, Activity, Tag, Sparkles } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, Activity, Sparkles } from 'lucide-react';
 import { Timeline } from './Timeline';
 
 type LeadDetailProps = {
-  lead: any;
+  lead: unknown;
 };
 
 export function LeadDetail({ lead }: LeadDetailProps) {

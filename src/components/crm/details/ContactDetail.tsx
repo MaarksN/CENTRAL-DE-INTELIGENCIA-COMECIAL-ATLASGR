@@ -1,9 +1,9 @@
 import React from 'react';
-import { User, Phone, Mail, Building2 } from 'lucide-react';
+import { Phone, Mail, Building2 } from 'lucide-react';
 import { Badge } from '../../ui/Badge';
 import { Timeline } from './Timeline';
 
-export function ContactDetail({ contact }: { contact: any }) {
+export function ContactDetail({ contact }: { contact: unknown }) {
   if (!contact) return null;
 
   return (

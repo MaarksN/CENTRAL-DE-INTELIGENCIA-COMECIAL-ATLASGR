@@ -1,9 +1,9 @@
 import React from 'react';
-import { Building2, Globe, FileText, Phone, Mail } from 'lucide-react';
+import { Building2, Globe, FileText } from 'lucide-react';
 import { Badge } from '../../ui/Badge';
 import { Timeline } from './Timeline';
 
-export function CompanyDetail({ company }: { company: any }) {
+export function CompanyDetail({ company }: { company: unknown }) {
   if (!company) return null;
 
   return (

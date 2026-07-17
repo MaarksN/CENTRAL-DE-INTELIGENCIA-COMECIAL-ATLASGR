@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { MessageSquare, PhoneCall, Mail, Calendar, CheckCircle } from 'lucide-react';
 
 type TimelineProps = {
   entityId: string;
-  entityType: 'lead' | 'company' | 'contact' | 'deal';
+  _entityType: 'lead' | 'company' | 'contact' | 'deal';
 };
 
-export function Timeline({ entityId, entityType }: TimelineProps) {
+export function Timeline({ _entityId, _entityType }: TimelineProps) {
   // Demo data for layout purposes since backend connection might require context
-  const [events, setEvents] = useState(() => [
+  const [events] = useState(() => [
     { id: '1', kind: 'activity', type: 'meeting', title: 'Reunião de Descoberta', date: new Date().toISOString(), status: 'completed' },
     { id: '2', kind: 'note', content: 'Lead comentou sobre problemas de sinistro atuais.', date: new Date(Date.now() - 86400000).toISOString() },
     { id: '3', kind: 'activity', type: 'email', title: 'Cold Email Enviado', date: new Date(Date.now() - 172800000).toISOString(), status: 'completed' },
@@ -41,7 +41,7 @@ export function Timeline({ entityId, entityType }: TimelineProps) {
   );
 }
 
-function getEventIcon(event: any) {
+function getEventIcon(event: unknown) {
   if (event.kind === 'note') return <MessageSquare size={18} />;
   switch (event.type) {
     case 'call': return <PhoneCall size={18} />;

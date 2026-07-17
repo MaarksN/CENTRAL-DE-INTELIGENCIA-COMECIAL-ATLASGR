@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, Activity, CheckCircle, Clock, ShieldAlert } from 'lucide-react';
+import { Bot, Activity, Clock, ShieldAlert } from 'lucide-react';
 import { Badge } from '../../ui/Badge';
 
 export function AgentMonitor() {
@@ -65,8 +65,8 @@ export function AgentMonitor() {
   );
 }
 
-function TelemetryCard({ title, value, icon, color }: any) {
-  const colorMap: any = {
+function TelemetryCard({ title, value, icon, color }: unknown) {
+  const colorMap: unknown = {
     emerald: 'bg-emerald-50 text-emerald-600 border-emerald-200',
     indigo: 'bg-indigo-50 text-indigo-600 border-indigo-200',
     blue: 'bg-blue-50 text-blue-600 border-blue-200',

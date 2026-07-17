@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Database, Search, UploadCloud, FileText, CheckCircle } from 'lucide-react';
+import { Database, Search, UploadCloud, FileText } from 'lucide-react';
 import { Badge } from '../../ui/Badge';
 
 export function KnowledgeBase() {
