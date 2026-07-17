@@ -2,6 +2,8 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
 import { prisma } from './src/lib/prisma.js';
 import { companyService } from './src/features/companies/services/company.service.js';
 import { contactService } from './src/features/contacts/services/contact.service.js';
