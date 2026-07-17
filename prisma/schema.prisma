@@ -287,3 +287,115 @@ model Recommendation {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
+
+model Workflow {
+  id               String   @id @default(cuid())
+  name             String
+  category         String   @default("general")
+  status           String   @default("draft") // draft, active, paused
+  triggerType      String
+  version          Int      @default(1)
+  draftVersion     Int      @default(1)
+  publishedVersion Int?
+  isPublished      Boolean  @default(false)
+  createdBy        String?
+  publishedAt      DateTime?
+  order            Int      @default(0)
+  
+  conditions       WorkflowCondition[]
+  actions          WorkflowAction[]
+  executions       WorkflowExecution[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model WorkflowCondition {
+  id         String   @id @default(cuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id])
+  
+  field      String
+  operator   String
+  value      String
+  logicGroup String   @default("AND")
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model WorkflowAction {
+  id         String   @id @default(cuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id])
+  
+  order      Int
+  type       String
+  payload    String
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model WorkflowExecution {
+  id         String   @id @default(cuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id])
+  
+  entityId   String
+  entityType String
+  
+  status     String   @default("pending")
+  logs       String?
+  durationMs Int?
+  retries    Int      @default(0)
+  
+  steps      WorkflowExecutionStep[]
+
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model WorkflowExecutionStep {
+  id          String   @id @default(cuid())
+  executionId String
+  execution   WorkflowExecution @relation(fields: [executionId], references: [id])
+  
+  actionType  String
+  status      String   @default("pending") // pending, success, error, retrying
+  durationMs  Int?
+  error       String?
+  retries     Int      @default(0)
+  payload     String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WorkflowEvent {
+  id            String   @id @default(cuid())
+  eventType     String
+  source        String
+  payload       String
+  status        String   @default("pending") // pending, processed, failed
+  correlationId String?
+  executionId   String?
+  
+  processedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model ScheduledTask {
+  id        String   @id @default(cuid())
+  type      String
+  payload   String
+  runAt     DateTime
+  status    String   @default("pending") // pending, processing, completed, failed
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

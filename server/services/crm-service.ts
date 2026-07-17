@@ -1,4 +1,5 @@
 import { prisma } from '../../src/lib/prisma.js';
+import { eventBus } from './workflow/bus/MemoryEventBus.js';
 import {
   type CrmCompany,
   type CrmContact,
@@ -12,6 +13,35 @@ import {
 } from '../../src/shared/types/crm.js';
 
 export const CrmService = {
+  async createLead(data: any): Promise<CrmLead> {
+    const record = await prisma.lead.create({
+      data: {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        status: data.status || 'new'
+      }
+    });
+    
+    // Dispatch to Workflow Engine Event Bus
+    await eventBus.publish({
+      eventType: 'LeadCreated',
+      source: 'CrmService.createLead',
+      payload: { leadId: record.id }
+    });
+
+    return {
+      ...record,
+      id: record.id,
+      kind: 'lead',
+      name: record.name,
+      email: record.email || undefined,
+      phone: record.phone || undefined,
+      status: record.status as LeadStatus,
+      source: (record.source as any) || 'unknown'
+    };
+  },
+
   async listLeads(): Promise<CrmLead[]> {
     const records = await prisma.lead.findMany({
       orderBy: { createdAt: 'desc' }
