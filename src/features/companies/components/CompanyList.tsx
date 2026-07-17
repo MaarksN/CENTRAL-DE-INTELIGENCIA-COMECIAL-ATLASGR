@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Plus, Building2, MapPin, Building, Edit, Trash } from 'lucide-react';
 import { Company } from '../../../types';
 import { CompanyForm } from './CompanyForm';
@@ -12,7 +12,7 @@ export function CompanyList() {
     const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
     const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
 
-    const fetchCompanies = async () => {
+    const fetchCompanies = useCallback(async () => {
         setLoading(true);
         try {
             const url = searchTerm ? `/api/companies?q=${encodeURIComponent(searchTerm)}` : '/api/companies';
@@ -26,14 +26,14 @@ export function CompanyList() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchTerm]);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
             fetchCompanies();
         }, 300);
         return () => clearTimeout(timeoutId);
-    }, [searchTerm]);
+    }, [fetchCompanies]);
 
     const handleDelete = async (id: string) => {
         if (!confirm('Tem certeza que deseja excluir esta empresa?')) return;

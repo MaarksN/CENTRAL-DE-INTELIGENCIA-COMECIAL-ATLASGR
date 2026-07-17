@@ -1,13 +1,14 @@
 import { prisma } from '../../../lib/prisma';
 import { companySchema } from '../../../lib/zod';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
 export class CompanyService {
     async findAll(query?: string) {
-        const where = query ? {
+        const where: Prisma.CompanyWhereInput = query ? {
             OR: [
-                { legalName: { contains: query, mode: 'insensitive' } as any },
-                { tradeName: { contains: query, mode: 'insensitive' } as any },
+                { legalName: { contains: query, mode: 'insensitive' } },
+                { tradeName: { contains: query, mode: 'insensitive' } },
                 { cnpj: { contains: query } }
             ]
         } : {};
