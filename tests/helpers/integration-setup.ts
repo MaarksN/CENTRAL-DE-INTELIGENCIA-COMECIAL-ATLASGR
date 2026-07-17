@@ -1,3 +1,9 @@
+import { config } from 'dotenv';
+import path from 'path';
+
+// Load test environment variables before Prisma initializes
+config({ path: path.resolve(process.cwd(), '.env.test') });
+
 import { prisma } from '../../src/lib/prisma';
 import { beforeAll, afterAll, afterEach } from 'vitest';
 
