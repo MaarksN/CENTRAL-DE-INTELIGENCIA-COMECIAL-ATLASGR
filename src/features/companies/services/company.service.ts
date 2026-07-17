@@ -3,42 +3,37 @@ import { companySchema } from '../../../lib/zod';
 import { z } from 'zod';
 
 export class CompanyService {
-    async findAll(organizationId: string, query?: string) {
-        const where: any = { organizationId };
-        if (query) {
-            where.OR = [
-                { legalName: { contains: query, mode: 'insensitive' } },
-                { tradeName: { contains: query, mode: 'insensitive' } },
+    async findAll(query?: string) {
+        const where = query ? {
+            OR: [
+                { legalName: { contains: query, mode: 'insensitive' } as any },
+                { tradeName: { contains: query, mode: 'insensitive' } as any },
                 { cnpj: { contains: query } }
-            ];
-        }
+            ]
+        } : {};
         return prisma.company.findMany({ where, orderBy: { createdAt: 'desc' } });
     }
 
-    async findById(organizationId: string, id: string) {
-        return prisma.company.findFirst({
-            where: { id, organizationId },
+    async findById(id: string) {
+        return prisma.company.findUnique({
+            where: { id },
             include: { contacts: true, leads: true }
         });
     }
 
-    async create(organizationId: string, data: z.infer<typeof companySchema>) {
+    async create(data: z.infer<typeof companySchema>) {
         const validated = companySchema.parse(data);
-        return prisma.company.create({ data: { ...validated, organizationId } });
+        return prisma.company.create({ data: validated });
     }
 
-    async update(organizationId: string, id: string, data: Partial<z.infer<typeof companySchema>>) {
-        const current = await prisma.company.findFirst({ where: { id, organizationId } });
-        if (!current) throw new Error('Company not found');
+    async update(id: string, data: Partial<z.infer<typeof companySchema>>) {
         return prisma.company.update({
             where: { id },
             data
         });
     }
 
-    async delete(organizationId: string, id: string) {
-        const current = await prisma.company.findFirst({ where: { id, organizationId } });
-        if (!current) throw new Error('Company not found');
+    async delete(id: string) {
         return prisma.company.delete({ where: { id } });
     }
 }
