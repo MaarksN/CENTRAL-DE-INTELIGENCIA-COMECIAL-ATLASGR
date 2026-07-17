@@ -40,10 +40,10 @@ export function Dashboard() {
     }, []);
 
     const cards = [
-        { title: 'Empresas Cadastradas', value: stats.totalCompanies, icon: Building2, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { title: 'Leads Ativos', value: stats.activeLeads, icon: Target, color: 'text-orange-600', bg: 'bg-orange-50' },
-        { title: 'Atividades Pendentes', value: stats.pendingActivities, icon: Activity, color: 'text-purple-600', bg: 'bg-purple-50' },
-        { title: 'Negócios Ganhos', value: stats.wonDeals, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50' }
+        { title: '🏢 Empresas Cadastradas', value: stats.totalCompanies, icon: Building2, color: 'text-blue-600', bg: 'bg-blue-50' },
+        { title: '🎯 Leads Ativos', value: stats.activeLeads, icon: Target, color: 'text-orange-600', bg: 'bg-orange-50' },
+        { title: '⏰ Atividades Pendentes', value: stats.pendingActivities, icon: Activity, color: 'text-purple-600', bg: 'bg-purple-50' },
+        { title: '🏆 Negócios Ganhos', value: stats.wonDeals, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50' }
     ];
 
     if (loading) {
@@ -58,13 +58,13 @@ export function Dashboard() {
         <div className="flex-1 overflow-y-auto bg-gray-50/50 p-8">
             <div className="max-w-7xl mx-auto space-y-6">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+                    <h1 className="text-2xl font-semibold text-gray-900">📊 Dashboard</h1>
                     <p className="text-gray-500 mt-1">Visão geral do sistema</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {cards.map((card, index) => (
-                        <div key={index} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4">
+                        <div key={index} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-md hover:-translate-y-0.5 transition-all">
                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${card.bg} ${card.color}`}>
                                 {<card.icon className="w-6 h-6" />}
                             </div>

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Building2, MapPin, Users, FileText, Activity, Star, Clock } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft, Building2, MapPin, Users, FileText, Activity, Star, Clock, Sparkles, Loader2 } from 'lucide-react';
 import { Company } from '../../../types';
 import { api } from '../../../lib/api';
 
@@ -11,27 +11,41 @@ interface CompanyDetailProps {
 export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
     const [company, setCompany] = useState<Company | null>(null);
     const [loading, setLoading] = useState(true);
+    const [enriching, setEnriching] = useState(false);
+
+    const fetchCompany = useCallback(async () => {
+        try {
+            const data = await api.get<Company>(`/api/companies/${companyId}`);
+            setCompany(data);
+        } catch (error) {
+            console.error('Error fetching company details:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [companyId]);
 
     useEffect(() => {
-        const fetchCompany = async () => {
-            try {
-                const data = await api.get<Company>(`/api/companies/${companyId}`);
-                setCompany(data);
-            } catch (error) {
-                console.error('Error fetching company details:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchCompany();
-    }, [companyId]);
+    }, [fetchCompany]);
+
+    const handleEnrich = async () => {
+        setEnriching(true);
+        try {
+            await api.post(`/api/companies/${companyId}/enrich`);
+            await fetchCompany();
+        } catch (error) {
+            console.error('Error enriching company:', error);
+        } finally {
+            setEnriching(false);
+        }
+    };
 
     if (loading) {
         return (
             <div className="flex-1 flex items-center justify-center bg-gray-50/50">
                 <div className="flex flex-col items-center gap-3">
                     <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-gray-500 font-medium">Carregando detalhes...</p>
+                    <p className="text-gray-500 font-medium">⏳ Carregando detalhes...</p>
                 </div>
             </div>
         );
@@ -40,7 +54,7 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
     if (!company) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-gray-50/50 gap-4">
-                <p className="text-gray-500 text-lg">Empresa não encontrada.</p>
+                <p className="text-gray-500 text-lg">🔍 Empresa não encontrada.</p>
                 <button onClick={onBack} className="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm text-gray-700 font-medium flex items-center gap-2">
                     <ArrowLeft className="w-4 h-4" />
                     Voltar
@@ -69,12 +83,22 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
                                 <h1 className="text-2xl font-bold text-gray-900">{company.tradeName || company.legalName}</h1>
                                 <p className="text-gray-500 mt-1">{company.legalName}</p>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                company.status === 'Ativo' ? 'bg-green-50 text-green-700 border border-green-200' :
-                                'bg-gray-100 text-gray-700 border border-gray-200'
-                            }`}>
-                                {company.status}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleEnrich}
+                                    disabled={enriching}
+                                    className="flex items-center gap-2 bg-gradient-to-r from-atlas-orange to-amber-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-sm disabled:opacity-60"
+                                >
+                                    {enriching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                    {enriching ? 'Enriquecendo...' : '✨ Enriquecer com IA'}
+                                </button>
+                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                    company.status === 'Ativo' ? 'bg-green-50 text-green-700 border border-green-200' :
+                                    'bg-gray-100 text-gray-700 border border-gray-200'
+                                }`}>
+                                    {company.status === 'Ativo' ? '✅' : '⛔'} {company.status}
+                                </span>
+                            </div>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-600">
                             {company.cnpj && (
@@ -94,7 +118,7 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
                     <div className="md:col-span-2 space-y-6">
                         <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <Users className="w-5 h-5 text-gray-400" /> Contatos ({company.contacts?.length || 0})
+                                <Users className="w-5 h-5 text-gray-400" /> 👥 Contatos ({company.contacts?.length || 0})
                             </h2>
                             {company.contacts && company.contacts.length > 0 ? (
                                 <div className="space-y-3">
@@ -112,7 +136,7 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
 
                         <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <Activity className="w-5 h-5 text-gray-400" /> Leads Relacionados ({company.leads?.length || 0})
+                                <Activity className="w-5 h-5 text-gray-400" /> 🎯 Leads Relacionados ({company.leads?.length || 0})
                             </h2>
                             {company.leads && company.leads.length > 0 ? (
                                 <div className="space-y-3">
@@ -132,7 +156,7 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
                     <div className="space-y-6">
                         {(company.googleRating != null || company.businessHours) && (
                             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                                <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Google Negócios</h2>
+                                <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">📍 Google Negócios</h2>
                                 <div className="space-y-3">
                                     {company.googleRating != null && (
                                         <div className="flex items-center gap-2">
@@ -160,7 +184,7 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
                             </div>
                         )}
                         <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Informações Adicionais</h2>
+                            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">📋 Informações Adicionais</h2>
                             <div className="space-y-4">
                                 <div>
                                     <p className="text-xs text-gray-500 mb-1">CNAE</p>
@@ -178,7 +202,7 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
                         </div>
                         {company.observations && (
                             <div className="bg-yellow-50 p-6 rounded-2xl border border-yellow-100 shadow-sm">
-                                <h2 className="text-sm font-semibold text-yellow-800 uppercase tracking-wider mb-2">Observações</h2>
+                                <h2 className="text-sm font-semibold text-yellow-800 uppercase tracking-wider mb-2">💬 Observações (IA)</h2>
                                 <p className="text-sm text-yellow-900 whitespace-pre-wrap">{company.observations}</p>
                             </div>
                         )}
