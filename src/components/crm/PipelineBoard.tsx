@@ -87,7 +87,7 @@ export function PipelineBoard({ board: initialBoard }: PipelineBoardProps): Reac
   );
 }
 
-function PipelineStageColumn({ column }: { column: PipelineColumn }): React.JSX.Element {
+function PipelineStageColumn({ column }: { column: PipelineColumn; key?: string }): React.JSX.Element {
   return (
     <div className="flex flex-col w-80 bg-slate-100 rounded-lg shrink-0" id={column.id}>
       <header className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-100 rounded-t-lg">
@@ -115,7 +115,7 @@ function PipelineStageColumn({ column }: { column: PipelineColumn }): React.JSX.
   );
 }
 
-function SortableDealCard({ deal }: { deal: PipelineDealCard }) {
+function SortableDealCard({ deal }: { deal: PipelineDealCard; key?: string }) {
   const {
     attributes,
     listeners,
