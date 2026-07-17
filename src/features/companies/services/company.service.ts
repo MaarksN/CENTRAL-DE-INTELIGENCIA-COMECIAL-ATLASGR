@@ -2,10 +2,16 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../../lib/prisma';
 import { companySchema, type CompanyStatus } from '../../../lib/zod';
 import { z } from 'zod';
-import { toPrismaCompanyStatus, fromPrismaCompanyStatus } from '../../../lib/enumMap';
+import { toPrismaCompanyStatus, fromPrismaCompanyStatus, fromPrismaLeadStatus } from '../../../lib/enumMap';
 
-function serializeCompany<T extends { status: string }>(company: T): T & { status: CompanyStatus } {
-    return { ...company, status: fromPrismaCompanyStatus(company.status) };
+function serializeCompany<T extends { status: string; leads?: Array<{ status: string }> }>(
+    company: T
+): T & { status: CompanyStatus } {
+    return {
+        ...company,
+        status: fromPrismaCompanyStatus(company.status),
+        ...(company.leads ? { leads: company.leads.map((l) => ({ ...l, status: fromPrismaLeadStatus(l.status) })) } : {}),
+    };
 }
 
 export class CompanyService {

@@ -3,6 +3,7 @@ import { isValidCnpj, sanitizeCnpj, formatCnpj } from './cnpj.util';
 import { searchGooglePlace } from './places.service';
 import { enrichOrganizationWithContacts } from './apollo.service';
 import { GoogleGenAI } from '@google/genai';
+import { fromPrismaCompanyStatus } from '../../../lib/enumMap';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -564,5 +565,5 @@ Escreva APENAS 1 parágrafo (máximo 3 linhas) com o "Rationale Estratégico" (P
         },
     });
 
-    return { company: updated, fit, domainGuess, apolloContacts };
+    return { company: { ...updated, status: fromPrismaCompanyStatus(updated.status) }, fit, domainGuess, apolloContacts };
 }

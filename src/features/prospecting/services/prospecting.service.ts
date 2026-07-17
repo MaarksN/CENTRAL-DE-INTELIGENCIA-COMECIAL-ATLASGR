@@ -3,7 +3,7 @@ import { prisma } from '../../../lib/prisma';
 import { isValidCnpj, sanitizeCnpj } from './cnpj.util';
 import { enrichCompany } from './enrichment.service';
 import { fetchApolloCandidates } from './apollo.service';
-import { toPrismaLeadStatus, fromPrismaLeadStatus } from '../../../lib/enumMap';
+import { toPrismaLeadStatus, fromPrismaLeadStatus, fromPrismaCompanyStatus } from '../../../lib/enumMap';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -262,5 +262,13 @@ export async function promoteToCrm(input: PromoteInput) {
         include: { company: true, contact: true, timeline: true },
     });
 
-    return { lead: { ...lead, status: fromPrismaLeadStatus(lead.status) }, fit, enrichment: enrichmentResult };
+    return {
+        lead: {
+            ...lead,
+            status: fromPrismaLeadStatus(lead.status),
+            company: { ...lead.company, status: fromPrismaCompanyStatus(lead.company.status) },
+        },
+        fit,
+        enrichment: enrichmentResult,
+    };
 }
