@@ -77,3 +77,58 @@ export async function fetchApolloCandidates(
         return { candidates: [], error: error instanceof Error ? error.message : 'Falha ao consultar Apollo.io' };
     }
 }
+
+export interface ApolloContact {
+    name: string;
+    title: string | null;
+    email: string | null;
+    linkedin_url: string | null;
+}
+
+/**
+ * Busca executivos/decisores reais para um dado domínio de empresa via Apollo People Search.
+ */
+export async function enrichOrganizationWithContacts(
+    domain: string,
+    limit: number = 3
+): Promise<{ contacts: ApolloContact[]; error?: string }> {
+    const apiKey = process.env.APOLLO_API_KEY;
+    if (!apiKey || !domain) return { contacts: [] };
+
+    try {
+        const res = await fetch('https://api.apollo.io/v1/mixed_people/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+                'X-Api-Key': apiKey,
+            },
+            body: JSON.stringify({
+                q_organization_domains: domain,
+                // Tentaremos pegar nível Diretor, VP, C-Level ou Gerentes
+                person_seniorities: ['c_suite', 'vp', 'director', 'manager'],
+                per_page: limit,
+                page: 1,
+            }),
+        });
+
+        if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            return { contacts: [], error: `Apollo People API respondeu ${res.status}: ${text.slice(0, 100)}` };
+        }
+
+        const data = await res.json();
+        const people = data.people || data.contacts || [];
+
+        const contacts: ApolloContact[] = people.map((p: any) => ({
+            name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Sem Nome',
+            title: p.title || null,
+            email: p.email || p.email_url || null,
+            linkedin_url: p.linkedin_url || null,
+        }));
+
+        return { contacts };
+    } catch (error) {
+        return { contacts: [], error: error instanceof Error ? error.message : 'Falha ao consultar Apollo People API' };
+    }
+}

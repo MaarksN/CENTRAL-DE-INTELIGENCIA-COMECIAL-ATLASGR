@@ -1,5 +1,10 @@
 import { prisma } from '../../../lib/prisma';
 import { isValidCnpj, sanitizeCnpj, formatCnpj } from './cnpj.util';
+import { searchGooglePlace } from './places.service';
+import { enrichOrganizationWithContacts } from './apollo.service';
+import { GoogleGenAI } from '@google/genai';
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const BRASIL_API_BASE = 'https://brasilapi.com.br/api';
 
@@ -364,6 +369,10 @@ interface CompanyUpdateData {
     emails?: string[];
     qsa?: Array<{ nome: string; qualificacao: string }>;
     website?: string;
+    googleRating?: number;
+    googleReviewsCount?: number;
+    businessHours?: any;
+    observations?: string;
 }
 
 /** Orquestra o enriquecimento completo de uma empresa já existente no CRM e grava o histórico. */
@@ -447,6 +456,71 @@ async function runEnrichment(
         updateData.emails = domainGuess.emails;
     }
 
+    // Google Places API (Meu Negócio) Enrichment
+    const locationQuery = updateData.city || company.city || '';
+    const stateQuery = updateData.state || company.state || '';
+    const place = await searchGooglePlace(updateData.tradeName || company.tradeName, `${locationQuery} ${stateQuery}`.trim());
+    
+    if (place) {
+        updateData.googleRating = place.rating;
+        updateData.googleReviewsCount = place.userRatingCount;
+        updateData.businessHours = place.businessHours;
+        
+        if (place.websiteUri && !domainGuess.verified) {
+            updateData.website = place.websiteUri;
+        }
+        if (place.nationalPhoneNumber) {
+            updateData.phones = Array.from(new Set([...(updateData.phones || company.phones || []), place.nationalPhoneNumber]));
+        }
+
+        await prisma.enrichmentLog.create({
+            data: {
+                companyId,
+                source: 'Google-Places',
+                field: 'reputacao-local',
+                status: 'success',
+                rawData: JSON.parse(JSON.stringify(place)),
+            }
+        });
+        enrichmentSourceLabel += ' + Google';
+    }
+
+    // Apollo People Enrichment
+    let apolloContacts: any[] = [];
+    if (domainGuess.verified && domainGuess.domain) {
+        const apolloRes = await enrichOrganizationWithContacts(domainGuess.domain);
+        if (apolloRes.contacts.length > 0) {
+            apolloContacts = apolloRes.contacts;
+            enrichmentSourceLabel += ' + Apollo';
+
+            await prisma.enrichmentLog.create({
+                data: {
+                    companyId,
+                    source: 'Apollo-People',
+                    field: 'contatos-decisores',
+                    status: 'success',
+                    rawData: JSON.parse(JSON.stringify(apolloContacts)),
+                }
+            });
+            
+            // Save contacts to CRM
+            for (const c of apolloContacts) {
+                if (!c.name || c.name === 'Sem Nome') continue;
+                await prisma.contact.create({
+                    data: {
+                        name: c.name,
+                        role: c.title,
+                        email: c.email,
+                        linkedin: c.linkedin_url,
+                        source: 'Apollo',
+                        companyId,
+                        organizationId: company.organizationId
+                    }
+                });
+            }
+        }
+    }
+
     const fit = computeFitScore({
         situacaoCadastral: updateData.situacaoCadastral ?? company.situacaoCadastral,
         capitalSocial: updateData.capitalSocial ?? company.capitalSocial,
@@ -458,6 +532,28 @@ async function runEnrichment(
         fleetSizeHint: options.fleetSizeHint,
     });
 
+    // Gemini Strategic Synthesis
+    try {
+        const prompt = `Você é um estrategista B2B (SDR Sênior).
+Analise os seguintes dados coletados sobre a empresa "${updateData.legalName || company.legalName}":
+- Dados Receita: CNAE ${updateData.cnae}, Status ${updateData.situacaoCadastral}, Capital R$ ${updateData.capitalSocial}
+- Google Meu Negócio: Rating ${updateData.googleRating || 'N/A'} (baseado em ${updateData.googleReviewsCount || 0} avaliações)
+- Decisores encontrados: ${apolloContacts.map(c => `${c.name} (${c.title})`).join(', ') || 'Nenhum'}
+
+Escreva APENAS 1 parágrafo (máximo 3 linhas) com o "Rationale Estratégico" (Por que abordar essa empresa e qual o gancho para os decisores encontrados). Não use formatação Markdown pesada.`;
+
+        const geminiRes = await ai.models.generateContent({
+            model: 'gemini-3.5-flash',
+            contents: prompt,
+            config: { temperature: 0.4 }
+        });
+        if (geminiRes.text) {
+            updateData.observations = geminiRes.text.trim();
+        }
+    } catch (e) {
+        console.error('Falha no resumo estratégico Gemini', e);
+    }
+
     const updated = await prisma.company.update({
         where: { id: companyId },
         data: {
@@ -468,5 +564,5 @@ async function runEnrichment(
         },
     });
 
-    return { company: updated, fit, domainGuess };
+    return { company: updated, fit, domainGuess, apolloContacts };
 }
