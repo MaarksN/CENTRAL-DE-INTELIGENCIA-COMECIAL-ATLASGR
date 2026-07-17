@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { prisma } from '../../lib/prisma';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -19,12 +20,34 @@ export interface AuthRequest extends Request {
     user: AuthUser;
 }
 
-export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+let devOrgReady: Promise<unknown> | null = null;
+
+/** Garante que a organização de desenvolvimento exista (FK obrigatória para Company/Lead/Contact). */
+function ensureDevOrganization() {
+    if (!devOrgReady) {
+        devOrgReady = prisma.organization.upsert({
+            where: { id: 'dev-org-id' },
+            update: {},
+            create: { id: 'dev-org-id', name: 'Dev Organization' },
+        }).catch((error) => {
+            devOrgReady = null; // permite nova tentativa na próxima requisição
+            throw error;
+        });
+    }
+    return devOrgReady;
+}
+
+export const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
         if (process.env.NODE_ENV !== 'production') {
+            try {
+                await ensureDevOrganization();
+            } catch (error) {
+                return next(error);
+            }
             (req as AuthRequest).user = {
                 id: 'dev-user-id',
                 email: 'dev@example.com',

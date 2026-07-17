@@ -7,7 +7,7 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "env": {
-        "DATABASE_URL": "postgresql://prospector:prospector_pass@localhost:5433/prospectordb?schema=public"
+        "DATABASE_URL": "postgresql://prospector:prospector_pass@localhost:5434/prospectordb?schema=public"
       }
     }
   ]
