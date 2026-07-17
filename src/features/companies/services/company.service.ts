@@ -4,7 +4,7 @@ import { companySchema } from '../../../lib/zod';
 import { z } from 'zod';
 
 export class CompanyService {
-    async findAll(organizationId: string, query?: string) {
+    async findAll(organizationId: string, query?: string, page: number = 1, limit: number = 50) {
         const where: Prisma.CompanyWhereInput = { organizationId };
         if (query) {
             where.OR = [
@@ -13,7 +13,15 @@ export class CompanyService {
                 { cnpj: { contains: query } }
             ];
         }
-        return prisma.company.findMany({ where, orderBy: { createdAt: 'desc' } });
+        
+        const skip = (page - 1) * limit;
+        
+        const [data, total] = await prisma.$transaction([
+            prisma.company.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+            prisma.company.count({ where })
+        ]);
+        
+        return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
     }
 
     async findById(organizationId: string, id: string) {

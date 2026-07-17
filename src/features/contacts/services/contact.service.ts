@@ -4,7 +4,7 @@ import { contactSchema } from '../../../lib/zod';
 import { z } from 'zod';
 
 export class ContactService {
-    async findAll(organizationId: string, query?: string) {
+    async findAll(organizationId: string, query?: string, page: number = 1, limit: number = 50) {
         const where: Prisma.ContactWhereInput = { organizationId };
         if (query) {
             where.OR = [
@@ -12,7 +12,15 @@ export class ContactService {
                 { email: { contains: query, mode: 'insensitive' } }
             ];
         }
-        return prisma.contact.findMany({ where, include: { company: true }, orderBy: { createdAt: 'desc' } });
+        
+        const skip = (page - 1) * limit;
+        
+        const [data, total] = await prisma.$transaction([
+            prisma.contact.findMany({ where, skip, take: limit, include: { company: true }, orderBy: { createdAt: 'desc' } }),
+            prisma.contact.count({ where })
+        ]);
+        
+        return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
     }
 
     async findById(organizationId: string, id: string) {

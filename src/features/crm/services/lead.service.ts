@@ -3,13 +3,23 @@ import { leadSchema } from '../../../lib/zod';
 import { z } from 'zod';
 
 export class LeadService {
-    async findAll(organizationId: string, status?: string) {
+    async findAll(organizationId: string, status?: string, page: number = 1, limit: number = 50) {
         const where = status ? { organizationId, status } : { organizationId };
-        return prisma.lead.findMany({
-            where,
-            include: { company: true, contact: true },
-            orderBy: { updatedAt: 'desc' }
-        });
+        
+        const skip = (page - 1) * limit;
+        
+        const [data, total] = await prisma.$transaction([
+            prisma.lead.findMany({
+                where,
+                skip,
+                take: limit,
+                include: { company: true, contact: true },
+                orderBy: { updatedAt: 'desc' }
+            }),
+            prisma.lead.count({ where })
+        ]);
+        
+        return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
     }
 
     async findById(organizationId: string, id: string) {
