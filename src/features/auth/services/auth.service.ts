@@ -1,21 +1,26 @@
-import { prisma } from '../../../lib/prisma';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { prisma } from '@/lib/prisma.js';
+import { z } from 'zod';
+import { registerSchema, loginSchema } from '@/lib/zod.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-dev';
 
 export class AuthService {
-    async register(data: any) {
-        const { name, email, password } = data;
+    async register(data: z.infer<typeof registerSchema>) {
+        const { name, email, password, organizationId } = data;
 
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
             throw new Error('User already exists');
         }
 
-        const atlasOrg = await prisma.organization.findUnique({ where: { name: 'Atlas GR' } });
-        if (!atlasOrg) {
-             throw new Error('Default organization not found');
+        let orgId = organizationId;
+        if (!orgId) {
+             const newOrg = await prisma.organization.create({
+                 data: { name: `${name}'s Organization` }
+             });
+             orgId = newOrg.id;
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
@@ -25,7 +30,7 @@ export class AuthService {
                 name,
                 email,
                 passwordHash,
-                organizationId: atlasOrg.id,
+                organizationId: orgId,
                 role: 'VISUALIZADOR'
             }
         });
@@ -33,7 +38,7 @@ export class AuthService {
         return { message: 'User registered successfully' };
     }
 
-    async login(data: any) {
+    async login(data: z.infer<typeof loginSchema>) {
         const { email, password } = data;
         const user = await prisma.user.findUnique({ where: { email } });
 

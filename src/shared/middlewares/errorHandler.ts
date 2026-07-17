@@ -1,19 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
     success: boolean;
     data?: T;
     error?: string;
     message?: string;
-    details?: any;
+    details?: unknown;
 }
 
 export class AppError extends Error {
     public readonly statusCode: number;
-    public readonly details?: any;
+    public readonly details?: unknown;
 
-    constructor(message: string, statusCode: number = 400, details?: any) {
+    constructor(message: string, statusCode: number = 400, details?: unknown) {
         super(message);
         this.statusCode = statusCode;
         this.details = details;
@@ -21,7 +21,7 @@ export class AppError extends Error {
     }
 }
 
-export const errorHandler = (err: Error & { statusCode?: number, details?: any }, req: Request, res: Response, next: NextFunction) => {
+export const errorHandler = (err: Error & { statusCode?: number, details?: unknown }, req: Request, res: Response, next: NextFunction) => {
     console.error('Global Error Handler:', err);
 
     if (err instanceof ZodError) {

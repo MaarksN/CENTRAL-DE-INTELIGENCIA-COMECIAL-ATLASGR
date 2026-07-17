@@ -104,3 +104,15 @@ export const noteSchema = z.object({
     content: z.string().min(1, 'Conteúdo é obrigatório'),
     author: z.string().min(1, 'Autor é obrigatório'),
 });
+
+export const registerSchema = z.object({
+    name: z.string().min(1, 'Nome é obrigatório'),
+    email: z.string().email('E-mail inválido'),
+    password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
+    organizationId: z.string().optional().nullable(),
+});
+
+export const loginSchema = z.object({
+    email: z.string().email('E-mail inválido'),
+    password: z.string().min(1, 'Senha é obrigatória'),
+});
