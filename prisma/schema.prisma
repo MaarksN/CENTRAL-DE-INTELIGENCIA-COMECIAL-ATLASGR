@@ -5,426 +5,128 @@ datasource db {
   provider = "postgresql"
   extensions = [vector]
 }
+model Company {
+  id               String    @id @default(cuid())
+  legalName        String
+  tradeName        String
+  cnpj             String?
+  stateRegistration String?
+  segment          String?
+  cnae             String?
+  size             String?
+  employeeCount    Int?
+  estimatedRevenue Float?
+  website          String?
+  linkedin         String?
+  instagram        String?
+  phones           String[]
+  emails           String[]
+  address          String?
+  city             String?
+  state            String?
+  zipCode          String?
+  owner            String?
+  status           String    @default("Ativo")
+  tags             String[]
+  observations     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-model Organization {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  users     User[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model User {
-  id             String       @id @default(cuid())
-  name           String
-  email          String       @unique
-  passwordHash   String
-  role           String       @default("VISUALIZADOR")
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @default(now()) // Fix for missing updatedAt
-}
-
-model Lead {
-  id        String   @id @default(cuid())
-  name      String
-  segment   String?
-  size      String?
-  location  String?
-  fitScore  Int?
-  description String?
-  email     String?
-  phone     String?
-  source    String?
-  status    String   @default("Prospect")
-  ownerId   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  icpScore         Int      @default(0)
-  engagementScore  Int      @default(0)
-  temperature      String   @default("Cold")
-
-  notes      Note[]
-  activities Activity[]
-  tags       Tag[]
+  contacts         Contact[]
+  leads            Lead[]
 }
 
 model Contact {
-  id        String   @id @default(cuid())
-  name      String
-  email     String?
-  phone     String?
-  companyId String?
-  ownerId   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  notes      Note[]
-  activities Activity[]
-  tags       Tag[]
+  id               String    @id @default(cuid())
+  name             String
+  role             String?
+  department       String?
+  phone            String?
+  whatsapp         String?
+  email            String?
+  linkedin         String?
+  birthDate        DateTime?
+  observations     String?
+  status           String    @default("Ativo")
+
+  companyId        String
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leads            Lead[]
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
-model Company {
-  id        String   @id @default(cuid())
-  name      String
-  document  String?
-  website   String?
-  ownerId   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  icpScore         Int      @default(0)
-  engagementScore  Int      @default(0)
-  temperature      String   @default("Cold")
+model Lead {
+  id               String    @id @default(cuid())
 
-  notes      Note[]
-  activities Activity[]
-  tags       Tag[]
-  personas   Persona[]
-}
+  // Backward compatibility
+  name             String?
+  segment          String?
+  size             String?
+  location         String?
+  status           String    @default("Novo Lead")
+  fitScore         Int?
+  notes            String?
 
-model Deal {
-  id         String   @id @default(cuid())
-  title      String
-  amount     Float?
-  currency   String?
-  status     String   @default("open")
-  pipelineId String?
-  stageId    String?
-  companyId  String?
-  contactId  String?
-  ownerId    String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  
-  notes      Note[]
-  activities Activity[]
-  tags       Tag[]
-}
+  // New CRM fields
+  source           String?
+  channel          String?
+  temperature      String?
+  score            Int?
+  owner            String?
+  lastInteraction  DateTime?
+  nextAction       DateTime?
 
-model Pipeline {
-  id        String   @id @default(cuid())
-  name      String
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+  companyId        String?
+  company          Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contactId        String?
+  contact          Contact?   @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
-model PipelineStage {
-  id         String   @id @default(cuid())
-  pipelineId String
-  name       String
-  order      Int
-  status     String   @default("active")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
+  activities       Activity[]
+  timeline         TimelineEvent[]
+  internalNotes    Note[]
 
-model Note {
-  id        String   @id @default(cuid())
-  content   String
-  authorId  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  leadId    String?
-  contactId String?
-  companyId String?
-  dealId    String?
-
-  lead      Lead?    @relation(fields: [leadId], references: [id])
-  contact   Contact? @relation(fields: [contactId], references: [id])
-  company   Company? @relation(fields: [companyId], references: [id])
-  deal      Deal?    @relation(fields: [dealId], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model Activity {
-  id          String   @id @default(cuid())
-  type        String   // call, email, meeting, note, task
-  title       String
-  description String?
-  status      String   @default("pending") // pending, completed, cancelled
-  dueDate     DateTime?
-  authorId    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String    @id @default(cuid())
+  type             String // Ligação, WhatsApp, E-mail, Reunião, Follow-up, Visita, Tarefa
+  owner            String
+  date             DateTime
+  time             String?
+  status           String    @default("Pendente")
+  observations     String?
 
-  leadId      String?
-  contactId   String?
-  companyId   String?
-  dealId      String?
+  leadId           String
+  lead             Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  lead        Lead?    @relation(fields: [leadId], references: [id])
-  contact     Contact? @relation(fields: [contactId], references: [id])
-  company     Company? @relation(fields: [companyId], references: [id])
-  deal        Deal?    @relation(fields: [dealId], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
-model Tag {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  color     String?
-  createdAt DateTime @default(now())
-  
-  leads     Lead[]
-  contacts  Contact[]
-  companies Company[]
-  deals     Deal[]
+model TimelineEvent {
+  id               String    @id @default(cuid())
+  type             String // creation, edition, movement, activity, comment, generic
+  description      String
+
+  leadId           String
+  lead             Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  createdAt        DateTime  @default(now())
 }
 
-model ICPProfile {
-  id                   String   @id @default(cuid())
-  name                 String
-  segments             String[]
-  cnaes                String[]
-  minRevenue           Int?
-  maxRevenue           Int?
-  minEmployees         Int?
-  maxEmployees         Int?
-  regions              String[]
-  technologies         String[]
-  decisionMakerProfile String?
-  digitalMaturity      String?
-  logisticPotential    String?
-  strategicPriority    String?
-  baseScore            Int      @default(0)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-}
+model Note {
+  id               String    @id @default(cuid())
+  content          String    // Rich text
+  author           String
 
-model Persona {
-  id          String   @id @default(cuid())
-  name        String
-  role        String?
-  painPoints  String[]
-  goals       String[]
-  objections  String[]
-  triggers    String[]
-  arguments   String[]
-  channels    String[]
-  companyId   String?
-  company     Company? @relation(fields: [companyId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
+  leadId           String
+  lead             Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-model Objection {
-  id          String   @id @default(cuid())
-  category    String
-  objection   String
-  answer      String
-  argument    String?
-  socialProof String?
-  cta         String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Cadence {
-  id        String   @id @default(cuid())
-  name      String
-  type      String
-  steps     CadenceStep[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model CadenceStep {
-  id        String   @id @default(cuid())
-  cadenceId String
-  cadence   Cadence  @relation(fields: [cadenceId], references: [id])
-  day       Int
-  type      String
-  template  String?
-  goal      String?
-  trigger   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Playbook {
-  id            String   @id @default(cuid())
-  role          String
-  name          String
-  bestPractices String?
-  steps         PlaybookStep[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model PlaybookStep {
-  id         String   @id @default(cuid())
-  playbookId String
-  playbook   Playbook @relation(fields: [playbookId], references: [id])
-  order      Int
-  name       String
-  checklist  String[]
-  materials  String[]
-  questions  String[]
-  objections String[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-model Template {
-  id        String   @id @default(cuid())
-  name      String
-  type      String   // email, linkedin, whatsapp, framework
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Recommendation {
-  id         String   @id @default(cuid())
-  entityId   String
-  entityType String
-  type       String
-  message    String
-  priority   String
-  status     String   @default("pending")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-model Workflow {
-  id               String   @id @default(cuid())
-  name             String
-  category         String   @default("general")
-  status           String   @default("draft") // draft, active, paused
-  triggerType      String
-  version          Int      @default(1)
-  draftVersion     Int      @default(1)
-  publishedVersion Int?
-  isPublished      Boolean  @default(false)
-  createdBy        String?
-  publishedAt      DateTime?
-  order            Int      @default(0)
-  
-  conditions       WorkflowCondition[]
-  actions          WorkflowAction[]
-  executions       WorkflowExecution[]
-
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-}
-
-model WorkflowCondition {
-  id         String   @id @default(cuid())
-  workflowId String
-  workflow   Workflow @relation(fields: [workflowId], references: [id])
-  
-  field      String
-  operator   String
-  value      String
-  logicGroup String   @default("AND")
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-model WorkflowAction {
-  id         String   @id @default(cuid())
-  workflowId String
-  workflow   Workflow @relation(fields: [workflowId], references: [id])
-  
-  order      Int
-  type       String
-  payload    String
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-model WorkflowExecution {
-  id         String   @id @default(cuid())
-  workflowId String
-  workflow   Workflow @relation(fields: [workflowId], references: [id])
-  
-  entityId   String
-  entityType String
-  
-  status     String   @default("pending")
-  logs       String?
-  durationMs Int?
-  retries    Int      @default(0)
-  
-  steps      WorkflowExecutionStep[]
-
-  startedAt  DateTime @default(now())
-  finishedAt DateTime?
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-model WorkflowExecutionStep {
-  id          String   @id @default(cuid())
-  executionId String
-  execution   WorkflowExecution @relation(fields: [executionId], references: [id])
-  
-  actionType  String
-  status      String   @default("pending") // pending, success, error, retrying
-  durationMs  Int?
-  error       String?
-  retries     Int      @default(0)
-  payload     String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model WorkflowEvent {
-  id            String   @id @default(cuid())
-  eventType     String
-  source        String
-  payload       String
-  status        String   @default("pending") // pending, processed, failed
-  correlationId String?
-  executionId   String?
-  
-  processedAt   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model ScheduledTask {
-  id        String   @id @default(cuid())
-  type      String
-  payload   String
-  runAt     DateTime
-  status    String   @default("pending") // pending, processing, completed, failed
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model KnowledgeDocument {
-  id        String   @id @default(cuid())
-  title     String
-  source    String
-  mimeType  String
-  content   String?  @db.Text
-  metadata  String?  @db.Text
-  
-  chunks    DocumentChunk[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model DocumentChunk {
-  id           String   @id @default(cuid())
-  documentId   String
-  document     KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  content      String   @db.Text
-  metadata     String?  @db.Text
-  
-  // Vector embedding (768 dimensions for Gemini/Cohere)
-  embedding    Unsupported("vector(768)")?
-  
-  createdAt    DateTime @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 

@@ -1,36 +1,40 @@
 import { useState } from 'react';
+import { MainLayout } from './components/layout/MainLayout';
+import { TabType } from './components/layout/Header';
+import { Lead } from './types/index';
+
 import { Prospector } from './components/Prospector';
 import { CrmBoard } from './components/CrmBoard';
 import { Intelligence } from './components/Intelligence';
-import { MainLayout } from './components/layout/MainLayout';
-import { TabType } from './components/layout/Header';
-import { Lead, LeadStatus } from './types/index';
+import { Dashboard } from './features/dashboard/components/Dashboard';
+import { CompanyList } from './features/companies/components/CompanyList';
+import { ContactList } from './features/contacts/components/ContactList';
+import { ActivityList } from './features/activities/components/ActivityList';
 
 export default function App() {
-    const [activeTab, setActiveTab] = useState<TabType>('prospect');
-    const [leads, setLeads] = useState<Lead[]>([
-        { id: '1', name: 'Logística Alfa', segment: 'Carga Fechada', size: '100 veículos', location: 'São Paulo, SP', status: 'Qualificado', fitScore: 82 },
-        { id: '2', name: 'Transportes Beta', segment: 'Fracionado', size: '250 veículos', location: 'Campinas, SP', status: 'Proposta', fitScore: 95 }
-    ]);
+    const [activeTab, setActiveTab] = useState<TabType>('dashboard');
 
-    const handleSaveLead = (newLead: Omit<Lead, 'id' | 'status'>) => {
-        const lead: Lead = {
-            ...newLead,
-            id: Math.random().toString(36).substr(2, 9),
-            status: 'Prospect'
-        };
-        setLeads(prev => [lead, ...prev]);
-        setActiveTab('crm');
-    };
-
-    const handleUpdateLeadStatus = (id: string, status: LeadStatus) => {
-        setLeads(prev => prev.map(lead => lead.id === id ? { ...lead, status } : lead));
+    const handleSaveLead = async (newLead: Omit<Lead, 'id' | 'status'>) => {
+        try {
+            await fetch('/api/leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...newLead, status: 'Novo Lead' })
+            });
+            setActiveTab('crm');
+        } catch (error) {
+            console.error("Error saving prospect as lead", error);
+        }
     };
 
     return (
         <MainLayout activeTab={activeTab} onTabChange={setActiveTab}>
+            {activeTab === 'dashboard' && <Dashboard />}
+            {activeTab === 'companies' && <CompanyList />}
+            {activeTab === 'contacts' && <ContactList />}
+            {activeTab === 'crm' && <CrmBoard />}
+            {activeTab === 'activities' && <ActivityList />}
             {activeTab === 'prospect' && <Prospector onSaveLead={handleSaveLead} />}
-            {activeTab === 'crm' && <CrmBoard leads={leads} onUpdateStatus={handleUpdateLeadStatus} />}
             {activeTab === 'intelligence' && <Intelligence />}
         </MainLayout>
     );

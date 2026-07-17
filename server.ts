@@ -2,13 +2,11 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
 import { prisma } from './src/lib/prisma.js';
-import { initializeWorkflowEngine } from './server/services/workflow/registry/index.js';
-
-// Initialize Workflow Engine (EventBus, Triggers, Registry)
-initializeWorkflowEngine();
+import { companyService } from './src/features/companies/services/company.service.js';
+import { contactService } from './src/features/contacts/services/contact.service.js';
+import { leadService } from './src/features/crm/services/lead.service.js';
+import { activityService } from './src/features/activities/services/activity.service.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -167,6 +165,219 @@ Nenhum texto adicional, sem formatação markdown (como \`\`\`json), apenas o JS
         }
     });
 
+    // --- Companies API ---
+    app.get('/api/companies', async (req, res) => {
+        try {
+            const companies = await companyService.findAll(req.query.q as string | undefined);
+            res.json(companies);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch companies' });
+        }
+    });
+
+    app.get('/api/companies/:id', async (req, res) => {
+        try {
+            const company = await companyService.findById(req.params.id);
+            if (!company) return res.status(404).json({ error: 'Company not found' });
+            res.json(company);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch company' });
+        }
+    });
+
+    app.post('/api/companies', async (req, res) => {
+        try {
+            const company = await companyService.create(req.body);
+            res.status(201).json(company);
+        } catch (error) {
+            res.status(400).json({ error: 'Failed to create company' });
+        }
+    });
+
+    app.put('/api/companies/:id', async (req, res) => {
+        try {
+            const company = await companyService.update(req.params.id, req.body);
+            res.json(company);
+        } catch (error) {
+            res.status(400).json({ error: 'Failed to update company' });
+        }
+    });
+
+    app.delete('/api/companies/:id', async (req, res) => {
+        try {
+            await companyService.delete(req.params.id);
+            res.status(204).send();
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to delete company' });
+        }
+    });
+
+    // --- Contacts API ---
+    app.get('/api/contacts', async (req, res) => {
+        try {
+            const contacts = await contactService.findAll(req.query.q as string | undefined);
+            res.json(contacts);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch contacts' });
+        }
+    });
+
+    app.get('/api/contacts/:id', async (req, res) => {
+        try {
+            const contact = await contactService.findById(req.params.id);
+            if (!contact) return res.status(404).json({ error: 'Contact not found' });
+            res.json(contact);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch contact' });
+        }
+    });
+
+    app.post('/api/contacts', async (req, res) => {
+        try {
+            const contact = await contactService.create(req.body);
+            res.status(201).json(contact);
+        } catch (error) {
+            res.status(400).json({ error: 'Failed to create contact' });
+        }
+    });
+
+    app.put('/api/contacts/:id', async (req, res) => {
+        try {
+            const contact = await contactService.update(req.params.id, req.body);
+            res.json(contact);
+        } catch (error) {
+            res.status(400).json({ error: 'Failed to update contact' });
+        }
+    });
+
+    app.delete('/api/contacts/:id', async (req, res) => {
+        try {
+            await contactService.delete(req.params.id);
+            res.status(204).send();
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to delete contact' });
+        }
+    });
+
+    // --- Leads API ---
+    app.get('/api/leads', async (req, res) => {
+        try {
+            const leads = await leadService.findAll(req.query.status as string | undefined);
+            res.json(leads);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch leads' });
+        }
+    });
+
+    app.get('/api/leads/:id', async (req, res) => {
+        try {
+            const lead = await leadService.findById(req.params.id);
+            if (!lead) return res.status(404).json({ error: 'Lead not found' });
+            res.json(lead);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch lead' });
+        }
+    });
+
+    app.post('/api/leads', async (req, res) => {
+        try {
+            const lead = await leadService.create(req.body);
+            res.status(201).json(lead);
+        } catch (error) {
+            res.status(400).json({ error: 'Failed to create lead' });
+        }
+    });
+
+    app.put('/api/leads/:id', async (req, res) => {
+        try {
+            const leadId = req.params.id;
+            let lead;
+            if (req.body.status && Object.keys(req.body).length === 1) {
+                lead = await leadService.updateStatus(leadId, req.body.status);
+            } else {
+                lead = await leadService.update(leadId, req.body);
+            }
+            res.json(lead);
+        } catch (error) {
+            res.status(400).json({ error: 'Failed to update lead' });
+        }
+    });
+
+    app.delete('/api/leads/:id', async (req, res) => {
+        try {
+            await leadService.delete(req.params.id);
+            res.status(204).send();
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to delete lead' });
+        }
+    });
+
+    // --- Activities API ---
+    app.get('/api/activities', async (req, res) => {
+        try {
+            const activities = await activityService.findAll(req.query.date as string | undefined);
+            res.json(activities);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch activities' });
+        }
+    });
+
+    app.post('/api/activities', async (req, res) => {
+        try {
+            const activity = await activityService.create(req.body);
+            res.status(201).json(activity);
+        } catch (error) {
+            res.status(400).json({ error: 'Failed to create activity' });
+        }
+    });
+
+    app.put('/api/activities/:id', async (req, res) => {
+        try {
+            const activity = await activityService.update(req.params.id, req.body);
+            res.json(activity);
+        } catch (error) {
+            res.status(400).json({ error: 'Failed to update activity' });
+        }
+    });
+
+    app.delete('/api/activities/:id', async (req, res) => {
+        try {
+            await activityService.delete(req.params.id);
+            res.status(204).send();
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to delete activity' });
+        }
+    });
+
+    // --- Notes API ---
+    app.post('/api/leads/:id/notes', async (req, res) => {
+        try {
+            const { content, author } = req.body;
+            const leadId = req.params.id;
+
+            const note = await prisma.note.create({
+                data: {
+                    content,
+                    author,
+                    leadId
+                }
+            });
+
+            await prisma.timelineEvent.create({
+                data: {
+                    type: 'comment',
+                    description: `Nova nota adicionada por ${author}`,
+                    leadId
+                }
+            });
+
+            res.status(201).json(note);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to create note' });
+        }
+    });
+
+
     app.post('/api/intelligence', async (req, res) => {
         try {
             const { tool } = req.body;
@@ -218,7 +429,6 @@ Nenhum texto adicional, sem formatação markdown (como \`\`\`json), apenas o JS
             res.sendFile(path.join(distPath, 'index.html'));
         });
     }
-
 
     // Error handling middleware
     app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
