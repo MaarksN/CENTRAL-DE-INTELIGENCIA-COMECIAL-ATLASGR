@@ -3,7 +3,7 @@ import { PartnerOnboarding } from '../../../../server/marketplace/partners/Partn
 
 describe('PartnerOnboarding', () => {
   it('advances a partner through each onboarding stage in order', () => {
-    let app = { id: 'p1', companyName: 'Acme', stage: 'application' as const };
+    let app: import('../../../../server/marketplace/partners/PartnerOnboarding.js').PartnerApplication = { id: 'p1', companyName: 'Acme', stage: 'application' };
     app = PartnerOnboarding.advance(app);
     expect(app.stage).toBe('review');
     app = PartnerOnboarding.advance(app);
