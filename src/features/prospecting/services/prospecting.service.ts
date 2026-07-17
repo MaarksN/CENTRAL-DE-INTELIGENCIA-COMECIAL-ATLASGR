@@ -95,7 +95,7 @@ async function discoverBatch(
     excludeNames: string[]
 ): Promise<DiscoverResult> {
     const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-1.5-flash',
         contents: buildPrompt(criteria, count, excludeNames),
         config: {
             tools: [{ googleSearch: {} }],
