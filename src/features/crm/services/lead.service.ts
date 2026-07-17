@@ -3,18 +3,18 @@ import { leadSchema } from '../../../lib/zod';
 import { z } from 'zod';
 
 export class LeadService {
-    async findAll(organizationId: string, status?: string) {
-        const where = status ? { organizationId, status } : { organizationId };
+    async findAll(status?: string) {
+        const where = status ? { status } : {};
         return prisma.lead.findMany({
             where,
-            include: { company: true, contact: true },
+            include: { company: true, contact: true, activities: true, timeline: true, internalNotes: true },
             orderBy: { updatedAt: 'desc' }
         });
     }
 
-    async findById(organizationId: string, id: string) {
-        return prisma.lead.findFirst({
-            where: { id, organizationId },
+    async findById(id: string) {
+        return prisma.lead.findUnique({
+            where: { id },
             include: {
                 company: true,
                 contact: true,
@@ -25,12 +25,11 @@ export class LeadService {
         });
     }
 
-    async create(organizationId: string, data: z.infer<typeof leadSchema>) {
+    async create(data: z.infer<typeof leadSchema>) {
         const validated = leadSchema.parse(data);
         return prisma.lead.create({
             data: {
                 ...validated,
-                organizationId,
                 timeline: {
                     create: {
                         type: 'creation',
@@ -42,8 +41,8 @@ export class LeadService {
         });
     }
 
-    async updateStatus(organizationId: string, id: string, newStatus: string) {
-        const currentLead = await prisma.lead.findFirst({ where: { id, organizationId } });
+    async updateStatus(id: string, newStatus: string) {
+        const currentLead = await prisma.lead.findUnique({ where: { id } });
         if (!currentLead) throw new Error('Lead not found');
 
         return prisma.lead.update({
@@ -61,10 +60,7 @@ export class LeadService {
         });
     }
 
-    async update(organizationId: string, id: string, data: Partial<z.infer<typeof leadSchema>>) {
-        const currentLead = await prisma.lead.findFirst({ where: { id, organizationId } });
-        if (!currentLead) throw new Error('Lead not found');
-
+    async update(id: string, data: Partial<z.infer<typeof leadSchema>>) {
         return prisma.lead.update({
             where: { id },
             data: {
@@ -79,9 +75,7 @@ export class LeadService {
         });
     }
 
-    async delete(organizationId: string, id: string) {
-        const currentLead = await prisma.lead.findFirst({ where: { id, organizationId } });
-        if (!currentLead) throw new Error('Lead not found');
+    async delete(id: string) {
         return prisma.lead.delete({ where: { id } });
     }
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Building2, MapPin, Users, FileText, Activity } from 'lucide-react';
 import { Company } from '../../../types';
-import { api } from '../../../lib/api';
 
 interface CompanyDetailProps {
     companyId: string;
@@ -15,8 +14,11 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
     useEffect(() => {
         const fetchCompany = async () => {
             try {
-                const data = await api.get<Company>(`/api/companies/${companyId}`);
-                setCompany(data);
+                const res = await fetch(`/api/companies/${companyId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setCompany(data);
+                }
             } catch (error) {
                 console.error('Error fetching company details:', error);
             } finally {

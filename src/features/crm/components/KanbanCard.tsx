@@ -9,7 +9,7 @@ interface KanbanCardProps {
     onClick: (lead: Lead) => void;
 }
 
-export const KanbanCard = React.memo(function KanbanCard({ lead, onDragStart, onClick }: KanbanCardProps) {
+export function KanbanCard({ lead, onDragStart, onClick }: KanbanCardProps) {
     const handleDragStart = (e: React.DragEvent) => {
         e.dataTransfer.setData('leadId', lead.id);
         onDragStart(e, lead.id);
@@ -55,4 +55,4 @@ export const KanbanCard = React.memo(function KanbanCard({ lead, onDragStart, on
             </div>
         </div>
     );
-});
+}

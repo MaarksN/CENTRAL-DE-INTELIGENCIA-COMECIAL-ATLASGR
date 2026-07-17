@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Target, AlertCircle, RefreshCw, Copy, CheckCircle2, Mail, UserCheck, ShieldAlert, Phone, MessageCircle } from 'lucide-react';
+
 type ToolType = 'script_call' | 'script_whatsapp' | 'script_email' | 'prompt' | 'objections' | 'followup' | 'profile' | 'risk' | null;
-import { api } from '../lib/api';
 
 const TOOLS = [
     { id: 'script_call', icon: Phone, title: 'Script de Ligação', desc: 'Crie abordagens de Cold Call diretas, focadas em agendar reuniões.' },
@@ -27,8 +27,18 @@ export function Intelligence() {
         setCopied(false);
         
         try {
-            const data = await api.post<{ result: string }>('/api/intelligence', { tool });
-            setResult(data.result);
+            const response = await fetch('/api/intelligence', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tool })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setResult(data.result);
+            } else {
+                setResult("Erro ao gerar conteúdo. Tente novamente.");
+            }
         } catch (error) {
             console.error("Error generating intelligence:", error);
             setResult("Erro ao conectar com a IA.");
