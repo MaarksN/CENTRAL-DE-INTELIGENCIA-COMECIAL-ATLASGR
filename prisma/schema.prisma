@@ -4,15 +4,286 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id             String       @id @default(cuid())
+  name           String
+  email          String       @unique
+  passwordHash   String
+  role           String       @default("VISUALIZADOR")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) // Fix for missing updatedAt
+}
+
 model Lead {
   id        String   @id @default(cuid())
   name      String
-  segment   String
-  size      String
-  location  String
-  status    String   @default("Prospect")
+  segment   String?
+  size      String?
+  location  String?
   fitScore  Int?
-  notes     String?
+  description String?
+  email     String?
+  phone     String?
+  source    String?
+  status    String   @default("Prospect")
+  ownerId   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  icpScore         Int      @default(0)
+  engagementScore  Int      @default(0)
+  temperature      String   @default("Cold")
+
+  notes      Note[]
+  activities Activity[]
+  tags       Tag[]
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  companyId String?
+  ownerId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  notes      Note[]
+  activities Activity[]
+  tags       Tag[]
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  document  String?
+  website   String?
+  ownerId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  icpScore         Int      @default(0)
+  engagementScore  Int      @default(0)
+  temperature      String   @default("Cold")
+
+  notes      Note[]
+  activities Activity[]
+  tags       Tag[]
+  personas   Persona[]
+}
+
+model Deal {
+  id         String   @id @default(cuid())
+  title      String
+  amount     Float?
+  currency   String?
+  status     String   @default("open")
+  pipelineId String?
+  stageId    String?
+  companyId  String?
+  contactId  String?
+  ownerId    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  notes      Note[]
+  activities Activity[]
+  tags       Tag[]
+}
+
+model Pipeline {
+  id        String   @id @default(cuid())
+  name      String
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PipelineStage {
+  id         String   @id @default(cuid())
+  pipelineId String
+  name       String
+  order      Int
+  status     String   @default("active")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  content   String
+  authorId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leadId    String?
+  contactId String?
+  companyId String?
+  dealId    String?
+
+  lead      Lead?    @relation(fields: [leadId], references: [id])
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  company   Company? @relation(fields: [companyId], references: [id])
+  deal      Deal?    @relation(fields: [dealId], references: [id])
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  type        String   // call, email, meeting, note, task
+  title       String
+  description String?
+  status      String   @default("pending") // pending, completed, cancelled
+  dueDate     DateTime?
+  authorId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  leadId      String?
+  contactId   String?
+  companyId   String?
+  dealId      String?
+
+  lead        Lead?    @relation(fields: [leadId], references: [id])
+  contact     Contact? @relation(fields: [contactId], references: [id])
+  company     Company? @relation(fields: [companyId], references: [id])
+  deal        Deal?    @relation(fields: [dealId], references: [id])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String?
+  createdAt DateTime @default(now())
+  
+  leads     Lead[]
+  contacts  Contact[]
+  companies Company[]
+  deals     Deal[]
+}
+
+model ICPProfile {
+  id                   String   @id @default(cuid())
+  name                 String
+  segments             String[]
+  cnaes                String[]
+  minRevenue           Int?
+  maxRevenue           Int?
+  minEmployees         Int?
+  maxEmployees         Int?
+  regions              String[]
+  technologies         String[]
+  decisionMakerProfile String?
+  digitalMaturity      String?
+  logisticPotential    String?
+  strategicPriority    String?
+  baseScore            Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Persona {
+  id          String   @id @default(cuid())
+  name        String
+  role        String?
+  painPoints  String[]
+  goals       String[]
+  objections  String[]
+  triggers    String[]
+  arguments   String[]
+  channels    String[]
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Objection {
+  id          String   @id @default(cuid())
+  category    String
+  objection   String
+  answer      String
+  argument    String?
+  socialProof String?
+  cta         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Cadence {
+  id        String   @id @default(cuid())
+  name      String
+  type      String
+  steps     CadenceStep[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CadenceStep {
+  id        String   @id @default(cuid())
+  cadenceId String
+  cadence   Cadence  @relation(fields: [cadenceId], references: [id])
+  day       Int
+  type      String
+  template  String?
+  goal      String?
+  trigger   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Playbook {
+  id            String   @id @default(cuid())
+  role          String
+  name          String
+  bestPractices String?
+  steps         PlaybookStep[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model PlaybookStep {
+  id         String   @id @default(cuid())
+  playbookId String
+  playbook   Playbook @relation(fields: [playbookId], references: [id])
+  order      Int
+  name       String
+  checklist  String[]
+  materials  String[]
+  questions  String[]
+  objections String[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Template {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   // email, linkedin, whatsapp, framework
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Recommendation {
+  id         String   @id @default(cuid())
+  entityId   String
+  entityType String
+  type       String
+  message    String
+  priority   String
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
