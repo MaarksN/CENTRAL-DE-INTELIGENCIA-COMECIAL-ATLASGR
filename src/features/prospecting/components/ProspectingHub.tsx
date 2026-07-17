@@ -30,6 +30,14 @@ const loadingSteps = [
 interface PromoteResult {
     lead: { id: string };
     fit?: FitScoreResult;
+    enrichment?: {
+        company: {
+            googleRating?: number;
+            googleReviewsCount?: number;
+            observations?: string;
+        };
+        apolloContacts?: Array<{ name: string; title: string | null; email: string | null }>;
+    };
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -480,6 +488,7 @@ function CandidateCard({
 }) {
     const finalScore = promotedResult?.fit?.score ?? candidate.fitScoreEstimate;
     const isEstimate = !promotedResult?.fit;
+    const enrichment = promotedResult?.enrichment;
 
     return (
         <div className="bg-white p-6 rounded-2xl border border-gray-100 hover:border-atlas-orange/40 transition-all shadow-sm group">
@@ -490,22 +499,57 @@ function CandidateCard({
                         <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${finalScore >= 75 ? 'bg-green-100 text-green-700' : finalScore >= 45 ? 'bg-blue-100 text-blue-700' : 'bg-atlas-yellow/20 text-atlas-dark'}`}>
                             <TrendingUp size={10} /> Fit {finalScore}% {isEstimate && '(estimado)'}
                         </div>
-                        {candidate.cnpjGuess && (
+                        {candidate.cnpjGuess && !enrichment && (
                             <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-purple-50 text-purple-700">
-                                <Landmark size={10} /> CNPJ informado pela IA
+                                <Landmark size={10} /> CNPJ sugerido pela IA
+                            </span>
+                        )}
+                        {enrichment?.company.googleRating && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-yellow-50 text-yellow-700 border border-yellow-200">
+                                ⭐ {enrichment.company.googleRating} Google ({enrichment.company.googleReviewsCount})
                             </span>
                         )}
                     </div>
+                    
                     <div className="flex flex-wrap gap-4 text-xs font-semibold text-gray-500 mb-2">
                         <span className="flex items-center gap-1.5"><Building2 size={14} className="text-gray-400" /> {candidate.segment}</span>
                         <span className="flex items-center gap-1.5"><Users size={14} className="text-gray-400" /> {candidate.size}</span>
                         <span className="flex items-center gap-1.5"><MapPin size={14} className="text-gray-400" /> {candidate.location}</span>
                     </div>
-                    {candidate.rationale && <p className="text-xs text-gray-400 italic mb-2">"{candidate.rationale}"</p>}
-                    {candidate.suggestedContact && (
-                        <p className="text-xs text-gray-500 flex items-center gap-1.5">
+
+                    {!enrichment && candidate.rationale && (
+                        <p className="text-xs text-gray-400 italic mb-2">"{candidate.rationale}"</p>
+                    )}
+
+                    {enrichment?.company.observations && (
+                        <div className="mt-3 p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl">
+                            <p className="text-[10px] tracking-wider font-bold uppercase text-indigo-500 mb-1 flex items-center gap-1">
+                                <Sparkles size={12} /> Síntese Estratégica (Atlas AI)
+                            </p>
+                            <p className="text-xs text-gray-600 leading-relaxed">{enrichment.company.observations}</p>
+                        </div>
+                    )}
+
+                    {!enrichment && candidate.suggestedContact && (
+                        <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-2">
                             <Mail size={12} /> Contato sugerido: <strong>{candidate.suggestedContact.name}</strong> ({candidate.suggestedContact.role})
                         </p>
+                    )}
+
+                    {enrichment?.apolloContacts && enrichment.apolloContacts.length > 0 && (
+                        <div className="mt-3">
+                            <p className="text-[10px] tracking-wider font-bold uppercase text-gray-500 mb-2 flex items-center gap-1">
+                                <Users size={12} /> Decisores Descobertos (Apollo)
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {enrichment.apolloContacts.map((contact, idx) => (
+                                    <span key={idx} className="bg-gray-50 border border-gray-200 rounded-full px-3 py-1 text-xs text-gray-700 flex items-center gap-1">
+                                        <strong>{contact.name}</strong> 
+                                        {contact.title && <span className="text-gray-400">· {contact.title}</span>}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
                     )}
                 </div>
                 {promoted ? (
