@@ -1,6 +1,5 @@
 import React from 'react';
-import { Users, FileText, Zap, MessageSquare } from 'lucide-react';
-import { Badge } from '../../ui/Badge';
+import { Users, Zap } from 'lucide-react';
 
 export function PersonaManager() {
   return (
@@ -17,13 +16,13 @@ export function PersonaManager() {
           role="Diretor de Logística"
           painPoints={["Custo de frete alto", "Falta de visibilidade na frota", "Sinistros"]}
           goals={["Reduzir 15% dos custos em 6 meses", "Automação de rastreamento"]}
-          triggers={["Nova contratação de frota", "Fim de quarter"]}
+          _triggers={["Nova contratação de frota", "Fim de quarter"]}
         />
         <PersonaCard 
           role="CFO"
           painPoints={["Orçamento estourado", "ROI não claro das ferramentas", "Desperdício"]}
           goals={["Eficiência operacional", "Previsibilidade financeira"]}
-          triggers={["Planejamento orçamentário anual", "Corte de custos"]}
+          _triggers={["Planejamento orçamentário anual", "Corte de custos"]}
         />
         <div className="border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-6 text-slate-500 hover:bg-slate-100 hover:border-slate-400 transition cursor-pointer min-h-[300px]">
           <Users size={32} className="mb-2" />
@@ -34,7 +33,7 @@ export function PersonaManager() {
   );
 }
 
-function PersonaCard({ role, painPoints, goals, triggers }: any) {
+function PersonaCard({ role, painPoints, goals, _triggers }: unknown) {
   return (
     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
       <h3 className="text-lg font-bold text-slate-800 mb-4 pb-4 border-b border-slate-100">{role}</h3>

@@ -18,9 +18,10 @@ A estrutura atual conta com:
 ## Tecnologias e Configuração
 - React 19 + Vite 6
 - Tailwind CSS v4 para estilização com classes utilitárias
-- Prisma (ORM e persistência)
+- Prisma 7.8 com adapter `PrismaPg` via driver `pg` para melhor pooling e resiliência
 - Express para API local e fallback SSR/SPA.
 - ESLint (Flat Config) e Prettier para padronização.
+- Vitest para testes de unidade e integração
 - Github Actions configurado para CI (Type Check, Lint, e Build).
 
 ## Instalação

@@ -67,7 +67,7 @@ export function CommercialLibrary() {
   );
 }
 
-function TabButton({ active, onClick, icon, children }: any) {
+function TabButton({ active, onClick, icon, children }: unknown) {
   return (
     <button 
       onClick={onClick}
@@ -78,7 +78,7 @@ function TabButton({ active, onClick, icon, children }: any) {
   );
 }
 
-function ObjectionCard({ category, objection, answer, socialProof }: any) {
+function ObjectionCard({ category, objection, answer, socialProof }: unknown) {
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
       <Badge variant="warning">{category}</Badge>

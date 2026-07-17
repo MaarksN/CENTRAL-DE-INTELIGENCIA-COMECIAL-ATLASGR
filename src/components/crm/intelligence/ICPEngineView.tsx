@@ -3,7 +3,7 @@ import { Target, Plus, Save } from 'lucide-react';
 import { Badge } from '../../ui/Badge';
 
 export function ICPEngineView() {
-  const [profiles, setProfiles] = useState([
+  const [profiles] = useState([
     { id: 1, name: 'Enterprise Logística', baseScore: 40, active: true },
     { id: 2, name: 'Mid-Market SaaS', baseScore: 20, active: false }
   ]);
