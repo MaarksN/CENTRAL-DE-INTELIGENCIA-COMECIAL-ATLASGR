@@ -25,10 +25,10 @@ describe('ActivityService', () => {
 
   const mockActivity = {
     id: '1',
-    type: 'Call',
+    type: 'Ligação' as const,
     owner: 'John',
     date: new Date('2024-01-01T10:00:00Z'),
-    status: 'Pendente',
+    status: 'Pendente' as const,
     leadId: 'lead-1'
   };
 
@@ -54,7 +54,7 @@ describe('ActivityService', () => {
   });
 
   it('should create an activity and a timeline event', async () => {
-    const input = { type: 'Call', owner: 'John', date: '2024-01-01T10:00:00Z', leadId: 'lead-1', status: 'Pendente' };
+    const input = { type: 'Ligação' as const, owner: 'John', date: '2024-01-01T10:00:00Z', leadId: 'lead-1', status: 'Pendente' as const };
     vi.mocked(prisma.activity.create).mockResolvedValue(mockActivity as never);
     const result = await activityService.create('test-org-id', input);
     expect(prisma.activity.create).toHaveBeenCalled();
@@ -64,17 +64,17 @@ describe('ActivityService', () => {
 
   it('should update an activity', async () => {
     vi.mocked(prisma.activity.findFirst).mockResolvedValue(mockActivity as never);
-    vi.mocked(prisma.activity.update).mockResolvedValue({ ...mockActivity, status: 'Concluído' } as never);
+    vi.mocked(prisma.activity.update).mockResolvedValue({ ...mockActivity, status: 'Concluída' } as never);
     
-    const result = await activityService.update('test-org-id', '1', { status: 'Concluído' });
+    const result = await activityService.update('test-org-id', '1', { status: 'Concluída' as const });
     expect(prisma.activity.update).toHaveBeenCalled();
     expect(prisma.timelineEvent.create).toHaveBeenCalled();
-    expect(result.status).toBe('Concluído');
+    expect(result.status).toBe('Concluída');
   });
 
   it('should throw error when updating non-existent activity', async () => {
     vi.mocked(prisma.activity.findFirst).mockResolvedValue(null);
-    await expect(activityService.update('test-org-id', '1', { status: 'Concluído' })).rejects.toThrow('Activity not found');
+    await expect(activityService.update('test-org-id', '1', { status: 'Concluída' as const })).rejects.toThrow('Activity not found');
   });
 
   it('should delete an activity', async () => {
