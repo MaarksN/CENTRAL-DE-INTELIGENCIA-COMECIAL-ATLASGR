@@ -72,6 +72,21 @@ export function ProspectingHub() {
     const [promotingKey, setPromotingKey] = useState<string | null>(null);
     const [promoted, setPromoted] = useState<Record<string, PromoteResult>>({});
 
+    // --- quick filter sobre os resultados já carregados (busca instantânea, sem nova chamada à IA) ---
+    const [resultFilter, setResultFilter] = useState('');
+    const filteredCandidates = candidates
+        .map((c, i) => ({ c, i }))
+        .filter(({ c }) => {
+            const q = resultFilter.trim().toLowerCase();
+            if (!q) return true;
+            return (
+                c.tradeName.toLowerCase().includes(q) ||
+                c.segment.toLowerCase().includes(q) ||
+                c.location.toLowerCase().includes(q) ||
+                c.size.toLowerCase().includes(q)
+            );
+        });
+
     const handleCnpjLookup = async () => {
         setCnpjLoading(true);
         setCnpjError(null);
@@ -160,7 +175,7 @@ export function ProspectingHub() {
         <div className="flex-1 overflow-y-auto bg-gray-50/50 p-6 sm:p-8">
             <div className="max-w-7xl mx-auto space-y-6">
                 <div>
-                    <h1 className="text-2xl font-black text-atlas-dark">Prospecção & Enriquecimento</h1>
+                    <h1 className="text-2xl font-black text-atlas-dark">🔍 Prospecção & Enriquecimento ⚡</h1>
                     <p className="text-gray-500 mt-1">Encontre empresas reais, valide na Receita Federal e leve leads qualificados direto para o CRM.</p>
                 </div>
 
@@ -169,13 +184,13 @@ export function ProspectingHub() {
                         onClick={() => setTab('cnpj')}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${tab === 'cnpj' ? 'bg-atlas-dark text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        <Landmark size={16} /> Busca por CNPJ (Dados Reais)
+                        <Landmark size={16} /> 🏛️ Busca por CNPJ (Dados Reais)
                     </button>
                     <button
                         onClick={() => setTab('ai')}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${tab === 'ai' ? 'bg-atlas-dark text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        <Sparkles size={16} /> Descoberta por IA (ICP)
+                        <Sparkles size={16} /> 🤖 Descoberta por IA (ICP)
                     </button>
                 </div>
 
@@ -186,7 +201,7 @@ export function ProspectingHub() {
                                 <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-atlas-orange">
                                     <Landmark size={18} />
                                 </div>
-                                <h2 className="font-black text-xl text-atlas-dark">Consulta Receita Federal</h2>
+                                <h2 className="font-black text-xl text-atlas-dark">🏛️ Consulta Receita Federal</h2>
                             </div>
                             <p className="text-xs text-gray-500 mb-4">Dados oficiais via BrasilAPI — sem chave, sem custo, direto da base da Receita Federal.</p>
                             <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">CNPJ</label>
@@ -203,7 +218,7 @@ export function ProspectingHub() {
                                 className="w-full bg-atlas-orange text-white py-3.5 rounded-xl font-bold hover:bg-[#E04B12] disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-atlas-orange/20"
                             >
                                 {cnpjLoading ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
-                                {cnpjLoading ? 'Consultando...' : 'Consultar'}
+                                {cnpjLoading ? '⏳ Consultando...' : '🔎 Consultar'}
                             </button>
                             {cnpjError && (
                                 <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
@@ -257,7 +272,7 @@ export function ProspectingHub() {
                                 <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-atlas-orange">
                                     <Database size={18} />
                                 </div>
-                                <h2 className="font-black text-xl text-atlas-dark">Motor de Busca AI</h2>
+                                <h2 className="font-black text-xl text-atlas-dark">🤖 Motor de Busca AI Turbo</h2>
                             </div>
                             <p className="text-xs text-gray-500 mb-4 relative z-10">Busca com grounding real no Google (via Gemini); cada candidato é validado na Receita Federal antes de virar Lead.</p>
 
@@ -293,9 +308,9 @@ export function ProspectingHub() {
                                     className="w-full bg-atlas-orange text-white py-4 rounded-xl font-bold hover:bg-[#E04B12] disabled:opacity-80 transition-all flex items-center justify-center gap-2 shadow-lg shadow-atlas-orange/20"
                                 >
                                     {isSearching ? (
-                                        <><Loader2 className="animate-spin" size={20} /> <span>Buscando...</span></>
+                                        <><Loader2 className="animate-spin" size={20} /> <span>⏳ Buscando...</span></>
                                     ) : (
-                                        <><Cpu size={20} /> <span>Encontrar Leads Ideais</span></>
+                                        <><Cpu size={20} /> <span>🚀 Encontrar Leads Ideais</span></>
                                     )}
                                 </button>
                                 {aiError && <p className="text-xs text-red-600 mt-2">{aiError}</p>}
@@ -303,12 +318,25 @@ export function ProspectingHub() {
                         </div>
 
                         <div className="xl:col-span-8 flex flex-col h-full">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="font-black text-2xl text-atlas-dark">Resultados Inteligentes</h2>
+                            <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
+                                <h2 className="font-black text-2xl text-atlas-dark">✨ Resultados Inteligentes</h2>
                                 {candidates.length > 0 && (
-                                    <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold">{candidates.length} Candidatos Identificados</span>
+                                    <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold">🎯 {filteredCandidates.length}/{candidates.length} Candidatos</span>
                                 )}
                             </div>
+
+                            {candidates.length > 0 && !isSearching && (
+                                <div className="relative mb-4">
+                                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="⚡ Filtrar resultados instantaneamente por nome, segmento, cidade..."
+                                        value={resultFilter}
+                                        onChange={(e) => setResultFilter(e.target.value)}
+                                        className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-atlas-orange/20 focus:border-atlas-orange transition-all outline-none"
+                                    />
+                                </div>
+                            )}
 
                             {apolloError && !isSearching && (
                                 <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
@@ -326,7 +354,7 @@ export function ProspectingHub() {
                                             <Globe size={32} className="animate-pulse" />
                                         </div>
                                     </div>
-                                    <h3 className="font-black text-xl text-atlas-dark mb-4 text-center">Mapeando Mercado...</h3>
+                                    <h3 className="font-black text-xl text-atlas-dark mb-4 text-center">🌎 Mapeando Mercado...</h3>
                                     <div className="space-y-3 w-full max-w-sm">
                                         {loadingSteps.map((step, idx) => (
                                             <div key={idx} className={`flex items-center gap-3 text-sm font-medium ${idx === loadingStepIdx ? 'text-atlas-orange' : idx < loadingStepIdx ? 'text-gray-400' : 'text-gray-200 opacity-50'}`}>
@@ -341,7 +369,7 @@ export function ProspectingHub() {
                                     {sources.length > 0 && (
                                         <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-4">
                                             <p className="text-[10px] tracking-wider font-bold uppercase text-blue-700 mb-2 flex items-center gap-1.5">
-                                                <Globe size={12} /> Fontes consultadas via Google Search (grounding real)
+                                                <Globe size={12} /> 🌐 Fontes consultadas via Google Search (grounding real)
                                             </p>
                                             <div className="flex flex-wrap gap-2">
                                                 {sources.map((s, i) => (
@@ -359,7 +387,12 @@ export function ProspectingHub() {
                                             </div>
                                         </div>
                                     )}
-                                    {candidates.map((c, i) => (
+                                    {filteredCandidates.length === 0 && (
+                                        <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
+                                            🔍 Nenhum candidato bate com "{resultFilter}".
+                                        </div>
+                                    )}
+                                    {filteredCandidates.map(({ c, i }) => (
                                         <CandidateCard
                                             key={i}
                                             candidate={c}
@@ -375,7 +408,7 @@ export function ProspectingHub() {
                                     <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5">
                                         <Search className="text-gray-300" size={32} />
                                     </div>
-                                    <h3 className="font-black text-xl text-atlas-dark mb-2">Nenhum lead encontrado</h3>
+                                    <h3 className="font-black text-xl text-atlas-dark mb-2">🔍 Nenhum lead encontrado</h3>
                                     <p className="text-sm text-gray-500 text-center max-w-sm">
                                         Preencha os critérios de ICP ao lado e deixe a IA da Atlas sugerir oportunidades reais de mercado.
                                     </p>
@@ -410,7 +443,7 @@ function CnpjResultCard({
                     <p className="text-sm text-gray-500">{d.legalName} · {result.cnpj}</p>
                 </div>
                 <span className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-bold">
-                    <CheckCircle2 size={12} /> Dados oficiais — Receita Federal
+                    <CheckCircle2 size={12} /> ✅ Dados oficiais — Receita Federal
                 </span>
             </div>
 
@@ -453,7 +486,7 @@ function CnpjResultCard({
 
             <div className="pt-4 border-t border-gray-100 flex justify-end">
                 {promoted ? (
-                    <span className="flex items-center gap-2 text-green-700 font-bold text-sm"><CheckCircle2 size={16} /> Adicionado ao CRM</span>
+                    <span className="flex items-center gap-2 text-green-700 font-bold text-sm"><CheckCircle2 size={16} /> ✅ Adicionado ao CRM</span>
                 ) : (
                     <button
                         onClick={onPromote}
@@ -461,7 +494,7 @@ function CnpjResultCard({
                         className="bg-atlas-dark text-white px-6 py-3 rounded-full font-bold text-sm hover:bg-black transition-colors flex items-center gap-2 disabled:opacity-60"
                     >
                         {isPromoting ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
-                        Adicionar ao CRM como Lead
+                        {isPromoting ? '⏳ Adicionando...' : '➕ Adicionar ao CRM como Lead'}
                     </button>
                 )}
             </div>
@@ -553,7 +586,7 @@ function CandidateCard({
                     )}
                 </div>
                 {promoted ? (
-                    <span className="flex items-center gap-2 text-green-700 font-bold text-sm shrink-0"><CheckCircle2 size={16} /> No CRM</span>
+                    <span className="flex items-center gap-2 text-green-700 font-bold text-sm shrink-0"><CheckCircle2 size={16} /> ✅ No CRM</span>
                 ) : (
                     <button
                         onClick={onPromote}
@@ -561,7 +594,7 @@ function CandidateCard({
                         className="bg-gray-50 text-atlas-dark px-6 py-2.5 rounded-full font-bold text-sm hover:bg-atlas-orange hover:text-white transition-colors flex items-center gap-2 border border-gray-200 hover:border-atlas-orange w-full sm:w-auto justify-center shrink-0 disabled:opacity-60"
                     >
                         {isPromoting ? <Loader2 className="animate-spin" size={16} /> : <ShieldCheck size={16} />}
-                        {isPromoting ? 'Enriquecendo...' : 'Enriquecer e Adicionar'}
+                        {isPromoting ? '⏳ Enriquecendo...' : '✨ Enriquecer e Adicionar'}
                     </button>
                 )}
             </div>
