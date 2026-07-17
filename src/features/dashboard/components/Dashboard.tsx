@@ -15,11 +15,13 @@ export function Dashboard() {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const [companies, leads, activities] = await Promise.all([
-                    api.get<Company[]>('/api/companies'),
-                    api.get<Lead[]>('/api/leads'),
+                const [companiesRes, leadsRes, activities] = await Promise.all([
+                    api.get<{ data: Company[] }>('/api/companies?limit=1000'),
+                    api.get<{ data: Lead[] }>('/api/leads?limit=1000'),
                     api.get<ActivityType[]>('/api/activities')
                 ]);
+                const companies = companiesRes.data;
+                const leads = leadsRes.data;
 
                 setStats({
                     totalCompanies: companies.length,
