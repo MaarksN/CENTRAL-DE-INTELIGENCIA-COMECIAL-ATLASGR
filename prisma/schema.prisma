@@ -4,15 +4,127 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+model Company {
+  id               String    @id @default(cuid())
+  legalName        String
+  tradeName        String
+  cnpj             String?
+  stateRegistration String?
+  segment          String?
+  cnae             String?
+  size             String?
+  employeeCount    Int?
+  estimatedRevenue Float?
+  website          String?
+  linkedin         String?
+  instagram        String?
+  phones           String[]
+  emails           String[]
+  address          String?
+  city             String?
+  state            String?
+  zipCode          String?
+  owner            String?
+  status           String    @default("Ativo")
+  tags             String[]
+  observations     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  contacts         Contact[]
+  leads            Lead[]
+}
+
+model Contact {
+  id               String    @id @default(cuid())
+  name             String
+  role             String?
+  department       String?
+  phone            String?
+  whatsapp         String?
+  email            String?
+  linkedin         String?
+  birthDate        DateTime?
+  observations     String?
+  status           String    @default("Ativo")
+
+  companyId        String
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leads            Lead[]
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
 model Lead {
-  id        String   @id @default(cuid())
-  name      String
-  segment   String
-  size      String
-  location  String
-  status    String   @default("Prospect")
-  fitScore  Int?
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String    @id @default(cuid())
+
+  // Backward compatibility
+  name             String?
+  segment          String?
+  size             String?
+  location         String?
+  status           String    @default("Novo Lead")
+  fitScore         Int?
+  notes            String?
+
+  // New CRM fields
+  source           String?
+  channel          String?
+  temperature      String?
+  score            Int?
+  owner            String?
+  lastInteraction  DateTime?
+  nextAction       DateTime?
+
+  companyId        String?
+  company          Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contactId        String?
+  contact          Contact?   @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  activities       Activity[]
+  timeline         TimelineEvent[]
+  internalNotes    Note[]
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Activity {
+  id               String    @id @default(cuid())
+  type             String // Ligação, WhatsApp, E-mail, Reunião, Follow-up, Visita, Tarefa
+  owner            String
+  date             DateTime
+  time             String?
+  status           String    @default("Pendente")
+  observations     String?
+
+  leadId           String
+  lead             Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model TimelineEvent {
+  id               String    @id @default(cuid())
+  type             String // creation, edition, movement, activity, comment, generic
+  description      String
+
+  leadId           String
+  lead             Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  createdAt        DateTime  @default(now())
+}
+
+model Note {
+  id               String    @id @default(cuid())
+  content          String    // Rich text
+  author           String
+
+  leadId           String
+  lead             Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }

@@ -1,112 +1,107 @@
-import React from 'react';
-import { Lead, LeadStatus } from '../types/index';
-import { Building2, MapPin, MoreHorizontal, ArrowRight, Phone, TrendingUp, Mail, MessageCircle } from 'lucide-react';
+import React from "react";
+import { useState, useEffect } from 'react';
+import { Lead, LeadStatus } from '../types';
+import { KanbanColumn } from '../features/crm/components/KanbanColumn';
 
-interface CrmBoardProps {
-    leads: Lead[];
-    onUpdateStatus: (id: string, status: LeadStatus) => void;
-}
-
-const COLUMNS: { id: LeadStatus; title: string; color: string }[] = [
-    { id: 'Prospect', title: 'Prospect', color: 'bg-gray-200 text-gray-700' },
-    { id: 'Qualificado', title: 'Qualificado', color: 'bg-blue-100 text-blue-700' },
-    { id: 'Proposta', title: 'Proposta', color: 'bg-atlas-yellow text-atlas-dark' },
-    { id: 'Fechado', title: 'Fechado', color: 'bg-green-100 text-green-700' }
+const COLUMNS: LeadStatus[] = [
+    'Novo Lead',
+    'Qualificação',
+    'Primeiro Contato',
+    'Diagnóstico',
+    'Proposta',
+    'Negociação',
+    'Fechado Ganho',
+    'Fechado Perdido'
 ];
 
-export function CrmBoard({ leads, onUpdateStatus }: CrmBoardProps) {
-    
-    const getNextStatus = (current: LeadStatus): LeadStatus | null => {
-        const idx = COLUMNS.findIndex(c => c.id === current);
-        if (idx >= 0 && idx < COLUMNS.length - 1) return COLUMNS[idx + 1].id;
-        return null;
+export function CrmBoard() {
+    const [leads, setLeads] = useState<Lead[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchLeads = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('/api/leads');
+            if (res.ok) {
+                const data = await res.json();
+                setLeads(data);
+            }
+        } catch (error) {
+            console.error('Error fetching leads:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchLeads();
+    }, []);
+
+    const handleDragStart = (e: React.DragEvent, leadId: string) => {
+        e.dataTransfer.setData('leadId', leadId);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+    };
+
+    const handleDrop = async (e: React.DragEvent, status: LeadStatus) => {
+        e.preventDefault();
+        const leadId = e.dataTransfer.getData('leadId');
+        if (!leadId) return;
+
+        // Optimistic update
+        setLeads(prev => prev.map(lead => lead.id === leadId ? { ...lead, status } : lead));
+
+        try {
+            await fetch(`/api/leads/${leadId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+        } catch (error) {
+            console.error('Error updating lead status:', error);
+            fetchLeads(); // Revert on error
+        }
+    };
+
+    const handleCardClick = (lead: Lead) => {
+        // To be implemented: Open Lead Detail Modal/Drawer
+        console.log('Clicked lead:', lead);
     };
 
     return (
-        <div className="h-full min-h-[70vh] animate-in fade-in duration-500">
-            <div className="flex items-center justify-between mb-8">
+        <div className="flex-1 flex flex-col h-full bg-white animate-in fade-in duration-500 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
                 <div>
-                    <h2 className="font-black text-2xl text-atlas-dark">Módulo CRM</h2>
-                    <p className="text-gray-500 text-sm mt-1">Gerencie seu funil de vendas e acompanhe negociações.</p>
+                    <h2 className="font-bold text-2xl text-gray-900">Pipeline de Vendas</h2>
+                    <p className="text-gray-500 text-sm mt-1">Arraste os cards para atualizar o estágio da negociação</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                {COLUMNS.map(column => {
-                    const columnLeads = leads.filter(l => l.status === column.id);
-                    
-                    return (
-                        <div key={column.id} className="flex flex-col bg-gray-50 rounded-2xl p-4 border border-gray-100 h-full min-h-[500px]">
-                            <div className="flex items-center justify-between mb-4 px-2">
-                                <h3 className="font-bold text-sm uppercase tracking-wider text-atlas-dark">{column.title}</h3>
-                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${column.color}`}>
-                                    {columnLeads.length}
-                               </span>
-                            </div>
-                            
-                            <div className="flex-1 space-y-3">
-                                {columnLeads.map(lead => (
-                                    <div key={lead.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group animate-in fade-in slide-in-from-top-2">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <h4 className="font-bold text-atlas-dark leading-tight pr-2">{lead.name}</h4>
-                                            <button className="text-gray-400 hover:text-atlas-orange transition-colors shrink-0">
-                                                <MoreHorizontal size={16} />
-                                            </button>
-                                        </div>
-                                        
-                                        <div className="space-y-2 mb-4">
-                                            {lead.fitScore && (
-                                                <div className="flex items-center gap-1.5 mb-2">
-                                                    <span className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${lead.fitScore >= 90 ? 'bg-green-100 text-green-700' : lead.fitScore >= 80 ? 'bg-blue-100 text-blue-700' : 'bg-atlas-yellow/20 text-atlas-dark'}`}>
-                                                        <TrendingUp size={10} />
-                                                        Fit {lead.fitScore}%
-                                                    </span>
-                                                </div>
-                                            )}
-                                            <div className="flex items-center text-xs font-medium text-gray-500 gap-1.5">
-                                                <Building2 size={12} className="text-gray-400 shrink-0"/>
-                                                <span className="truncate">{lead.segment} • {lead.size}</span>
-                                            </div>
-                                            <div className="flex items-center text-xs font-medium text-gray-500 gap-1.5">
-                                                <MapPin size={12} className="text-gray-400 shrink-0"/>
-                                                <span className="truncate">{lead.location}</span>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="pt-3 border-t border-gray-50 flex items-center justify-between">
-                                            <div className="flex items-center gap-1">
-                                                <button title="Ligar" className="p-1.5 text-gray-400 hover:text-atlas-orange hover:bg-orange-50 rounded-lg transition-colors">
-                                                    <Phone size={14} />
-                                                </button>
-                                                <button title="WhatsApp" className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
-                                                    <MessageCircle size={14} />
-                                                </button>
-                                                <button title="E-mail" className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                                                    <Mail size={14} />
-                                                </button>
-                                            </div>
-                                            
-                                            {getNextStatus(lead.status) && (
-                                                <button 
-                                                    onClick={() => onUpdateStatus(lead.id, getNextStatus(lead.status)!)}
-                                                    className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-atlas-orange hover:bg-orange-50 px-2 py-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                                >
-                                                    Avançar <ArrowRight size={12} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                                
-                                {columnLeads.length === 0 && (
-                                    <div className="h-24 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center">
-                                        <span className="text-xs font-bold text-gray-400 uppercase">Vazio</span>
-                                    </div>
-                                )}
-                            </div>
+            <div className="flex-1 overflow-x-auto overflow-y-hidden p-6 custom-scrollbar bg-gray-50/30">
+                {loading ? (
+                    <div className="h-full flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            <p className="text-gray-500 font-medium">Carregando pipeline...</p>
                         </div>
-                    );
-                })}
+                    </div>
+                ) : (
+                    <div className="flex gap-6 h-full items-start">
+                        {COLUMNS.map(status => (
+                            <KanbanColumn
+                                key={status}
+                                status={status}
+                                leads={leads.filter(l => l.status === status)}
+                                onDrop={handleDrop}
+                                onDragOver={handleDragOver}
+                                onCardDragStart={handleDragStart}
+                                onCardClick={handleCardClick}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );
