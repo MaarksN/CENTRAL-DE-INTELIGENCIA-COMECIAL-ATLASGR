@@ -3,6 +3,7 @@ generator client {
 }
 datasource db {
   provider = "postgresql"
+  extensions = [vector]
 }
 model Company {
   id               String    @id @default(cuid())
@@ -128,3 +129,4 @@ model Note {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 }
+
