@@ -21,7 +21,6 @@ export default defineConfig({
       reportsDirectory: './coverage',
       include: ['server/**/*.ts', 'src/**/*.{ts,tsx}'],
       exclude: [
-        'src/components/**/*.tsx',
         'server/**/*.d.ts',
         'server.ts',
         '**/*.config.{ts,js,mjs}',
