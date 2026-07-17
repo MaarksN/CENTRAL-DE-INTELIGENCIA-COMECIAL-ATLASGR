@@ -72,6 +72,26 @@ export interface CnpjLookupResult {
     error?: string;
 }
 
+/** Fetch com timeout + retry (1 nova tentativa em erro de rede/timeout) — BrasilAPI ocasionalmente é lenta ou instável. */
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 2, timeoutMs = 8000): Promise<Response> {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { ...init, signal: controller.signal });
+            clearTimeout(timeout);
+            if (res.status >= 500 && attempt < attempts) continue; // erro do servidor upstream — tenta de novo
+            return res;
+        } catch (error) {
+            clearTimeout(timeout);
+            lastError = error;
+            if (attempt >= attempts) throw error;
+        }
+    }
+    throw lastError;
+}
+
 function formatPhone(ddd_telefone: string): string | null {
     const digits = (ddd_telefone || '').replace(/\D/g, '');
     if (digits.length < 10) return null;
@@ -89,7 +109,13 @@ export async function fetchCnpjData(cnpjRaw: string): Promise<CnpjLookupResult> 
         return { found: false, cnpj: cnpjRaw, source: 'BrasilAPI-CNPJ', error: 'invalid_format' };
     }
 
-    const res = await fetch(`${BRASIL_API_BASE}/cnpj/v1/${cnpj}`, { headers: BRASIL_API_HEADERS });
+    let res: Response;
+    try {
+        res = await fetchWithRetry(`${BRASIL_API_BASE}/cnpj/v1/${cnpj}`, { headers: BRASIL_API_HEADERS });
+    } catch (error) {
+        const reason = error instanceof Error && error.name === 'AbortError' ? 'timeout' : 'network_error';
+        return { found: false, cnpj: formatCnpj(cnpj), source: 'BrasilAPI-CNPJ', error: reason };
+    }
     if (res.status === 404) {
         return { found: false, cnpj: formatCnpj(cnpj), source: 'BrasilAPI-CNPJ', error: 'not_found' };
     }
@@ -147,7 +173,7 @@ export async function fetchCepData(cepRaw: string): Promise<CepLookupResult> {
     if (cep.length !== 8) return { found: false, source: 'BrasilAPI-CEP' };
 
     try {
-        const res = await fetch(`${BRASIL_API_BASE}/cep/v2/${cep}`, { headers: BRASIL_API_HEADERS });
+        const res = await fetchWithRetry(`${BRASIL_API_BASE}/cep/v2/${cep}`, { headers: BRASIL_API_HEADERS });
         if (!res.ok) return { found: false, source: 'BrasilAPI-CEP' };
         const data = await res.json();
         return {
@@ -347,6 +373,19 @@ export async function enrichCompany(companyId: string, options: EnrichCompanyOpt
 
     await prisma.company.update({ where: { id: companyId }, data: { enrichmentStatus: 'Enriquecendo' } });
 
+    try {
+        return await runEnrichment(company, options);
+    } catch (error) {
+        await prisma.company.update({ where: { id: companyId }, data: { enrichmentStatus: 'Falhou' } }).catch(() => {});
+        throw error;
+    }
+}
+
+async function runEnrichment(
+    company: NonNullable<Awaited<ReturnType<typeof prisma.company.findUnique>>>,
+    options: EnrichCompanyOptions
+) {
+    const companyId = company.id;
     const cnpj = options.cnpj || company.cnpj;
     const updateData: CompanyUpdateData = {};
     let enrichmentSourceLabel = 'Heurística';

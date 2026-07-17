@@ -1,37 +1,84 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
 }
+
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
   extensions = [vector]
 }
+
+enum CompanyStatus {
+  Ativo
+  Inativo
+  Em_analise @map("Em análise")
+}
+
+enum ContactStatus {
+  Ativo
+  Inativo
+}
+
+enum LeadStatus {
+  Novo_Lead        @map("Novo Lead")
+  Qualificacao     @map("Qualificação")
+  Primeiro_Contato @map("Primeiro Contato")
+  Diagnostico      @map("Diagnóstico")
+  Proposta
+  Negociacao       @map("Negociação")
+  Fechado_Ganho    @map("Fechado Ganho")
+  Fechado_Perdido  @map("Fechado Perdido")
+}
+
+enum LeadTemperature {
+  Frio
+  Morno
+  Quente
+}
+
+enum ActivityType {
+  Ligacao   @map("Ligação")
+  WhatsApp
+  Email     @map("E-mail")
+  Reuniao   @map("Reunião")
+  Follow_up @map("Follow-up")
+  Visita
+  Tarefa
+}
+
+enum ActivityStatus {
+  Pendente
+  Em_andamento @map("Em andamento")
+  Concluida    @map("Concluída")
+  Cancelada
+}
+
 model Company {
-  id               String    @id @default(cuid())
-  legalName        String
-  tradeName        String
-  cnpj             String?
+  id                String        @id @default(cuid())
+  legalName         String
+  tradeName         String
+  cnpj              String?
   stateRegistration String?
-  segment          String?
-  cnae             String?
-  size             String?
-  employeeCount    Int?
-  estimatedRevenue Float?
-  website          String?
-  linkedin         String?
-  instagram        String?
-  phones           String[]
-  emails           String[]
-  address          String?
-  city             String?
-  state            String?
-  zipCode          String?
-  owner            String?
-  status           String    @default("Ativo")
-  tags             String[]
-  observations     String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  segment           String?
+  cnae              String?
+  size              String?
+  employeeCount     Int?
+  estimatedRevenue  Float?
+  website           String?
+  linkedin          String?
+  instagram         String?
+  phones            String[]
+  emails            String[]
+  address           String?
+  city              String?
+  state             String?
+  zipCode           String?
+  owner             String?
+  status            CompanyStatus @default(Ativo)
+  tags              String[]
+  observations      String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   // Enrichment (Receita Federal / BrasilAPI + heurísticas)
   situacaoCadastral String?
@@ -43,11 +90,11 @@ model Company {
   enrichmentSource  String?
   enrichedAt        DateTime?
 
-  contacts         Contact[]
-  leads            Lead[]
-  enrichmentLogs   EnrichmentLog[]
-  organizationId   String?
-  organization     Organization? @relation(fields: [organizationId], references: [id])
+  contacts       Contact[]
+  leads          Lead[]
+  enrichmentLogs EnrichmentLog[]
+  organizationId String?
+  organization   Organization?   @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId])
   @@index([cnpj])
@@ -58,9 +105,9 @@ model EnrichmentLog {
   id        String   @id @default(cuid())
   companyId String
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  source    String   // BrasilAPI-CNPJ | BrasilAPI-CEP | AI-Estimate | Domain-Heuristic
-  field     String   // o que foi enriquecido (ex: "dados-cadastrais", "endereco", "contatos-sugeridos")
-  status    String   // success | not_found | failed
+  source    String // BrasilAPI-CNPJ | BrasilAPI-CEP | AI-Estimate | Domain-Heuristic
+  field     String // o que foi enriquecido (ex: "dados-cadastrais", "endereco", "contatos-sugeridos")
+  status    String // success | not_found | failed
   rawData   Json?
   createdAt DateTime @default(now())
 
@@ -68,110 +115,102 @@ model EnrichmentLog {
 }
 
 model Contact {
-  id               String    @id @default(cuid())
-  name             String
-  role             String?
-  department       String?
-  phone            String?
-  whatsapp         String?
-  email            String?
-  linkedin         String?
-  birthDate        DateTime?
-  observations     String?
-  status           String    @default("Ativo")
+  id           String        @id @default(cuid())
+  name         String
+  role         String?
+  department   String?
+  phone        String?
+  whatsapp     String?
+  email        String?
+  linkedin     String?
+  birthDate    DateTime?
+  observations String?
+  status       ContactStatus @default(Ativo)
 
-  companyId        String
-  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  leads            Lead[]
-  organizationId   String?
-  organization     Organization? @relation(fields: [organizationId], references: [id])
+  companyId      String
+  company        Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leads          Lead[]
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId])
 }
 
 model Lead {
-  id               String    @id @default(cuid())
-
-  // Backward compatibility
-  name             String?
-  segment          String?
-  size             String?
-  location         String?
-  status           String    @default("Novo Lead")
-  fitScore         Int?
-  notes            String?
+  id String @id @default(cuid())
 
   // New CRM fields
-  source           String?
-  channel          String?
-  temperature      String?
-  score            Int?
-  owner            String?
-  lastInteraction  DateTime?
-  nextAction       DateTime?
+  status          LeadStatus       @default(Novo_Lead)
+  source          String?
+  channel         String?
+  temperature     LeadTemperature?
+  score           Int?
+  owner           String?
+  lastInteraction DateTime?
+  nextAction      DateTime?
 
-  companyId        String?
-  company          Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  contactId        String?
-  contact          Contact?   @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
-  activities       Activity[]
-  timeline         TimelineEvent[]
-  internalNotes    Note[]
-  organizationId   String?
-  organization     Organization? @relation(fields: [organizationId], references: [id])
+  activities     Activity[]
+  timeline       TimelineEvent[]
+  internalNotes  Note[]
+  organizationId String?
+  organization   Organization?   @relation(fields: [organizationId], references: [id])
 
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId])
   @@index([organizationId, status])
 }
 
 model Activity {
-  id               String    @id @default(cuid())
-  type             String // Ligação, WhatsApp, E-mail, Reunião, Follow-up, Visita, Tarefa
-  owner            String
-  date             DateTime
-  time             String?
-  status           String    @default("Pendente")
-  observations     String?
+  id           String         @id @default(cuid())
+  type         ActivityType
+  owner        String
+  date         DateTime
+  time         String?
+  status       ActivityStatus @default(Pendente)
+  observations String?
 
-  leadId           String
-  lead             Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  organizationId   String?
-  organization     Organization? @relation(fields: [organizationId], references: [id])
+  leadId         String
+  lead           Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId])
 }
 
 model TimelineEvent {
-  id               String    @id @default(cuid())
-  type             String // creation, edition, movement, activity, comment, generic
-  description      String
+  id          String @id @default(cuid())
+  type        String // creation, edition, movement, activity, comment, generic
+  description String
 
-  leadId           String
-  lead             Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  createdAt        DateTime  @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Note {
-  id               String    @id @default(cuid())
-  content          String    // Rich text
-  author           String
+  id      String @id @default(cuid())
+  content String // Rich text
+  author  String
 
-  leadId           String
-  lead             Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model AuditLog {
@@ -190,25 +229,25 @@ model AuditLog {
 }
 
 model User {
-  id             String    @id @default(cuid())
+  id             String       @id @default(cuid())
   name           String
-  email          String    @unique
+  email          String       @unique
   passwordHash   String
-  role           String    @default("VISUALIZADOR")
+  role           String       @default("VISUALIZADOR")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  users     User[]
-  companies Company[]
-  contacts  Contact[]
-  leads     Lead[]
+  id         String     @id @default(cuid())
+  name       String     @unique
+  users      User[]
+  companies  Company[]
+  contacts   Contact[]
+  leads      Lead[]
   activities Activity[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 }

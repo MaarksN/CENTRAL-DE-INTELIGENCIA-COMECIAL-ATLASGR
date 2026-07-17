@@ -71,14 +71,6 @@ export const contactSchema = z.object({
 });
 
 export const leadSchema = z.object({
-    // Legacy backward-compat fields (will be removed in Sprint 5)
-    name: z.string().optional().nullable(),
-    segment: z.string().optional().nullable(),
-    size: z.string().optional().nullable(),
-    location: z.string().optional().nullable(),
-    fitScore: z.number().int().optional().nullable(),
-    notes: z.string().optional().nullable(),
-
     // Core CRM fields
     status: z.enum(LEAD_STATUS).default('Novo Lead'),
     source: z.string().optional().nullable(),

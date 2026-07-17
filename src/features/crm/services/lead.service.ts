@@ -1,6 +1,7 @@
 import { prisma } from '../../../lib/prisma';
 import { leadSchema } from '../../../lib/zod';
 import { z } from 'zod';
+import { enrichCompany } from '../../prospecting/services/enrichment.service';
 
 export class LeadService {
     async findAll(organizationId: string, status?: string, page: number = 1, limit: number = 50) {
@@ -93,6 +94,41 @@ export class LeadService {
         const currentLead = await prisma.lead.findFirst({ where: { id, organizationId } });
         if (!currentLead) throw new Error('Lead not found');
         return prisma.lead.delete({ where: { id } });
+    }
+
+    /** Reenriquece o lead já prospectado: roda Receita Federal + heurísticas na empresa vinculada e recalcula o fit score. */
+    async enrich(organizationId: string, id: string) {
+        const lead = await prisma.lead.findFirst({ where: { id, organizationId }, include: { company: true } });
+        if (!lead) throw new Error('Lead not found');
+        if (!lead.companyId) throw new Error('Lead sem empresa vinculada — não é possível enriquecer');
+
+        const result = await enrichCompany(lead.companyId, {
+            segmentKeywords: lead.segment ? [lead.segment] : undefined,
+            fleetSizeHint: lead.size || undefined,
+        });
+
+        const location = [result.company.city, result.company.state].filter(Boolean).join(', ') || lead.location;
+
+        const updated = await prisma.lead.update({
+            where: { id },
+            data: {
+                score: result.fit.score,
+                fitScore: result.fit.score,
+                temperature: result.fit.temperature,
+                segment: result.company.segment ?? lead.segment,
+                size: result.company.size ?? lead.size,
+                location,
+                timeline: {
+                    create: {
+                        type: 'generic',
+                        description: `Lead reenriquecido — novo fit score ${result.fit.score}% (${result.fit.temperature})`,
+                    },
+                },
+            },
+            include: { company: true, contact: true, timeline: { orderBy: { createdAt: 'desc' }, take: 1 } },
+        });
+
+        return { lead: updated, fit: result.fit, enrichment: result };
     }
 }
 export const leadService = new LeadService();

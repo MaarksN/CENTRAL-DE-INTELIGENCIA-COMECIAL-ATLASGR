@@ -65,6 +65,11 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
 // Re-enriquece uma empresa já existente no CRM (Receita Federal + heurísticas de domínio/e-mail).
 router.post('/:id/enrich', async (req: Request, res: Response, next: NextFunction) => {
     try {
+        const { organizationId: orgId } = (req as AuthRequest).user;
+        const company = await companyService.findById(orgId, req.params.id);
+        if (!company) {
+            return res.status(404).json({ success: false, error: 'Company not found' });
+        }
         const result = await enrichCompany(req.params.id, { cnpj: req.body?.cnpj, segmentKeywords: req.body?.segmentKeywords });
         res.json({ success: true, data: result });
     } catch (error) {

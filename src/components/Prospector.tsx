@@ -1,10 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, Save, MapPin, Building2, Users, Database, Globe, CheckCircle2, TrendingUp, Cpu } from 'lucide-react';
-import { Lead, SearchCriteria } from '../types/index';
+import { SearchCriteria } from '../types/index';
 import { api } from '../lib/api';
 
+export interface Prospect {
+    name: string;
+    segment: string;
+    size: string;
+    location: string;
+    fitScore: number;
+    notes?: string;
+}
+
 interface ProspectorProps {
-    onSaveLead: (lead: Omit<Lead, 'id' | 'status'>) => void;
+    onSaveLead: (prospect: Prospect) => void;
 }
 
 const loadingSteps = [
@@ -27,12 +36,11 @@ export function Prospector({ onSaveLead }: ProspectorProps) {
 
     const [isSearching, setIsSearching] = useState(false);
     const [loadingStepIdx, setLoadingStepIdx] = useState(0);
-    const [results, setResults] = useState<Omit<Lead, 'id' | 'status'>[]>([]);
+    const [results, setResults] = useState<Prospect[]>([]);
 
     useEffect(() => {
         let interval: ReturnType<typeof setInterval>;
         if (isSearching) {
-
             interval = setInterval(() => {
                 setLoadingStepIdx(prev => Math.min(prev + 1, loadingSteps.length - 1));
             }, 800);
@@ -45,7 +53,7 @@ export function Prospector({ onSaveLead }: ProspectorProps) {
         setResults([]);
         
         try {
-            const data = await api.post<Omit<Lead, 'id' | 'status'>[]>('/api/prospect', criteria);
+            const data = await api.post<Prospect[]>('/api/prospect', criteria);
             setResults(data);
         } catch (error) {
             console.error("Error fetching leads:", error);
@@ -146,7 +154,7 @@ export function Prospector({ onSaveLead }: ProspectorProps) {
                                 <div className="mb-4 sm:mb-0 flex-1">
                                     <div className="flex items-center gap-3 mb-2">
                                         <h3 className="font-black text-lg text-atlas-dark group-hover:text-atlas-orange transition-colors">{r.name}</h3>
-                                        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${r.fitScore! >= 90 ? 'bg-green-100 text-green-700' : r.fitScore! >= 80 ? 'bg-blue-100 text-blue-700' : 'bg-atlas-yellow/20 text-atlas-dark'}`}>
+                                        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${r.fitScore >= 90 ? 'bg-green-100 text-green-700' : r.fitScore >= 80 ? 'bg-blue-100 text-blue-700' : 'bg-atlas-yellow/20 text-atlas-dark'}`}>
                                             <TrendingUp size={10} />
                                             Fit {r.fitScore}%
                                         </div>

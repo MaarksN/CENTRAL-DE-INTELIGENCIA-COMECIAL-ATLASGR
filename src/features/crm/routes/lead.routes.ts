@@ -67,4 +67,15 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     }
 });
 
+// Reenriquece um lead já prospectado (Receita Federal + heurísticas) e recalcula o fit score.
+router.post('/:id/enrich', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { organizationId: orgId } = (req as AuthRequest).user;
+        const result = await leadService.enrich(orgId, req.params.id);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export const leadRoutes = router;
