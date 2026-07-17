@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Building2, MapPin, Users, FileText, Activity } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Users, FileText, Activity, Star, Clock } from 'lucide-react';
 import { Company } from '../../../types';
 import { api } from '../../../lib/api';
 
@@ -130,6 +130,35 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
                     </div>
 
                     <div className="space-y-6">
+                        {(company.googleRating != null || company.businessHours) && (
+                            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                                <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Google Negócios</h2>
+                                <div className="space-y-3">
+                                    {company.googleRating != null && (
+                                        <div className="flex items-center gap-2">
+                                            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                                            <span className="text-sm font-semibold text-gray-900">{company.googleRating.toFixed(1)}</span>
+                                            <span className="text-xs text-gray-500">({company.googleReviewsCount ?? 0} avaliações)</span>
+                                        </div>
+                                    )}
+                                    {company.businessHours?.openNow != null && (
+                                        <div className="flex items-center gap-2">
+                                            <Clock className="w-4 h-4 text-gray-400" />
+                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${company.businessHours.openNow ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                {company.businessHours.openNow ? 'Aberto agora' : 'Fechado agora'}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {company.businessHours?.weekdayDescriptions && company.businessHours.weekdayDescriptions.length > 0 && (
+                                        <ul className="text-xs text-gray-600 space-y-1">
+                                            {company.businessHours.weekdayDescriptions.map((d, i) => (
+                                                <li key={i}>{d}</li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                         <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                             <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Informações Adicionais</h2>
                             <div className="space-y-4">

@@ -2,10 +2,35 @@ import { prisma } from '../../../lib/prisma';
 import { leadSchema, type LeadStatus } from '../../../lib/zod';
 import { z } from 'zod';
 import { enrichCompany } from '../../prospecting/services/enrichment.service';
-import { toPrismaLeadStatus, fromPrismaLeadStatus } from '../../../lib/enumMap';
+import {
+    toPrismaLeadStatus,
+    fromPrismaLeadStatus,
+    fromPrismaCompanyStatus,
+    fromPrismaActivityType,
+    fromPrismaActivityStatus,
+} from '../../../lib/enumMap';
 
-function serializeLead<T extends { status: string }>(lead: T): T & { status: LeadStatus } {
-    return { ...lead, status: fromPrismaLeadStatus(lead.status) };
+function serializeLead<
+    T extends {
+        status: string;
+        company?: { status: string } | null;
+        activities?: Array<{ type: string; status: string }>;
+    }
+>(lead: T): T & { status: LeadStatus } {
+    return {
+        ...lead,
+        status: fromPrismaLeadStatus(lead.status),
+        ...(lead.company ? { company: { ...lead.company, status: fromPrismaCompanyStatus(lead.company.status) } } : {}),
+        ...(lead.activities
+            ? {
+                  activities: lead.activities.map((a) => ({
+                      ...a,
+                      type: fromPrismaActivityType(a.type),
+                      status: fromPrismaActivityStatus(a.status),
+                  })),
+              }
+            : {}),
+    };
 }
 
 export class LeadService {

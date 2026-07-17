@@ -2,12 +2,38 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../../lib/prisma';
 import { activitySchema, type ActivityType, type ActivityStatus } from '../../../lib/zod';
 import { z } from 'zod';
-import { toPrismaActivityType, fromPrismaActivityType, toPrismaActivityStatus, fromPrismaActivityStatus } from '../../../lib/enumMap';
+import {
+    toPrismaActivityType,
+    fromPrismaActivityType,
+    toPrismaActivityStatus,
+    fromPrismaActivityStatus,
+    fromPrismaLeadStatus,
+    fromPrismaCompanyStatus,
+} from '../../../lib/enumMap';
 
-function serializeActivity<T extends { type: string; status: string }>(
-    activity: T
-): T & { type: ActivityType; status: ActivityStatus } {
-    return { ...activity, type: fromPrismaActivityType(activity.type), status: fromPrismaActivityStatus(activity.status) };
+function serializeActivity<
+    T extends {
+        type: string;
+        status: string;
+        lead?: { status: string; company?: { status: string } | null } | null;
+    }
+>(activity: T): T & { type: ActivityType; status: ActivityStatus } {
+    return {
+        ...activity,
+        type: fromPrismaActivityType(activity.type),
+        status: fromPrismaActivityStatus(activity.status),
+        ...(activity.lead
+            ? {
+                  lead: {
+                      ...activity.lead,
+                      status: fromPrismaLeadStatus(activity.lead.status),
+                      ...(activity.lead.company
+                          ? { company: { ...activity.lead.company, status: fromPrismaCompanyStatus(activity.lead.company.status) } }
+                          : {}),
+                  },
+              }
+            : {}),
+    };
 }
 
 export class ActivityService {
