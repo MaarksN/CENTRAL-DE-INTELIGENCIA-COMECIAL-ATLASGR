@@ -30,7 +30,7 @@ describe('CompanyService Integration', () => {
       await prisma.company.create({ data: CompanyFactory.build({ legalName: 'Beta Inc' }) });
 
       const companies = await companyService.findAll('test-org-id');
-      expect(companies.length).toBeGreaterThanOrEqual(2);
+      expect(companies.data.length).toBeGreaterThanOrEqual(2);
     });
   });
 });
