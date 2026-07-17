@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Plus, User, Building, Phone, Mail, Edit, Trash } from 'lucide-react';
 import { Contact } from '../../../types';
 import { ContactForm } from './ContactForm';
@@ -10,7 +10,7 @@ export function ContactList() {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
-    const fetchContacts = async () => {
+    const fetchContacts = useCallback(async () => {
         setLoading(true);
         try {
             const url = searchTerm ? `/api/contacts?q=${encodeURIComponent(searchTerm)}` : '/api/contacts';
@@ -24,14 +24,14 @@ export function ContactList() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchTerm]);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
             fetchContacts();
         }, 300);
         return () => clearTimeout(timeoutId);
-    }, [searchTerm]);
+    }, [fetchContacts]);
 
     const handleDelete = async (id: string) => {
         if (!confirm('Tem certeza que deseja excluir este contato?')) return;

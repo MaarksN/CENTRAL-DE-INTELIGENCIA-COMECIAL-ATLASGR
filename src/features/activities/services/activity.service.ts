@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 export class ActivityService {
     async findAll(dateStr?: string) {
-        const where: any = {};
+        const where: { date?: { gte: Date; lt: Date } } = {};
         if (dateStr) {
             const searchDate = new Date(dateStr);
             where.date = {
@@ -42,7 +42,7 @@ export class ActivityService {
         const currentActivity = await prisma.activity.findUnique({ where: { id } });
         if (!currentActivity) throw new Error('Activity not found');
 
-        const updateData: any = { ...data };
+        const updateData: Partial<z.infer<typeof activitySchema>> & { date?: Date } = { ...data };
         if (data.date) updateData.date = new Date(data.date);
 
         return prisma.activity.update({

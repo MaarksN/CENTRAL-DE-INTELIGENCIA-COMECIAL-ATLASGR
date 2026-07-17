@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { TimelineEvent } from '../../../types';
 import { History, Activity, MessageCircle, ArrowRight, User } from 'lucide-react';
 
@@ -28,13 +28,13 @@ export function Timeline({ leadId }: TimelineProps) {
         fetchTimeline();
     }, [leadId]);
 
-    const getEventIcon = (type: string) => {
+    const getEventIcon = (type: string, className = 'w-4 h-4') => {
         switch (type) {
-            case 'creation': return <User className="w-4 h-4" />;
-            case 'movement': return <ArrowRight className="w-4 h-4" />;
-            case 'activity': return <Activity className="w-4 h-4" />;
-            case 'comment': return <MessageCircle className="w-4 h-4" />;
-            default: return <History className="w-4 h-4" />;
+            case 'creation': return <User className={className} />;
+            case 'movement': return <ArrowRight className={className} />;
+            case 'activity': return <Activity className={className} />;
+            case 'comment': return <MessageCircle className={className} />;
+            default: return <History className={className} />;
         }
     };
 
@@ -65,7 +65,7 @@ export function Timeline({ leadId }: TimelineProps) {
                 {events.map((event) => (
                     <div key={event.id} className="relative pl-6">
                         <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border flex items-center justify-center ${getEventColor(event.type)}`}>
-                            {React.cloneElement(getEventIcon(event.type) as React.ReactElement<any>, { className: 'w-2.5 h-2.5' })}
+                        {getEventIcon(event.type, 'w-2.5 h-2.5')}
                         </div>
                         <div>
                             <p className="text-sm text-gray-900">{event.description}</p>
