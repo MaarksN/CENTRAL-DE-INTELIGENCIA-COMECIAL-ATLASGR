@@ -9,8 +9,10 @@ const router = Router();
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { organizationId: orgId } = (req as AuthRequest).user;
-        const contacts = await contactService.findAll(orgId, req.query.q as string | undefined);
-        res.json({ success: true, data: contacts });
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 50;
+        const result = await contactService.findAll(orgId, req.query.q as string | undefined, page, limit);
+        res.json({ success: true, data: result.data, meta: result.meta });
     } catch (error) {
         next(error);
     }

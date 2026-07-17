@@ -13,18 +13,39 @@ export function CompanyList() {
     const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
     const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
 
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+
     const fetchCompanies = useCallback(async () => {
         setLoading(true);
         try {
-            const url = searchTerm ? `/api/companies?q=${encodeURIComponent(searchTerm)}` : '/api/companies';
-            const data = await api.get<Company[]>(url);
-            setCompanies(data);
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                limit: '20'
+            });
+            if (searchTerm) {
+                queryParams.append('q', searchTerm);
+            }
+            
+            const url = `/api/companies?${queryParams.toString()}`;
+            // Because our api wrapper returns { data, meta } if meta exists
+            const response = await api.get<{data: Company[], meta: { totalPages: number }}>(url);
+            
+            // Handle both legacy array response and new paginated response during transition
+            if (Array.isArray(response)) {
+                setCompanies(response);
+            } else if (response && response.data) {
+                setCompanies(response.data);
+                if (response.meta) {
+                    setTotalPages(response.meta.totalPages);
+                }
+            }
         } catch (error) {
             console.error('Error fetching companies:', error);
         } finally {
             setLoading(false);
         }
-    }, [searchTerm]);
+    }, [searchTerm, page]);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
@@ -76,7 +97,7 @@ export function CompanyList() {
                             type="text"
                             placeholder="Buscar por nome, CNPJ..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
                             className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
                         />
                     </div>
@@ -168,6 +189,31 @@ export function CompanyList() {
                             </tbody>
                         </table>
                     </div>
+                    
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div className="p-4 border-t border-gray-200 bg-gray-50/50 flex justify-between items-center">
+                            <span className="text-sm text-gray-500">
+                                Página {page} de {totalPages}
+                            </span>
+                            <div className="flex gap-2">
+                                <button
+                                    disabled={page === 1}
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    className="px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm font-medium"
+                                >
+                                    Anterior
+                                </button>
+                                <button
+                                    disabled={page === totalPages}
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    className="px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm font-medium"
+                                >
+                                    Próxima
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

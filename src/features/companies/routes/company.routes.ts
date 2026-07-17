@@ -10,8 +10,10 @@ const router = Router();
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { organizationId: orgId } = (req as AuthRequest).user;
-        const companies = await companyService.findAll(orgId, req.query.q as string | undefined);
-        res.json({ success: true, data: companies });
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 50;
+        const result = await companyService.findAll(orgId, req.query.q as string | undefined, page, limit);
+        res.json({ success: true, data: result.data, meta: result.meta });
     } catch (error) {
         next(error);
     }

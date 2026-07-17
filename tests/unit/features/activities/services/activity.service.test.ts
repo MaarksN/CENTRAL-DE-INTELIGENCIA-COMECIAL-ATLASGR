@@ -48,7 +48,7 @@ describe('ActivityService', () => {
     const dateStr = '2024-01-01T10:00:00Z';
     const result = await activityService.findAll('test-org-id', dateStr);
     expect(prisma.activity.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { date: expect.any(Object) }
+      where: { date: expect.any(Object), organizationId: 'test-org-id' }
     }));
     expect(result).toEqual([mockActivity]);
   });

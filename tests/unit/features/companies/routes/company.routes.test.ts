@@ -17,6 +17,10 @@ vi.mock('@/features/companies/services/company.service', () => ({
 
 const app = express();
 app.use(express.json());
+app.use((req, res, next) => {
+    (req as any).user = { id: 'test-user', organizationId: 'test-org-id' };
+    next();
+});
 app.use('/api/companies', companyRoutes);
 app.use(errorHandler);
 
@@ -26,13 +30,13 @@ describe('Company Routes', () => {
     });
 
     it('GET /api/companies should return companies', async () => {
-        const mockCompanies = [{ id: '1', legalName: 'Test' }];
+        const mockCompanies = { data: [{ id: '1', legalName: 'Test' }], meta: { total: 1, page: 1, limit: 50, totalPages: 1 } };
         vi.mocked(companyService.findAll).mockResolvedValue(mockCompanies as any);
 
         const res = await request(app).get('/api/companies');
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
-        expect(res.body.data).toEqual(mockCompanies);
+        expect(res.body.data).toEqual(mockCompanies.data);
     });
 
     it('GET /api/companies/:id should return a company', async () => {

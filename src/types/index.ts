@@ -11,6 +11,18 @@ export type {
 
 export type { COMPANY_STATUS, LEAD_STATUS, ACTIVITY_TYPE, ACTIVITY_STATUS, LEAD_TEMPERATURE, CONTACT_STATUS } from '../lib/zod';
 
+export interface PaginatedMeta {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
+
+export interface PaginatedResponse<T> {
+    data: T[];
+    meta: PaginatedMeta;
+}
+
 export interface Company {
     id: string;
     legalName: string;

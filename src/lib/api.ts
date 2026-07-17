@@ -34,6 +34,9 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
         if (!data.success) {
             throw new Error(data.error || 'API request failed');
         }
+        if ('meta' in data) {
+            return { data: data.data, meta: data.meta } as T;
+        }
         return data.data as T;
     }
     
