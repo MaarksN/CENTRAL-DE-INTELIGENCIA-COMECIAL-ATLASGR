@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../../lib/prisma';
 import { contactSchema } from '../../../lib/zod';
 import { z } from 'zod';
+import { enrichCompany } from '../../prospecting/services/enrichment.service';
 
 export class ContactService {
     async findAll(organizationId: string, query?: string, page: number = 1, limit: number = 50) {
@@ -9,7 +10,13 @@ export class ContactService {
         if (query) {
             where.OR = [
                 { name: { contains: query, mode: 'insensitive' } },
-                { email: { contains: query, mode: 'insensitive' } }
+                { email: { contains: query, mode: 'insensitive' } },
+                { phone: { contains: query, mode: 'insensitive' } },
+                { whatsapp: { contains: query, mode: 'insensitive' } },
+                { role: { contains: query, mode: 'insensitive' } },
+                { department: { contains: query, mode: 'insensitive' } },
+                { company: { tradeName: { contains: query, mode: 'insensitive' } } },
+                { company: { legalName: { contains: query, mode: 'insensitive' } } },
             ];
         }
         
@@ -58,6 +65,18 @@ export class ContactService {
         const existing = await prisma.contact.findFirst({ where: { id, organizationId } });
         if (!existing) throw new Error('Contact not found');
         return prisma.contact.delete({ where: { id } });
+    }
+
+    /** Enriquece a empresa vinculada ao contato (Receita Federal + Google Negócios + Apollo) e retorna o contato atualizado. */
+    async enrich(organizationId: string, id: string) {
+        const contact = await prisma.contact.findFirst({ where: { id, organizationId } });
+        if (!contact) throw new Error('Contact not found');
+        if (!contact.companyId) throw new Error('Contato sem empresa vinculada — não é possível enriquecer');
+
+        const result = await enrichCompany(contact.companyId, {});
+        const updated = await this.findById(organizationId, id);
+
+        return { contact: updated, fit: result.fit, enrichment: result };
     }
 }
 export const contactService = new ContactService();

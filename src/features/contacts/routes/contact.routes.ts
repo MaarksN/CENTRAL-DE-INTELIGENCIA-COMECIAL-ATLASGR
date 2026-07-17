@@ -61,4 +61,15 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     }
 });
 
+// Enriquece a empresa vinculada ao contato com IA (Receita Federal + Google Negócios + Apollo).
+router.post('/:id/enrich', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { organizationId: orgId } = (req as AuthRequest).user;
+        const result = await contactService.enrich(orgId, req.params.id);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export const contactRoutes = router;

@@ -10,13 +10,13 @@ interface HeaderProps {
 
 export function Header({ activeTab, onTabChange }: HeaderProps) {
     const tabs = [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'companies', label: 'Empresas', icon: Building2 },
-        { id: 'contacts', label: 'Contatos', icon: User },
-        { id: 'crm', label: 'Pipeline', icon: LayoutTemplate },
-        { id: 'activities', label: 'Atividades', icon: Activity },
-        { id: 'prospect', label: 'Prospector', icon: Users },
-        { id: 'intelligence', label: 'IA', icon: Zap, highlight: true }
+        { id: 'dashboard', label: 'Dashboard', emoji: '📊', icon: LayoutDashboard },
+        { id: 'companies', label: 'Empresas', emoji: '🏢', icon: Building2 },
+        { id: 'contacts', label: 'Contatos', emoji: '👥', icon: User },
+        { id: 'crm', label: 'Pipeline', emoji: '🎯', icon: LayoutTemplate },
+        { id: 'activities', label: 'Atividades', emoji: '📅', icon: Activity },
+        { id: 'prospect', label: 'Prospector', emoji: '🔍', icon: Users },
+        { id: 'intelligence', label: 'IA', emoji: '⚡', icon: Zap, highlight: true }
     ];
 
     return (
@@ -25,7 +25,9 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                 <div className="flex items-center gap-3 shrink-0 mr-6">
                     <Logo className="h-10" />
                     <div className="h-8 w-px bg-gray-200 mx-2 hidden md:block"></div>
-                    <span className="font-bold text-xs tracking-widest uppercase text-gray-400 hidden md:block">Smart CRM</span>
+                    <span className="font-bold text-xs tracking-widest uppercase bg-gradient-to-r from-atlas-orange to-amber-500 bg-clip-text text-transparent hidden md:block">
+                        ⚡ Turbo CRM
+                    </span>
                 </div>
 
                 <nav className="flex gap-2 shrink-0">
@@ -40,7 +42,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                             }`}
                         >
                             <tab.icon size={16} className={tab.highlight && activeTab === tab.id ? 'text-atlas-orange' : ''} />
-                            <span className="hidden sm:inline">{tab.label}</span>
+                            <span className="hidden sm:inline">{tab.emoji} {tab.label}</span>
                         </button>
                     ))}
                 </nav>
