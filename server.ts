@@ -4,7 +4,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import prisma, { initDb } from './src/lib/prisma.js';
+import { prisma } from './src/lib/prisma.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -26,7 +26,6 @@ const authenticateToken = (req: any, res: any, next: any) => {
 
 
 async function startServer() {
-    await initDb();
     const app = express();
     const PORT = 3000;
 
