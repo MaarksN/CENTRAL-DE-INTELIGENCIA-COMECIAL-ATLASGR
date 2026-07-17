@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Clock, AlertTriangle, CheckCircle, Settings, Play } from 'lucide-react';
+import { Activity, Clock, AlertTriangle, Settings, Play } from 'lucide-react';
 import { Badge } from '../../ui/Badge';
 
 export function WorkflowMonitor() {
@@ -69,8 +69,8 @@ export function WorkflowMonitor() {
   );
 }
 
-function TelemetryCard({ title, value, icon, color }: any) {
-  const colorMap: any = {
+function TelemetryCard({ title, value, icon, color }: unknown) {
+  const colorMap: unknown = {
     blue: 'bg-blue-50 text-blue-600 border-blue-200',
     emerald: 'bg-emerald-50 text-emerald-600 border-emerald-200',
     red: 'bg-red-50 text-red-600 border-red-200',

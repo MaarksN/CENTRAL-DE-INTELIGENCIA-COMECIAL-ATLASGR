@@ -1,6 +1,6 @@
 import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { DollarSign, Users, Briefcase, TrendingUp, Sparkles } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, Sparkles } from 'lucide-react';
 
 const revenueData = [
   { name: 'Jan', value: 4000 },
@@ -93,7 +93,7 @@ export function AnalyticsDashboard() {
   );
 }
 
-function KPICard({ title, value, icon, trend, trendUp }: any) {
+function KPICard({ title, value, icon, trend, trendUp }: unknown) {
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
       <div>
