@@ -1,8 +1,10 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 datasource db {
   provider = "postgresql"
+  url = env("DATABASE_URL")
   extensions = [vector]
 }
 
@@ -428,3 +430,17 @@ model DocumentChunk {
   createdAt    DateTime @default(now())
 }
 
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String?
+  actorId   String?
+  tenantId  String?
+  ipAddress String?
+  details   String?  @db.Text
+  timestamp DateTime @default(now())
+
+  @@index([tenantId, entity, action])
+  @@index([actorId, timestamp])
+}
