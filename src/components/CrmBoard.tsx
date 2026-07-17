@@ -64,6 +64,17 @@ export function CrmBoard() {
         console.log('Clicked lead:', lead);
     }, []);
 
+    const groupedLeads = React.useMemo(() => {
+        const grouped = {} as Record<LeadStatus, Lead[]>;
+        COLUMNS.forEach(status => grouped[status] = []);
+        leads.forEach(lead => {
+            if (grouped[lead.status]) {
+                grouped[lead.status].push(lead);
+            }
+        });
+        return grouped;
+    }, [leads]);
+
     return (
         <div className="flex-1 flex flex-col h-full bg-white animate-in fade-in duration-500 overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
@@ -87,7 +98,7 @@ export function CrmBoard() {
                             <KanbanColumn
                                 key={status}
                                 status={status}
-                                leads={leads.filter(l => l.status === status)}
+                                leads={groupedLeads[status]}
                                 onDrop={handleDrop}
                                 onDragOver={handleDragOver}
                                 onCardDragStart={handleDragStart}
