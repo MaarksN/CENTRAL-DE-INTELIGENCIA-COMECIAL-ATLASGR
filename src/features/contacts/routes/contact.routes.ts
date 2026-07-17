@@ -2,12 +2,13 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { contactService } from '../services/contact.service.js';
 import { validateRequest } from '../../../shared/middlewares/validateRequest.js';
 import { contactSchema } from '../../../lib/zod.js';
+import type { AuthRequest } from '../../../shared/middlewares/authenticateToken.js';
 
 const router = Router();
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         const contacts = await contactService.findAll(orgId, req.query.q as string | undefined);
         res.json({ success: true, data: contacts });
     } catch (error) {
@@ -17,7 +18,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         const contact = await contactService.findById(orgId, req.params.id);
         if (!contact) {
             return res.status(404).json({ success: false, error: 'Contact not found' });
@@ -30,7 +31,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 
 router.post('/', validateRequest(contactSchema), async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         const contact = await contactService.create(orgId, req.body);
         res.status(201).json({ success: true, data: contact });
     } catch (error) {
@@ -40,7 +41,7 @@ router.post('/', validateRequest(contactSchema), async (req: Request, res: Respo
 
 router.put('/:id', validateRequest(contactSchema.partial()), async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         const contact = await contactService.update(orgId, req.params.id, req.body);
         res.json({ success: true, data: contact });
     } catch (error) {
@@ -50,7 +51,7 @@ router.put('/:id', validateRequest(contactSchema.partial()), async (req: Request
 
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         await contactService.delete(orgId, req.params.id);
         res.status(204).send();
     } catch (error) {

@@ -11,6 +11,7 @@ import { contactRoutes } from './src/features/contacts/routes/contact.routes.js'
 import { leadRoutes } from './src/features/crm/routes/lead.routes.js';
 import { activityRoutes } from './src/features/activities/routes/activity.routes.js';
 import { prospectingRoutes } from './src/features/prospecting/routes/prospecting.routes.js';
+import { noteRoutes } from './src/features/notes/routes/note.routes.js';
 import { errorHandler } from './src/shared/middlewares/errorHandler.js';
 
 async function startServer() {
@@ -42,42 +43,9 @@ async function startServer() {
     app.use('/api/companies', authenticateToken, companyRoutes);
     app.use('/api/contacts', authenticateToken, contactRoutes);
     app.use('/api/leads', authenticateToken, leadRoutes);
+    app.use('/api/leads/:leadId/notes', authenticateToken, noteRoutes);
     app.use('/api/activities', authenticateToken, activityRoutes);
     app.use('/api/prospecting', authenticateToken, prospectingRoutes);
-
-
-    // --- Notes API ---
-    app.post('/api/leads/:id/notes', authenticateToken, async (req: express.Request, res: express.Response) => {
-        try {
-            const orgId = (req as any).user.organizationId;
-            const { content, author } = req.body;
-            const leadId = req.params.id;
-
-            // Optional: verify lead belongs to orgId
-            const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: orgId } });
-            if (!lead) return res.status(404).json({ error: 'Lead not found' });
-
-            const note = await prisma.note.create({
-                data: {
-                    content,
-                    author,
-                    leadId
-                }
-            });
-
-            await prisma.timelineEvent.create({
-                data: {
-                    type: 'comment',
-                    description: `Nova nota adicionada por ${author}`,
-                    leadId
-                }
-            });
-
-            res.status(201).json(note);
-        } catch (error) {
-            res.status(500).json({ error: 'Failed to create note' });
-        }
-    });
 
 
     app.use('/api/intelligence', authenticateToken, intelligenceRoutes);

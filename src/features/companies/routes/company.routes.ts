@@ -3,12 +3,13 @@ import { companyService } from '../services/company.service.js';
 import { validateRequest } from '../../../shared/middlewares/validateRequest.js';
 import { companySchema } from '../../../lib/zod.js';
 import { enrichCompany } from '../../prospecting/services/enrichment.service.js';
+import type { AuthRequest } from '../../../shared/middlewares/authenticateToken.js';
 
 const router = Router();
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         const companies = await companyService.findAll(orgId, req.query.q as string | undefined);
         res.json({ success: true, data: companies });
     } catch (error) {
@@ -18,7 +19,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         const company = await companyService.findById(orgId, req.params.id);
         if (!company) {
             return res.status(404).json({ success: false, error: 'Company not found' });
@@ -31,7 +32,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 
 router.post('/', validateRequest(companySchema), async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         const company = await companyService.create(orgId, req.body);
         res.status(201).json({ success: true, data: company });
     } catch (error) {
@@ -41,7 +42,7 @@ router.post('/', validateRequest(companySchema), async (req: Request, res: Respo
 
 router.put('/:id', validateRequest(companySchema.partial()), async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         const company = await companyService.update(orgId, req.params.id, req.body);
         res.json({ success: true, data: company });
     } catch (error) {
@@ -51,7 +52,7 @@ router.put('/:id', validateRequest(companySchema.partial()), async (req: Request
 
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = (req as any).user.organizationId;
+        const { organizationId: orgId } = (req as AuthRequest).user;
         await companyService.delete(orgId, req.params.id);
         res.status(204).send();
     } catch (error) {
