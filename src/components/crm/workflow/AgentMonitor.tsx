@@ -4,9 +4,15 @@ import { Badge } from '../../ui/Badge';
 
 export function AgentMonitor() {
   const agentExecutions = [
-    { id: 'ag_exec_1', agent: 'SDR Qualificador', status: 'running', task: 'Enriquecendo Lead', time: '12s' },
-    { id: 'ag_exec_2', agent: 'BDR Generator', status: 'completed', task: 'E-mail gerado', time: '4s' },
-    { id: 'ag_exec_3', agent: 'Data Analyst', status: 'failed', task: 'Acessar DB', time: '2s' }
+    { id: 'ag_exec_1', agent: 'SDR Agent', status: 'running', task: 'Qualificação via LeadCreated', time: '12s' },
+    { id: 'ag_exec_2', agent: 'BDR Agent', status: 'completed', task: 'Prospecção (Aprovado HIL)', time: '4s' },
+    { id: 'ag_exec_3', agent: 'Research Agent', status: 'completed', task: 'Análise de Sinais', time: '1s' },
+    { id: 'ag_exec_4', agent: 'ICP Agent', status: 'running', task: 'Re-calculo de score', time: '3s' },
+    { id: 'ag_exec_5', agent: 'Cadence Agent', status: 'failed', task: 'Seleção de Fluxo', time: '2s' },
+    { id: 'ag_exec_6', agent: 'CRM Assistant Agent', status: 'running', task: 'Deduplicação', time: '8s' },
+    { id: 'ag_exec_7', agent: 'Analytics Agent', status: 'completed', task: 'Geração de Report', time: '5s' },
+    { id: 'ag_exec_8', agent: 'Sales Manager Agent', status: 'completed', task: 'SLA check', time: '1s' },
+    { id: 'ag_exec_9', agent: 'Revenue Director Agent', status: 'completed', task: 'Estratégia Diária', time: '10s' }
   ];
 
   return (
@@ -14,9 +20,9 @@ export function AgentMonitor() {
       <header className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Bot className="text-purple-600" /> Agent Runtime Monitor
+            <Bot className="text-purple-600" /> Revenue AI Operating System
           </h1>
-          <p className="text-slate-500 text-sm mt-1">Telemetria de agentes, ferramentas e auditoria.</p>
+          <p className="text-slate-500 text-sm mt-1">Multi-Agent Ecosystem Monitor (9 Agentes Operando via EventBus).</p>
         </div>
       </header>
 
