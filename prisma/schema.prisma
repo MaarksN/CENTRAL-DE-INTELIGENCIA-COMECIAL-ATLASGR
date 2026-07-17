@@ -50,6 +50,8 @@ model Company {
   organization     Organization? @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId])
+  @@index([cnpj])
+  @@index([legalName])
 }
 
 model EnrichmentLog {
@@ -126,6 +128,7 @@ model Lead {
   updatedAt        DateTime  @updatedAt
 
   @@index([organizationId])
+  @@index([organizationId, status])
 }
 
 model Activity {
