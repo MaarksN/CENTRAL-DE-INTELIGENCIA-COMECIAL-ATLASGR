@@ -51,6 +51,11 @@ export interface Company {
     createdAt: string;
     updatedAt: string;
 
+    // Google Negócios (Places API)
+    googleRating?: number | null;
+    googleReviewsCount?: number | null;
+    businessHours?: { openNow?: boolean; weekdayDescriptions?: string[] } | null;
+
     contacts?: Contact[];
     leads?: Lead[];
 }
