@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { type PipelineBoard as PipelineBoardModel, type PipelineColumn, type PipelineDealCard } from '../../shared/types/crm';
+import { PipelineBoard as PipelineBoardModel, PipelineColumn, PipelineDealCard } from '../../shared/types/crm';
 import { MoreHorizontal, Plus } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
