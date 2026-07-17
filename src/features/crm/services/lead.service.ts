@@ -1,14 +1,19 @@
 import { prisma } from '../../../lib/prisma';
-import { leadSchema } from '../../../lib/zod';
+import { leadSchema, type LeadStatus } from '../../../lib/zod';
 import { z } from 'zod';
 import { enrichCompany } from '../../prospecting/services/enrichment.service';
+import { toPrismaLeadStatus, fromPrismaLeadStatus } from '../../../lib/enumMap';
+
+function serializeLead<T extends { status: string }>(lead: T): T & { status: LeadStatus } {
+    return { ...lead, status: fromPrismaLeadStatus(lead.status) };
+}
 
 export class LeadService {
     async findAll(organizationId: string, status?: string, page: number = 1, limit: number = 50) {
-        const where = status ? { organizationId, status } : { organizationId };
-        
+        const where = status ? { organizationId, status: toPrismaLeadStatus(status as LeadStatus) as any } : { organizationId };
+
         const skip = (page - 1) * limit;
-        
+
         const [data, total] = await prisma.$transaction([
             prisma.lead.findMany({
                 where,
@@ -19,12 +24,12 @@ export class LeadService {
             }),
             prisma.lead.count({ where })
         ]);
-        
-        return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+
+        return { data: data.map(serializeLead), meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
     }
 
     async findById(organizationId: string, id: string) {
-        return prisma.lead.findFirst({
+        const lead = await prisma.lead.findFirst({
             where: { id, organizationId },
             include: {
                 company: true,
@@ -34,13 +39,15 @@ export class LeadService {
                 internalNotes: { orderBy: { createdAt: 'desc' } }
             }
         });
+        return lead ? serializeLead(lead) : null;
     }
 
     async create(organizationId: string, data: z.infer<typeof leadSchema>) {
         const validated = leadSchema.parse(data);
-        return prisma.lead.create({
+        const lead = await prisma.lead.create({
             data: {
                 ...validated,
+                status: toPrismaLeadStatus(validated.status) as any,
                 organizationId,
                 timeline: {
                     create: {
@@ -51,35 +58,39 @@ export class LeadService {
             },
             include: { company: true, contact: true }
         });
+        return serializeLead(lead);
     }
 
     async updateStatus(organizationId: string, id: string, newStatus: string) {
         const currentLead = await prisma.lead.findFirst({ where: { id, organizationId } });
         if (!currentLead) throw new Error('Lead not found');
 
-        return prisma.lead.update({
+        const previousStatusLabel = fromPrismaLeadStatus(currentLead.status);
+        const lead = await prisma.lead.update({
             where: { id },
             data: {
-                status: newStatus,
+                status: toPrismaLeadStatus(newStatus as LeadStatus) as any,
                 timeline: {
                     create: {
                         type: 'movement',
-                        description: `Lead movido de '${currentLead.status}' para '${newStatus}'`
+                        description: `Lead movido de '${previousStatusLabel}' para '${newStatus}'`
                     }
                 }
             },
             include: { company: true, contact: true, timeline: { orderBy: { createdAt: 'desc' }, take: 1 } }
         });
+        return serializeLead(lead);
     }
 
     async update(organizationId: string, id: string, data: Partial<z.infer<typeof leadSchema>>) {
         const currentLead = await prisma.lead.findFirst({ where: { id, organizationId } });
         if (!currentLead) throw new Error('Lead not found');
 
-        return prisma.lead.update({
+        const lead = await prisma.lead.update({
             where: { id },
             data: {
                 ...data,
+                ...(data.status ? { status: toPrismaLeadStatus(data.status) as any } : {}),
                 timeline: {
                     create: {
                         type: 'edition',
@@ -88,6 +99,7 @@ export class LeadService {
                 }
             }
         });
+        return serializeLead(lead);
     }
 
     async delete(organizationId: string, id: string) {
@@ -103,21 +115,15 @@ export class LeadService {
         if (!lead.companyId) throw new Error('Lead sem empresa vinculada — não é possível enriquecer');
 
         const result = await enrichCompany(lead.companyId, {
-            segmentKeywords: lead.segment ? [lead.segment] : undefined,
-            fleetSizeHint: lead.size || undefined,
+            segmentKeywords: lead.company?.segment ? [lead.company.segment] : undefined,
+            fleetSizeHint: lead.company?.size || undefined,
         });
-
-        const location = [result.company.city, result.company.state].filter(Boolean).join(', ') || lead.location;
 
         const updated = await prisma.lead.update({
             where: { id },
             data: {
                 score: result.fit.score,
-                fitScore: result.fit.score,
                 temperature: result.fit.temperature,
-                segment: result.company.segment ?? lead.segment,
-                size: result.company.size ?? lead.size,
-                location,
                 timeline: {
                     create: {
                         type: 'generic',
@@ -128,7 +134,7 @@ export class LeadService {
             include: { company: true, contact: true, timeline: { orderBy: { createdAt: 'desc' }, take: 1 } },
         });
 
-        return { lead: updated, fit: result.fit, enrichment: result };
+        return { lead: serializeLead(updated), fit: result.fit, enrichment: result };
     }
 }
 export const leadService = new LeadService();

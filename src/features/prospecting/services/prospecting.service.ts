@@ -3,6 +3,7 @@ import { prisma } from '../../../lib/prisma';
 import { isValidCnpj, sanitizeCnpj } from './cnpj.util';
 import { enrichCompany } from './enrichment.service';
 import { fetchApolloCandidates } from './apollo.service';
+import { toPrismaLeadStatus, fromPrismaLeadStatus } from '../../../lib/enumMap';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -181,6 +182,7 @@ export interface PromoteInput {
     source: string;
     contact?: { name: string; role?: string } | null;
     autoEnrich?: boolean;
+    organizationId: string;
 }
 
 function splitLocation(location?: string | null): { city?: string; state?: string } {
@@ -206,6 +208,7 @@ export async function promoteToCrm(input: PromoteInput) {
             state,
             status: 'Ativo',
             tags: ['Prospecção'],
+            organizationId: input.organizationId,
         },
     });
 
@@ -218,6 +221,7 @@ export async function promoteToCrm(input: PromoteInput) {
                 companyId: company.id,
                 status: 'Ativo',
                 observations: 'Contato sugerido por IA — confirmar identidade e dados antes da abordagem.',
+                organizationId: input.organizationId,
             },
         });
     }
@@ -237,22 +241,17 @@ export async function promoteToCrm(input: PromoteInput) {
 
     const finalCompany = enrichmentResult?.company || company;
     const fit = enrichmentResult?.fit;
-    const finalLocation = [finalCompany.city, finalCompany.state].filter(Boolean).join(', ') || input.location || null;
 
     const lead = await prisma.lead.create({
         data: {
-            name: finalCompany.tradeName,
-            segment: finalCompany.segment,
-            size: finalCompany.size,
-            location: finalLocation,
-            status: 'Novo Lead',
+            status: toPrismaLeadStatus('Novo Lead') as any,
             source: input.source,
             channel: 'Prospecção',
             temperature: fit?.temperature || 'Morno',
             score: fit?.score ?? null,
-            fitScore: fit?.score ?? null,
             companyId: finalCompany.id,
             contactId: contact?.id,
+            organizationId: input.organizationId,
             timeline: {
                 create: {
                     type: 'creation',
@@ -263,5 +262,5 @@ export async function promoteToCrm(input: PromoteInput) {
         include: { company: true, contact: true, timeline: true },
     });
 
-    return { lead, fit, enrichment: enrichmentResult };
+    return { lead: { ...lead, status: fromPrismaLeadStatus(lead.status) }, fit, enrichment: enrichmentResult };
 }

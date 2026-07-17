@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { discoverCandidates, promoteToCrm } from '../services/prospecting.service.js';
 import { fetchCnpjData } from '../services/enrichment.service.js';
+import type { AuthRequest } from '../../../shared/middlewares/authenticateToken.js';
 
 const router = Router();
 
@@ -39,7 +40,8 @@ router.post('/promote', async (req: Request, res: Response, next: NextFunction) 
         if (!tradeName || !source) {
             return res.status(400).json({ success: false, error: 'tradeName e source são obrigatórios' });
         }
-        const result = await promoteToCrm(req.body);
+        const { organizationId } = (req as AuthRequest).user;
+        const result = await promoteToCrm({ ...req.body, organizationId });
         res.status(201).json({ success: true, data: result });
     } catch (error) {
         next(error);

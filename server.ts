@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { authRoutes } from './src/features/auth/routes/auth.routes.js';
@@ -17,6 +19,22 @@ import { errorHandler } from './src/shared/middlewares/errorHandler.js';
 async function startServer() {
     const app = express();
     const PORT = 3000;
+
+    // Security Middlewares (Hardening)
+    app.use(helmet({
+        contentSecurityPolicy: false, // Disabled to prevent blocking Vite HMR and dynamic inline scripts
+    }));
+
+    const apiLimiter = rateLimit({
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 500, // Limit each IP to 500 requests per `window` (here, per 15 minutes)
+        standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+        legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+        message: { success: false, error: 'Too many requests from this IP, please try again after 15 minutes' }
+    });
+
+    // Apply the rate limiting middleware to API calls only
+    app.use('/api', apiLimiter);
 
     app.use(express.json());
 
