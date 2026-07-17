@@ -4,7 +4,6 @@ generator client {
 }
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
   extensions = [vector]
 }
 model Company {
@@ -34,8 +33,38 @@ model Company {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  // Enrichment (Receita Federal / BrasilAPI + heurísticas)
+  situacaoCadastral String?
+  naturezaJuridica  String?
+  capitalSocial     Float?
+  dataAbertura      DateTime?
+  qsa               Json?
+  enrichmentStatus  String    @default("Pendente") // Pendente | Enriquecendo | Enriquecido | Falhou
+  enrichmentSource  String?
+  enrichedAt        DateTime?
+
   contacts         Contact[]
   leads            Lead[]
+  enrichmentLogs   EnrichmentLog[]
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([cnpj])
+  @@index([legalName])
+}
+
+model EnrichmentLog {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  source    String   // BrasilAPI-CNPJ | BrasilAPI-CEP | AI-Estimate | Domain-Heuristic
+  field     String   // o que foi enriquecido (ex: "dados-cadastrais", "endereco", "contatos-sugeridos")
+  status    String   // success | not_found | failed
+  rawData   Json?
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
 }
 
 model Contact {
@@ -54,9 +83,13 @@ model Contact {
   companyId        String
   company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   leads            Lead[]
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id])
 
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+
+  @@index([organizationId])
 }
 
 model Lead {
@@ -88,9 +121,14 @@ model Lead {
   activities       Activity[]
   timeline         TimelineEvent[]
   internalNotes    Note[]
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id])
 
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, status])
 }
 
 model Activity {
@@ -104,9 +142,13 @@ model Activity {
 
   leadId           String
   lead             Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id])
 
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+
+  @@index([organizationId])
 }
 
 model TimelineEvent {
@@ -163,6 +205,10 @@ model Organization {
   id        String   @id @default(cuid())
   name      String   @unique
   users     User[]
+  companies Company[]
+  contacts  Contact[]
+  leads     Lead[]
+  activities Activity[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

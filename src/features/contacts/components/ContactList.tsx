@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Search, Plus, User, Building, Phone, Mail, Edit, Trash } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Building, Edit, Mail, Phone, Plus, Search, Trash, User } from 'lucide-react';
+
 import { Contact } from '../../../types';
 import { ContactForm } from './ContactForm';
+import { api } from '../../../lib/api';
 
 export function ContactList() {
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -10,36 +12,31 @@ export function ContactList() {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
-    const fetchContacts = async () => {
+    const fetchContacts = useCallback(async () => {
         setLoading(true);
         try {
             const url = searchTerm ? `/api/contacts?q=${encodeURIComponent(searchTerm)}` : '/api/contacts';
-            const res = await fetch(url);
-            if (res.ok) {
-                const data = await res.json();
-                setContacts(data);
-            }
+            const data = await api.get<Contact[]>(url);
+            setContacts(data);
         } catch (error) {
             console.error('Error fetching contacts:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchTerm]);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
             fetchContacts();
         }, 300);
         return () => clearTimeout(timeoutId);
-    }, [searchTerm]);
+    }, [fetchContacts]);
 
     const handleDelete = async (id: string) => {
         if (!confirm('Tem certeza que deseja excluir este contato?')) return;
         try {
-            const res = await fetch(`/api/contacts/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                setContacts(prev => prev.filter(c => c.id !== id));
-            }
+            await api.delete(`/api/contacts/${id}`);
+            setContacts(prev => prev.filter(c => c.id !== id));
         } catch (error) {
             console.error('Error deleting contact:', error);
         }

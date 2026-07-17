@@ -2,6 +2,7 @@ import React from "react";
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Company } from '../../../types';
+import { api } from '../../../lib/api';
 
 interface CompanyFormProps {
     company?: Company | null;
@@ -31,16 +32,13 @@ export function CompanyForm({ company, onClose, onSave }: CompanyFormProps) {
         e.preventDefault();
         setLoading(true);
         try {
-            const method = company ? 'PUT' : 'POST';
             const url = company ? `/api/companies/${company.id}` : '/api/companies';
-            const res = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
-            if (res.ok) {
-                onSave();
+            if (company) {
+                await api.put(url, formData);
+            } else {
+                await api.post(url, formData);
             }
+            onSave();
         } catch (error) {
             console.error('Error saving company:', error);
         } finally {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, Save, MapPin, Building2, Users, Database, Globe, CheckCircle2, TrendingUp, Cpu } from 'lucide-react';
 import { Lead, SearchCriteria } from '../types/index';
+import { api } from '../lib/api';
 
 interface ProspectorProps {
     onSaveLead: (lead: Omit<Lead, 'id' | 'status'>) => void;
@@ -44,21 +45,8 @@ export function Prospector({ onSaveLead }: ProspectorProps) {
         setResults([]);
         
         try {
-            const response = await fetch('/api/prospect', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(criteria)
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                setResults(data);
-            } else {
-                console.error("Failed to fetch leads");
-                setResults([]);
-            }
+            const data = await api.post<Omit<Lead, 'id' | 'status'>[]>('/api/prospect', criteria);
+            setResults(data);
         } catch (error) {
             console.error("Error fetching leads:", error);
             setResults([]);
