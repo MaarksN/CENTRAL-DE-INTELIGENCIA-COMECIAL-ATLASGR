@@ -12,7 +12,7 @@ interface KanbanColumnProps {
     onCardClick: (lead: Lead) => void;
 }
 
-export function KanbanColumn({ status, leads, onDrop, onDragOver, onCardDragStart, onCardClick }: KanbanColumnProps) {
+export const KanbanColumn = React.memo(function KanbanColumn({ status, leads, onDrop, onDragOver, onCardDragStart, onCardClick }: KanbanColumnProps) {
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         onDrop(e, status);
@@ -51,4 +51,4 @@ export function KanbanColumn({ status, leads, onDrop, onDragOver, onCardDragStar
             </div>
         </div>
     );
-}
+});
