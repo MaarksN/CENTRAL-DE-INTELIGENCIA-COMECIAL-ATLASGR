@@ -77,14 +77,6 @@ export interface Contact {
 export interface Lead {
     id: string;
 
-    // Backward compatibility (Sprint 5: these will be removed)
-    name?: string | null;
-    segment?: string | null;
-    size?: string | null;
-    location?: string | null;
-    fitScore?: number | null;
-    notes?: string | null;
-
     // CRM Core
     status: import('../lib/zod').LeadStatus;
     source?: string | null;

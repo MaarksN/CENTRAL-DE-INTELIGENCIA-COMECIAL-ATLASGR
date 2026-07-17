@@ -72,6 +72,15 @@ export function CrmBoard() {
         console.log('Clicked lead:', lead);
     }, []);
 
+    const handleCardEnrich = useCallback(async (leadId: string) => {
+        try {
+            const result = await api.post<{ lead: Lead }>(`/api/leads/${leadId}/enrich`);
+            setLeads(prev => prev.map(lead => lead.id === leadId ? result.lead : lead));
+        } catch (error) {
+            console.error('Error enriching lead:', error);
+        }
+    }, []);
+
     const groupedLeads = React.useMemo(() => {
         const grouped = {} as Record<LeadStatus, Lead[]>;
         COLUMNS.forEach(status => grouped[status] = []);
@@ -111,6 +120,7 @@ export function CrmBoard() {
                                 onDragOver={handleDragOver}
                                 onCardDragStart={handleDragStart}
                                 onCardClick={handleCardClick}
+                                onCardEnrich={handleCardEnrich}
                             />
                         ))}
                     </div>

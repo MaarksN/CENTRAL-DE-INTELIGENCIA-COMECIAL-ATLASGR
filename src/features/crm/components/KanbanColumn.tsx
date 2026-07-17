@@ -10,9 +10,10 @@ interface KanbanColumnProps {
     onDragOver: (e: React.DragEvent) => void;
     onCardDragStart: (e: React.DragEvent, leadId: string) => void;
     onCardClick: (lead: Lead) => void;
+    onCardEnrich?: (leadId: string) => Promise<void>;
 }
 
-export const KanbanColumn = React.memo(function KanbanColumn({ status, leads, onDrop, onDragOver, onCardDragStart, onCardClick }: KanbanColumnProps) {
+export const KanbanColumn = React.memo(function KanbanColumn({ status, leads, onDrop, onDragOver, onCardDragStart, onCardClick, onCardEnrich }: KanbanColumnProps) {
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         onDrop(e, status);
@@ -41,6 +42,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({ status, leads, on
                         lead={lead}
                         onDragStart={onCardDragStart}
                         onClick={onCardClick}
+                        onEnrich={onCardEnrich}
                     />
                 ))}
                 {leads.length === 0 && (
