@@ -28,7 +28,7 @@ export class PermissionManager {
 
   static checkOrThrow(role: string, requiredPermission: string): void {
     if (!this.hasPermission(role, requiredPermission)) {
-      throw new Error(\`Access Denied: Requires permission \${requiredPermission}\`);
+      throw new Error(`Access Denied: Requires permission ${requiredPermission}`);
     }
   }
 }
