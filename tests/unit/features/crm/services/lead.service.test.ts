@@ -31,7 +31,7 @@ describe('LeadService', () => {
   it('should create a lead and a timeline event', async () => {
     const input = { status: 'Novo Lead', companyId: 'comp-1' };
     vi.mocked(prisma.lead.create).mockResolvedValue({ id: '1', ...input } as never);
-    const result = await leadService.('test-org-id', input);
+    const result = await leadService.create('test-org-id', input);
     expect(prisma.lead.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         timeline: { create: { type: 'creation', description: 'Lead criado no sistema' } }
@@ -43,7 +43,7 @@ describe('LeadService', () => {
   it('should update a lead', async () => {
     vi.mocked(prisma.lead.findUnique).mockResolvedValue(mockLead as never);
     vi.mocked(prisma.lead.update).mockResolvedValue({ ...mockLead, status: 'Em Contato' } as never);
-    const result = await leadService.('test-org-id', '1', { status: 'Em Contato' });
+    const result = await leadService.update('test-org-id', '1', { status: 'Em Contato' });
     expect(prisma.lead.update).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         timeline: { create: { type: 'edition', description: 'Dados do lead atualizados' } }
@@ -54,7 +54,7 @@ describe('LeadService', () => {
   
   it('should delete a lead', async () => {
     vi.mocked(prisma.lead.delete).mockResolvedValue(mockLead as never);
-    await leadService.('test-org-id', '1');
+    await leadService.delete('test-org-id', '1');
     expect(prisma.lead.delete).toHaveBeenCalledWith({ where: { id: '1' } });
   });
 });

@@ -14,7 +14,7 @@ describe('TimelineEvent Operations Integration', () => {
     const lead = await prisma.lead.create({ data: LeadFactory.build({ companyId: company.id }) as never });
     
     const eventData1 = TimelineEventFactory.build({ leadId: lead.id, type: 'creation' });
-    delete (eventData1 as never).lead;
+    delete (eventData1 as any).lead;
     await prisma.timelineEvent.create({ data: eventData1 as never });
 
     const events = await prisma.timelineEvent.findMany({

@@ -7,7 +7,8 @@ const router = Router();
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const activities = await activityService.findAll(req.query.date as string | undefined);
+        const orgId = (req as any).user.organizationId;
+        const activities = await activityService.findAll(orgId, req.query.date as string | undefined);
         res.json({ success: true, data: activities });
     } catch (error) {
         next(error);
@@ -16,7 +17,8 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
 router.post('/', validateRequest(activitySchema), async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const activity = await activityService.create(req.body);
+        const orgId = (req as any).user.organizationId;
+        const activity = await activityService.create(orgId, req.body);
         res.status(201).json({ success: true, data: activity });
     } catch (error) {
         next(error);
@@ -25,7 +27,8 @@ router.post('/', validateRequest(activitySchema), async (req: Request, res: Resp
 
 router.put('/:id', validateRequest(activitySchema.partial()), async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const activity = await activityService.update(req.params.id, req.body);
+        const orgId = (req as any).user.organizationId;
+        const activity = await activityService.update(orgId, req.params.id, req.body);
         res.json({ success: true, data: activity });
     } catch (error) {
         next(error);
@@ -34,7 +37,8 @@ router.put('/:id', validateRequest(activitySchema.partial()), async (req: Reques
 
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        await activityService.delete(req.params.id);
+        const orgId = (req as any).user.organizationId;
+        await activityService.delete(orgId, req.params.id);
         res.status(204).send();
     } catch (error) {
         next(error);

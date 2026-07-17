@@ -11,7 +11,7 @@ describe('CompanyService Integration', () => {
   describe('create', () => {
     it('should create a new company successfully', async () => {
       const data = CompanyFactory.build();
-      const result = await companyService.create(data as never);
+      const result = await companyService.create('test-org-id', data as never);
       
       expect(result).toBeDefined();
       expect(result.id).toBeDefined();
@@ -20,7 +20,7 @@ describe('CompanyService Integration', () => {
 
     it('should fail with invalid data', async () => {
       const data = { legalName: '' };
-      await expect(companyService.create(data as never)).rejects.toThrow();
+      await expect(companyService.create('test-org-id', data as never)).rejects.toThrow();
     });
   });
 
@@ -29,7 +29,7 @@ describe('CompanyService Integration', () => {
       await prisma.company.create({ data: CompanyFactory.build({ legalName: 'Alpha Corp' }) });
       await prisma.company.create({ data: CompanyFactory.build({ legalName: 'Beta Inc' }) });
 
-      const companies = await companyService.findAll();
+      const companies = await companyService.findAll('test-org-id');
       expect(companies.length).toBeGreaterThanOrEqual(2);
     });
   });

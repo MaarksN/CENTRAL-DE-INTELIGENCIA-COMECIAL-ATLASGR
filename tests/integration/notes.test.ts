@@ -15,7 +15,7 @@ describe('Note Operations Integration', () => {
     const lead = await prisma.lead.create({ data: LeadFactory.build({ companyId: company.id }) as never });
     
     const noteData = NoteFactory.build({ leadId: lead.id });
-    delete (noteData as never).lead;
+    delete (noteData as any).lead;
 
     const note = await prisma.note.create({
       data: noteData as never

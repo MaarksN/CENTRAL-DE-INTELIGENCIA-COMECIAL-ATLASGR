@@ -15,7 +15,7 @@ describe('LeadService Integration', () => {
       const company = await prisma.company.create({ data: CompanyFactory.build() });
       const data = LeadFactory.build({ companyId: company.id });
 
-      const result = await leadService.create(data as never);
+      const result = await leadService.create('test-org-id', data as never);
       
       expect(result).toBeDefined();
       expect(result.companyId).toBe(company.id);
