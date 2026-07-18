@@ -12,8 +12,12 @@ describe('LeadService Integration', () => {
 
   describe('create', () => {
     it('should create a new lead successfully and generate a timeline event', async () => {
-      const company = await prisma.company.create({ data: CompanyFactory.build() });
-      const data = LeadFactory.build({ companyId: company.id });
+      const companyData = CompanyFactory.build({ organizationId: 'test-org-id' });
+      delete companyData.id;
+      const company = await prisma.company.create({ data: companyData as any });
+
+      const data = LeadFactory.build({ companyId: company.id, organizationId: 'test-org-id', status: 'Novo Lead' });
+      delete (data as any).organizationId;
 
       const result = await leadService.create('test-org-id', data as never);
       
@@ -22,7 +26,7 @@ describe('LeadService Integration', () => {
 
       const timelineEvents = await prisma.timelineEvent.findMany({ where: { leadId: result.id } });
       expect(timelineEvents.length).toBeGreaterThan(0);
-      expect(timelineEvents[0].type).toBe('creation');
+      expect(timelineEvents[timelineEvents.length - 1].type).toBe('creation');
     });
   });
 });

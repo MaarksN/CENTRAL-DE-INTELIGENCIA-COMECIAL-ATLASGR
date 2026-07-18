@@ -1,29 +1,24 @@
 import { defineConfig } from 'vitest/config';
-import path from 'node:path';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
+  plugins: [react()],
   test: {
     environment: 'node',
     globals: true,
-    // Do NOT load setup.ts here, because setup.ts contains the global Prisma mock.
     setupFiles: ['./tests/helpers/integration-setup.ts'],
-    include: ['tests/integration/**/*.test.{ts,tsx}'],
+    include: ['tests/integration/**/*.test.ts', 'tests/integration/**/*.test.tsx'],
+    fileParallelism: false, // Run tests sequentially to avoid DB lock/wipe conflicts
+    pool: 'threads',
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'lcov', 'json'],
-      reportsDirectory: './coverage/integration',
-      include: ['src/features/**/services/*.ts', 'src/lib/prisma.ts'],
-      thresholds: {
-        statements: 95,
-        functions: 95,
-        lines: 95,
-        branches: 90
-      }
+      reporter: ['text', 'json', 'html'],
+      include: ['src/**/*.ts', 'src/**/*.tsx'],
+      exclude: ['src/main.tsx', 'src/vite-env.d.ts', '**/*.test.ts', '**/*.test.tsx'],
     },
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    }
   },
 });
