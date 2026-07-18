@@ -21,13 +21,13 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 });
 
-// Exporta todos os leads em CSV (empresa + contato) — ponte manual para importar em outro CRM (ex: Bitrix24).
+// Exporta todos os leads no formato de importação de Leads do Bitrix24 (107 colunas, ; como separador).
 // Precisa vir antes de "/:id" para não ser interpretada como um id de lead.
 router.get('/export/csv', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { organizationId: orgId } = (req as AuthRequest).user;
         const csv = await leadService.exportCsv(orgId);
-        const filename = `leads-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        const filename = `leads-bitrix24-${new Date().toISOString().slice(0, 10)}.csv`;
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(UTF8_BOM + csv);
