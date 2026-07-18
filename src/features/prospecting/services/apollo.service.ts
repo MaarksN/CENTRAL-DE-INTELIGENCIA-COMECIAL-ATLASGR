@@ -4,9 +4,18 @@ import { findEmailViaHunter } from './hunter.service';
 
 const APOLLO_SEARCH_URL = 'https://api.apollo.io/v1/organizations/search';
 
-// Buscar decisores (Apollo People Search + fallback Hunter.io) custa 1+ chamadas extra por empresa —
 // limitamos aos N primeiros candidatos de cada busca para não estourar cota das APIs.
 const MAX_DECISION_MAKER_LOOKUPS = 5;
+
+export interface DecisionMakerCriteria {
+    cargos?: string;
+    senioridades?: string[];
+    departamentos?: string[];
+    cidade?: string;
+    estado?: string;
+    palavrasChavePerfil?: string;
+    apenasEmailVerificado?: boolean;
+}
 
 interface ApolloOrganization {
     name?: string;
@@ -78,6 +87,15 @@ export async function fetchApolloCandidates(
             ...(criteria.faturamentoMax != null ? { max: criteria.faturamentoMax } : {}),
         };
     }
+    if (criteria.anoFundacaoMin != null || criteria.anoFundacaoMax != null) {
+        body.founded_year_range = {
+            ...(criteria.anoFundacaoMin != null ? { min: criteria.anoFundacaoMin } : {}),
+            ...(criteria.anoFundacaoMax != null ? { max: criteria.anoFundacaoMax } : {}),
+        };
+    }
+    if (criteria.tecnologias) {
+        body.q_organization_technology_names = criteria.tecnologias.split(',').map((t) => t.trim()).filter(Boolean);
+    }
 
     try {
         const res = await fetch(APOLLO_SEARCH_URL, {
@@ -115,7 +133,8 @@ export async function fetchApolloCandidates(
             technologies: org.technology_names?.slice(0, 6) || undefined,
         }));
 
-        await enrichCandidatesWithDecisionMakers(candidates, organizations);
+        // Removemos a busca automática de decisores para permitir que seja feita em uma etapa posterior (on demand)
+        // await enrichCandidatesWithDecisionMakers(candidates, organizations);
 
         return { candidates };
     } catch (error) {
@@ -219,3 +238,91 @@ export async function enrichOrganizationWithContacts(
         return { contacts: [], error: error instanceof Error ? error.message : 'Falha ao consultar Apollo People API' };
     }
 }
+
+/**
+ * Busca avançada de executivos/decisores para um dado domínio de empresa via Apollo People Search.
+ */
+export async function searchDecisionMakersAdvanced(
+    domain: string,
+    criteria: DecisionMakerCriteria,
+    limit: number = 10
+): Promise<{ contacts: DecisionMaker[]; error?: string }> {
+    const apiKey = process.env.APOLLO_API_KEY;
+    if (!apiKey || !domain) return { contacts: [] };
+
+    try {
+        const body: Record<string, unknown> = {
+            q_organization_domains: domain,
+            per_page: limit,
+            page: 1,
+        };
+
+        if (criteria.cargos) {
+            body.person_titles = criteria.cargos.split(',').map(c => c.trim()).filter(Boolean);
+        }
+        if (criteria.senioridades && criteria.senioridades.length > 0) {
+            body.person_seniorities = criteria.senioridades;
+        }
+        if (criteria.departamentos && criteria.departamentos.length > 0) {
+            body.person_departments = criteria.departamentos;
+        }
+        if (criteria.cidade || criteria.estado) {
+            body.person_locations = [[criteria.cidade, criteria.estado].filter(Boolean).join(', ')];
+        }
+        if (criteria.palavrasChavePerfil) {
+            body.q_keywords = criteria.palavrasChavePerfil;
+        }
+        if (criteria.apenasEmailVerificado) {
+            body.contact_email_status = ['verified'];
+        }
+
+        const res = await fetch('https://api.apollo.io/v1/mixed_people/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+                'X-Api-Key': apiKey,
+            },
+            body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            return { contacts: [], error: `Apollo People API respondeu ${res.status}: ${text.slice(0, 100)}` };
+        }
+
+        const data = await res.json();
+        const people = data.people || data.contacts || [];
+
+        const contacts: DecisionMaker[] = await Promise.all(
+            people.map(async (p: any): Promise<DecisionMaker> => {
+                let email = p.email || p.email_url || null;
+                let emailSource: DecisionMaker['emailSource'] = email ? 'apollo' : undefined;
+                
+                const name = `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Sem Nome';
+
+                if (!email) {
+                    const hunterResult = await findEmailViaHunter(domain, name);
+                    if (hunterResult.email) {
+                        email = hunterResult.email;
+                        emailSource = 'hunter';
+                    }
+                }
+
+                return {
+                    name,
+                    title: p.title || null,
+                    email,
+                    emailSource,
+                    phone: p.phone_numbers?.[0]?.raw_number || p.sanitized_phone || null,
+                    linkedinUrl: p.linkedin_url || null,
+                };
+            })
+        );
+
+        return { contacts };
+    } catch (error) {
+        return { contacts: [], error: error instanceof Error ? error.message : 'Falha ao consultar Apollo People API' };
+    }
+}
+
