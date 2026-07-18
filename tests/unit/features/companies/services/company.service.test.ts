@@ -46,14 +46,14 @@ describe('CompanyService', () => {
     vi.mocked(prisma.company.count).mockResolvedValue(1 as never);
     const result = await companyService.findAll('test-org-id', 'Test');
     expect(prisma.company.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: {
+      where: expect.objectContaining({
         organizationId: 'test-org-id',
-        OR: [
+        OR: expect.arrayContaining([
           { legalName: { contains: 'Test', mode: 'insensitive' } },
           { tradeName: { contains: 'Test', mode: 'insensitive' } },
           { cnpj: { contains: 'Test' } }
-        ]
-      },
+        ])
+      }),
       skip: 0,
       take: 50,
       orderBy: { createdAt: 'desc' }

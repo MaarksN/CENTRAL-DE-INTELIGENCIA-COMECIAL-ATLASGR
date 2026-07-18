@@ -10,7 +10,8 @@ describe('CompanyService Integration', () => {
 
   describe('create', () => {
     it('should create a new company successfully', async () => {
-      const data = CompanyFactory.build();
+      const data = CompanyFactory.build({ organizationId: 'test-org-id' });
+      delete (data as any).id;
       const result = await companyService.create('test-org-id', data as never);
       
       expect(result).toBeDefined();
@@ -26,8 +27,13 @@ describe('CompanyService Integration', () => {
 
   describe('findAll', () => {
     it('should return all companies', async () => {
-      await prisma.company.create({ data: CompanyFactory.build({ legalName: 'Alpha Corp' }) });
-      await prisma.company.create({ data: CompanyFactory.build({ legalName: 'Beta Inc' }) });
+      const c1 = CompanyFactory.build({ legalName: 'Alpha Corp', organizationId: 'test-org-id' });
+      const c2 = CompanyFactory.build({ legalName: 'Beta Inc', organizationId: 'test-org-id' });
+      delete (c1 as any).id;
+      delete (c2 as any).id;
+
+      await prisma.company.create({ data: { ...c1, tags: undefined } as any });
+      await prisma.company.create({ data: { ...c2, tags: undefined } as any });
 
       const companies = await companyService.findAll('test-org-id');
       expect(companies.data.length).toBeGreaterThanOrEqual(2);
