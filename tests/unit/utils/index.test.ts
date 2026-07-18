@@ -1,10 +1,12 @@
 import { formatCurrency, sleep, ApiError } from '@/utils';
+import { describe, it, expect, vi } from 'vitest';
 
 describe('Utils', () => {
   describe('formatCurrency', () => {
     it('should format numbers to BRL currency correctly', () => {
-      expect(formatCurrency(100)).toBe('R$ 100,00');
-      expect(formatCurrency(0)).toBe('R$ 0,00');
+      // Due to intl formatting non-breaking spaces variations, match structure
+      expect(formatCurrency(100)).toMatch(/R\$\s*100,00/);
+      expect(formatCurrency(0)).toMatch(/R\$\s*0,00/);
     });
   });
 
