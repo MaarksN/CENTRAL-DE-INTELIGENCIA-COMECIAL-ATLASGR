@@ -4,7 +4,8 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { authRoutes } from './src/features/auth/routes/auth.routes.js';
+import { toNodeHandler } from 'better-auth/node';
+import { auth } from './src/lib/auth.js';
 import { intelligenceRoutes } from './src/features/intelligence/routes/intelligence.routes.js';
 import { authenticateToken } from './src/shared/middlewares/authenticateToken.js';
 import { prisma } from './src/lib/prisma.js';
@@ -15,6 +16,9 @@ import { activityRoutes } from './src/features/activities/routes/activity.routes
 import { prospectingRoutes } from './src/features/prospecting/routes/prospecting.routes.js';
 import { noteRoutes } from './src/features/notes/routes/note.routes.js';
 import { errorHandler } from './src/shared/middlewares/errorHandler.js';
+import { logger } from './src/lib/logger.js';
+import { createLeadsWorker } from './src/lib/queue/index.js';
+import { initMeiliIndexes } from './src/lib/search/index.js';
 
 async function startServer() {
     const app = express();
@@ -49,13 +53,13 @@ async function startServer() {
             await prisma.$queryRaw`SELECT 1`;
             res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
         } catch (error) {
-            console.error('Readiness probe failed:', error);
+            logger.error({ err: error }, 'Readiness probe failed');
             res.status(503).json({ status: 'error', message: 'Database unavailable' });
         }
     });
 
-    // Auth Routes
-    app.use('/api/auth', authRoutes);
+    // Auth Routes (Better Auth)
+    app.all('/api/auth/*', toNodeHandler(auth));
 
     // API Routes Mounts
     app.use('/api/companies', authenticateToken, companyRoutes);
@@ -86,8 +90,21 @@ async function startServer() {
     // Error handling middleware
     app.use(errorHandler);
 
+    // Initialize Background Workers & Services
+    const leadsWorker = createLeadsWorker();
+    
+    // Initialize Search Indexes
+    await initMeiliIndexes();
+    
+    // Graceful shutdown
+    process.on('SIGTERM', async () => {
+        logger.info('SIGTERM received: closing queues and workers');
+        await leadsWorker.close();
+        process.exit(0);
+    });
+
     app.listen(PORT, "0.0.0.0", () => {
-        console.log(`Server running on http://0.0.0.0:${PORT}`);
+        logger.info(`Server running on http://0.0.0.0:${PORT}`);
     });
 }
 
