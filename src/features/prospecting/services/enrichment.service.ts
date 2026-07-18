@@ -509,6 +509,7 @@ async function runEnrichment(
                         name: c.name,
                         role: c.title,
                         email: c.email,
+                        phone: c.phone,
                         linkedin: c.linkedin_url,
                         source: 'Apollo',
                         companyId,

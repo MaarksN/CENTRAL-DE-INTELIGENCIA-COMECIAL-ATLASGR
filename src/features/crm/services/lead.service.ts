@@ -133,7 +133,12 @@ export class LeadService {
         return prisma.lead.delete({ where: { id } });
     }
 
-    /** Exporta todos os leads da organização em CSV (empresa + contato) — usado como ponte manual para importar em outro CRM (ex: Bitrix24). */
+    /**
+     * Exporta todos os leads da organização no formato exato de importação de Leads do Bitrix24
+     * (107 colunas, mesmo cabeçalho gerado pela exportação nativa do Bitrix — modelo fornecido pelo usuário).
+     * Campos que o Bitrix espera mas que não coletamos (qualificação manual de venda, ex: "ERP/TMS Utilizado",
+     * "Seguradora", "Dor Principal Mapeada") ficam em branco para o time preencher após a importação.
+     */
     async exportCsv(organizationId: string): Promise<string> {
         const leads = await prisma.lead.findMany({
             where: { organizationId },
@@ -141,40 +146,76 @@ export class LeadService {
             orderBy: { createdAt: 'desc' },
         });
 
+        // Cabeçalho idêntico ao exigido pela importação de Leads do Bitrix24 (posição importa).
         const headers = [
-            'Empresa', 'CNPJ', 'Segmento', 'Cidade', 'Estado', 'Website',
-            'Contato', 'Email', 'Telefone', 'Cargo',
-            'Status do Lead', 'Temperatura', 'Score', 'Origem', 'Criado em',
+            'ID', 'Nome', 'Saudação', 'Primeiro nome', 'Sobrenome', 'Segundo nome', 'Nome completo',
+            'Data de nascimento', 'Endereço: Endereço', 'Endereço: Rua, edifício', 'Endereço: Suíte / Apartamento',
+            'Endereço: Cidade', 'Endereço: Região', 'Endereço: Estado / Província', 'Endereço: CEP', 'Endereço: País',
+            'Telefone de trabalho', 'Celular', 'Fax', 'Telefone de casa', 'Número de pager',
+            'Telefone de SMS Marketing', 'Outro número de telefone', 'Site Corporativo', 'Página pessoal',
+            'Página do Facebook', 'Página VK', 'LiveJournal', 'Twitter', 'Outro site', 'Email de trabalho',
+            'E-mail de casa', 'E-mail para boletins', 'Outro e-mail', 'Conta do Facebook', 'Conta Telegram',
+            'Conta VK', 'Contato Viber', 'Comentários do Instagram', 'Contato da rede', 'Bate-papo ao vivo',
+            'Conta Canal Aberto', 'Outro contato', 'Usuário vinculado', 'Nome da empresa', 'Cargo', 'Comentário',
+            'Etapa', 'Informações da etapa', 'Product', 'Price', 'Quantity', 'Valor', 'Moeda', 'Fonte',
+            'Informações da fonte', 'Disponível para todos', 'Pessoa responsável', 'Criado em', 'Criado por',
+            'Atualizado em', 'Atualizado por', 'Data da mudança de etapa', 'Etapa alterada por', 'UTM Source',
+            'UTM Medium', 'UTM Campaign', 'UTM Content', 'UTM Term', 'Origem', 'deal_ID', 'Etapa da Cadência',
+            'Fluxo do Lead', 'Motivo de desqualificação', 'Data de Retomada', 'Segmento da Operação', 'Tipo de Carga',
+            'Média mensal de contratação de terceiros', 'Frota Própria (Quantidade)', 'Agregados (Quantidade)',
+            'Principais Rotas', 'ERP/TMS Utilizado', 'Rastreador Utilizado', 'Seguradora', 'Corretora',
+            'Fornecedor de GR Atual', 'Possui Gestão de Risco?', 'Usa Motoristas Terceiros?',
+            'Possui Software Logístico?', 'Software Logístico Atual', 'Possui Consulta e Cadastro de Motorista?',
+            'Consulta e Cadastro Atual', 'Dor Principal Mapeada', 'Detalhamento da dor',
+            'Dor se conecta a qual solução Atlas?', 'Linkedin', 'Cargo', 'Nível de autoridade',
+            'Interesse percebido', 'Horizonte de Decisão', 'Média de viagem / mês', 'Telefone ', 'Observações',
+            'Perfil da Operação?', 'O que você busca? ', 'Finalidade Principal', 'Média de Contratações Mês',
         ];
 
         const escape = (value: unknown) => {
             const s = value == null ? '' : String(value);
-            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+            return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
         };
 
-        const rows = leads.map((l) =>
-            [
-                l.company?.tradeName || l.company?.legalName || '',
-                l.company?.cnpj || '',
-                l.company?.segment || '',
-                l.company?.city || '',
-                l.company?.state || '',
-                l.company?.website || '',
-                l.contact?.name || '',
-                l.contact?.email || '',
-                l.contact?.phone || '',
-                l.contact?.role || '',
-                fromPrismaLeadStatus(l.status),
-                l.temperature || '',
-                l.score ?? '',
-                l.source || '',
-                l.createdAt.toISOString(),
-            ]
-                .map(escape)
-                .join(',')
-        );
+        const rows = leads.map((l) => {
+            const company = l.company;
+            const contact = l.contact;
+            const [firstName, ...restName] = (contact?.name || '').trim().split(/\s+/);
+            const lastName = restName.join(' ');
+            const linkedin = contact?.linkedin || company?.linkedin || '';
+            const phone = contact?.phone || company?.phones?.[0] || '';
 
-        return [headers.join(','), ...rows].join('\n');
+            const cols: unknown[] = new Array(headers.length).fill('');
+            cols[1] = company?.tradeName || company?.legalName || l.source || ''; // Nome (título do lead)
+            cols[3] = firstName || ''; // Primeiro nome
+            cols[4] = lastName || ''; // Sobrenome
+            cols[6] = contact?.name || ''; // Nome completo
+            cols[8] = company?.address || ''; // Endereço: Endereço
+            cols[11] = company?.city || ''; // Endereço: Cidade
+            cols[13] = company?.state || ''; // Endereço: Estado / Província
+            cols[14] = company?.zipCode || ''; // Endereço: CEP
+            cols[15] = 'Brasil'; // Endereço: País
+            cols[16] = phone; // Telefone de trabalho
+            cols[17] = contact?.whatsapp || ''; // Celular
+            cols[23] = company?.website || ''; // Site Corporativo
+            cols[30] = contact?.email || ''; // Email de trabalho
+            cols[44] = company?.tradeName || company?.legalName || ''; // Nome da empresa
+            cols[45] = contact?.role || ''; // Cargo
+            cols[46] = company?.observations || ''; // Comentário
+            cols[47] = fromPrismaLeadStatus(l.status); // Etapa
+            cols[54] = l.source || ''; // Fonte
+            cols[57] = l.owner || ''; // Pessoa responsável
+            cols[58] = l.createdAt.toISOString(); // Criado em
+            cols[69] = l.channel || ''; // Origem
+            cols[75] = company?.segment || ''; // Segmento da Operação
+            cols[95] = linkedin; // Linkedin
+            cols[96] = contact?.role || ''; // Cargo (2ª coluna, mesmo nome no template)
+            cols[101] = phone; // Telefone (2ª coluna, com espaço no template)
+            cols[102] = company?.observations || ''; // Observações
+            return cols.map(escape).join(';');
+        });
+
+        return [headers.map(escape).join(';'), ...rows].join('\n');
     }
 
     /** Reenriquece o lead já prospectado: roda Receita Federal + heurísticas na empresa vinculada e recalcula o fit score. */

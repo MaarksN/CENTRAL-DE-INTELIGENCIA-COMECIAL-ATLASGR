@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { Header, TabType } from './Header';
+import { Toaster } from '../ui/Toaster';
 
 interface MainLayoutProps {
     children: ReactNode;
@@ -14,6 +15,7 @@ export function MainLayout({ children, activeTab, onTabChange }: MainLayoutProps
             <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 {children}
             </main>
+            <Toaster />
         </div>
     );
 }
