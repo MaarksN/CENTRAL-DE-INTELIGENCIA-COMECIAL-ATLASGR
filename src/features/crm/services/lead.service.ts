@@ -1,20 +1,61 @@
 import { prisma } from '../../../lib/prisma';
-import { leadSchema } from '../../../lib/zod';
+import { leadSchema, type LeadStatus } from '../../../lib/zod';
 import { z } from 'zod';
+import { enrichCompany } from '../../prospecting/services/enrichment.service';
+import {
+    toPrismaLeadStatus,
+    fromPrismaLeadStatus,
+    fromPrismaCompanyStatus,
+    fromPrismaActivityType,
+    fromPrismaActivityStatus,
+} from '../../../lib/enumMap';
+
+function serializeLead<
+    T extends {
+        status: string;
+        company?: { status: string } | null;
+        activities?: Array<{ type: string; status: string }>;
+    }
+>(lead: T): T & { status: LeadStatus } {
+    return {
+        ...lead,
+        status: fromPrismaLeadStatus(lead.status),
+        ...(lead.company ? { company: { ...lead.company, status: fromPrismaCompanyStatus(lead.company.status) } } : {}),
+        ...(lead.activities
+            ? {
+                  activities: lead.activities.map((a) => ({
+                      ...a,
+                      type: fromPrismaActivityType(a.type),
+                      status: fromPrismaActivityStatus(a.status),
+                  })),
+              }
+            : {}),
+    };
+}
 
 export class LeadService {
-    async findAll(status?: string) {
-        const where = status ? { status } : {};
-        return prisma.lead.findMany({
-            where,
-            include: { company: true, contact: true, activities: true, timeline: true, internalNotes: true },
-            orderBy: { updatedAt: 'desc' }
-        });
+    async findAll(organizationId: string, status?: string, page: number = 1, limit: number = 50) {
+        const where = status ? { organizationId, status: toPrismaLeadStatus(status as LeadStatus) as any } : { organizationId };
+
+        const skip = (page - 1) * limit;
+
+        const [data, total] = await prisma.$transaction([
+            prisma.lead.findMany({
+                where,
+                skip,
+                take: limit,
+                include: { company: true, contact: true },
+                orderBy: { updatedAt: 'desc' }
+            }),
+            prisma.lead.count({ where })
+        ]);
+
+        return { data: data.map(serializeLead), meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
     }
 
-    async findById(id: string) {
-        return prisma.lead.findUnique({
-            where: { id },
+    async findById(organizationId: string, id: string) {
+        const lead = await prisma.lead.findFirst({
+            where: { id, organizationId },
             include: {
                 company: true,
                 contact: true,
@@ -23,13 +64,16 @@ export class LeadService {
                 internalNotes: { orderBy: { createdAt: 'desc' } }
             }
         });
+        return lead ? serializeLead(lead) : null;
     }
 
-    async create(data: z.infer<typeof leadSchema>) {
+    async create(organizationId: string, data: z.infer<typeof leadSchema>) {
         const validated = leadSchema.parse(data);
-        return prisma.lead.create({
+        const lead = await prisma.lead.create({
             data: {
                 ...validated,
+                status: toPrismaLeadStatus(validated.status) as any,
+                organizationId,
                 timeline: {
                     create: {
                         type: 'creation',
@@ -39,32 +83,39 @@ export class LeadService {
             },
             include: { company: true, contact: true }
         });
+        return serializeLead(lead);
     }
 
-    async updateStatus(id: string, newStatus: string) {
-        const currentLead = await prisma.lead.findUnique({ where: { id } });
+    async updateStatus(organizationId: string, id: string, newStatus: string) {
+        const currentLead = await prisma.lead.findFirst({ where: { id, organizationId } });
         if (!currentLead) throw new Error('Lead not found');
 
-        return prisma.lead.update({
+        const previousStatusLabel = fromPrismaLeadStatus(currentLead.status);
+        const lead = await prisma.lead.update({
             where: { id },
             data: {
-                status: newStatus,
+                status: toPrismaLeadStatus(newStatus as LeadStatus) as any,
                 timeline: {
                     create: {
                         type: 'movement',
-                        description: `Lead movido de '${currentLead.status}' para '${newStatus}'`
+                        description: `Lead movido de '${previousStatusLabel}' para '${newStatus}'`
                     }
                 }
             },
             include: { company: true, contact: true, timeline: { orderBy: { createdAt: 'desc' }, take: 1 } }
         });
+        return serializeLead(lead);
     }
 
-    async update(id: string, data: Partial<z.infer<typeof leadSchema>>) {
-        return prisma.lead.update({
+    async update(organizationId: string, id: string, data: Partial<z.infer<typeof leadSchema>>) {
+        const currentLead = await prisma.lead.findFirst({ where: { id, organizationId } });
+        if (!currentLead) throw new Error('Lead not found');
+
+        const lead = await prisma.lead.update({
             where: { id },
             data: {
                 ...data,
+                ...(data.status ? { status: toPrismaLeadStatus(data.status) as any } : {}),
                 timeline: {
                     create: {
                         type: 'edition',
@@ -73,10 +124,86 @@ export class LeadService {
                 }
             }
         });
+        return serializeLead(lead);
     }
 
-    async delete(id: string) {
+    async delete(organizationId: string, id: string) {
+        const currentLead = await prisma.lead.findFirst({ where: { id, organizationId } });
+        if (!currentLead) throw new Error('Lead not found');
         return prisma.lead.delete({ where: { id } });
+    }
+
+    /** Exporta todos os leads da organização em CSV (empresa + contato) — usado como ponte manual para importar em outro CRM (ex: Bitrix24). */
+    async exportCsv(organizationId: string): Promise<string> {
+        const leads = await prisma.lead.findMany({
+            where: { organizationId },
+            include: { company: true, contact: true },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const headers = [
+            'Empresa', 'CNPJ', 'Segmento', 'Cidade', 'Estado', 'Website',
+            'Contato', 'Email', 'Telefone', 'Cargo',
+            'Status do Lead', 'Temperatura', 'Score', 'Origem', 'Criado em',
+        ];
+
+        const escape = (value: unknown) => {
+            const s = value == null ? '' : String(value);
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+
+        const rows = leads.map((l) =>
+            [
+                l.company?.tradeName || l.company?.legalName || '',
+                l.company?.cnpj || '',
+                l.company?.segment || '',
+                l.company?.city || '',
+                l.company?.state || '',
+                l.company?.website || '',
+                l.contact?.name || '',
+                l.contact?.email || '',
+                l.contact?.phone || '',
+                l.contact?.role || '',
+                fromPrismaLeadStatus(l.status),
+                l.temperature || '',
+                l.score ?? '',
+                l.source || '',
+                l.createdAt.toISOString(),
+            ]
+                .map(escape)
+                .join(',')
+        );
+
+        return [headers.join(','), ...rows].join('\n');
+    }
+
+    /** Reenriquece o lead já prospectado: roda Receita Federal + heurísticas na empresa vinculada e recalcula o fit score. */
+    async enrich(organizationId: string, id: string) {
+        const lead = await prisma.lead.findFirst({ where: { id, organizationId }, include: { company: true } });
+        if (!lead) throw new Error('Lead not found');
+        if (!lead.companyId) throw new Error('Lead sem empresa vinculada — não é possível enriquecer');
+
+        const result = await enrichCompany(lead.companyId, {
+            segmentKeywords: lead.company?.segment ? [lead.company.segment] : undefined,
+            fleetSizeHint: lead.company?.size || undefined,
+        });
+
+        const updated = await prisma.lead.update({
+            where: { id },
+            data: {
+                score: result.fit.score,
+                temperature: result.fit.temperature,
+                timeline: {
+                    create: {
+                        type: 'generic',
+                        description: `Lead reenriquecido — novo fit score ${result.fit.score}% (${result.fit.temperature})`,
+                    },
+                },
+            },
+            include: { company: true, contact: true, timeline: { orderBy: { createdAt: 'desc' }, take: 1 } },
+        });
+
+        return { lead: serializeLead(updated), fit: result.fit, enrichment: result };
     }
 }
 export const leadService = new LeadService();

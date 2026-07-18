@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { MainLayout } from './components/layout/MainLayout';
 import { TabType } from './components/layout/Header';
-import { Lead } from './types/index';
 
-import { Prospector } from './components/Prospector';
+import { ProspectingHub } from './features/prospecting/components/ProspectingHub';
+import { EnricherHub } from './features/prospecting/components/EnricherHub';
 import { CrmBoard } from './components/CrmBoard';
 import { Intelligence } from './components/Intelligence';
 import { Dashboard } from './features/dashboard/components/Dashboard';
@@ -14,27 +14,15 @@ import { ActivityList } from './features/activities/components/ActivityList';
 export default function App() {
     const [activeTab, setActiveTab] = useState<TabType>('dashboard');
 
-    const handleSaveLead = async (newLead: Omit<Lead, 'id' | 'status'>) => {
-        try {
-            await fetch('/api/leads', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...newLead, status: 'Novo Lead' })
-            });
-            setActiveTab('crm');
-        } catch (error) {
-            console.error("Error saving prospect as lead", error);
-        }
-    };
-
     return (
         <MainLayout activeTab={activeTab} onTabChange={setActiveTab}>
-            {activeTab === 'dashboard' && <Dashboard />}
+            {activeTab === 'dashboard' && <Dashboard onNavigate={setActiveTab} />}
             {activeTab === 'companies' && <CompanyList />}
             {activeTab === 'contacts' && <ContactList />}
             {activeTab === 'crm' && <CrmBoard />}
             {activeTab === 'activities' && <ActivityList />}
-            {activeTab === 'prospect' && <Prospector onSaveLead={handleSaveLead} />}
+            {activeTab === 'prospect' && <ProspectingHub />}
+            {activeTab === 'enrich' && <EnricherHub />}
             {activeTab === 'intelligence' && <Intelligence />}
         </MainLayout>
     );

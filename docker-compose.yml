@@ -22,13 +22,13 @@ services:
       - prospector-net
 
   postgres-primary:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     environment:
       - POSTGRES_USER=prospector
       - POSTGRES_PASSWORD=prospector_pass
       - POSTGRES_DB=prospectordb
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - pgdata-primary:/var/lib/postgresql/data
     healthcheck:

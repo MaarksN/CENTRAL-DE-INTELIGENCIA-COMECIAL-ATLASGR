@@ -26,7 +26,7 @@ export function ActivityList() {
     }, []);
 
     const handleStatusToggle = async (activity: Activity) => {
-        const newStatus = activity.status === 'Pendente' ? 'Concluído' : 'Pendente';
+        const newStatus = activity.status === 'Pendente' ? 'Concluída' : 'Pendente';
         try {
             const res = await fetch(`/api/activities/${activity.id}`, {
                 method: 'PUT',
@@ -51,11 +51,24 @@ export function ActivityList() {
         }
     };
 
+    const getTypeEmoji = (type: string) => {
+        switch (type.toLowerCase()) {
+            case 'ligação': return '📞';
+            case 'e-mail': return '📧';
+            case 'whatsapp': return '💬';
+            case 'reunião': return '🤝';
+            case 'visita': return '🚗';
+            case 'follow-up': return '🔁';
+            case 'tarefa': return '✅';
+            default: return '📌';
+        }
+    };
+
     return (
         <div className="flex-1 overflow-y-auto bg-gray-50/50 p-8">
             <div className="max-w-5xl mx-auto space-y-6">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">Atividades</h1>
+                    <h1 className="text-2xl font-semibold text-gray-900">📅 Atividades</h1>
                     <p className="text-gray-500 mt-1">Gerencie suas tarefas e compromissos</p>
                 </div>
 
@@ -63,17 +76,17 @@ export function ActivityList() {
                     {loading ? (
                         <div className="p-8 text-center text-gray-500 flex items-center justify-center gap-2">
                             <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                            Carregando atividades...
+                            ⏳ Carregando atividades...
                         </div>
                     ) : activities.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500">Nenhuma atividade agendada.</div>
+                        <div className="p-8 text-center text-gray-500">📭 Nenhuma atividade agendada.</div>
                     ) : (
                         <div className="divide-y divide-gray-100">
                             {activities.map(activity => (
                                 <div key={activity.id} className="p-4 hover:bg-gray-50/50 transition-colors flex items-center gap-4 group">
                                     <button
                                         onClick={() => handleStatusToggle(activity)}
-                                        className={`shrink-0 transition-colors ${activity.status === 'Concluído' ? 'text-green-500' : 'text-gray-300 hover:text-green-500'}`}
+                                        className={`shrink-0 transition-colors ${activity.status === 'Concluída' ? 'text-green-500' : 'text-gray-300 hover:text-green-500'}`}
                                     >
                                         <CheckCircle2 className="w-6 h-6" />
                                     </button>
@@ -82,7 +95,7 @@ export function ActivityList() {
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium">
                                                 {getTypeIcon(activity.type)}
-                                                {activity.type}
+                                                {getTypeEmoji(activity.type)} {activity.type}
                                             </span>
                                             {activity.lead?.company && (
                                                 <span className="text-sm font-medium text-gray-900">
