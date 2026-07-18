@@ -1,5 +1,6 @@
 import React from "react";
 import { useState, useEffect, useCallback } from 'react';
+import { Download } from 'lucide-react';
 import { Lead, LeadStatus } from '../types';
 import { KanbanColumn } from '../features/crm/components/KanbanColumn';
 import { api } from '../lib/api';
@@ -81,6 +82,27 @@ export function CrmBoard() {
         }
     }, []);
 
+    const handleExportCsv = useCallback(async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/leads/export/csv', {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!res.ok) throw new Error('Falha ao exportar leads');
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `leads-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error exporting leads:', error);
+        }
+    }, []);
+
     const groupedLeads = React.useMemo(() => {
         const grouped = {} as Record<LeadStatus, Lead[]>;
         COLUMNS.forEach(status => grouped[status] = []);
@@ -99,6 +121,13 @@ export function CrmBoard() {
                     <h2 className="font-bold text-2xl text-gray-900">🎯 Pipeline de Vendas</h2>
                     <p className="text-gray-500 text-sm mt-1">Arraste os cards para atualizar o estágio da negociação</p>
                 </div>
+                <button
+                    onClick={handleExportCsv}
+                    className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 hover:border-atlas-orange/40 transition-colors shadow-sm"
+                    title="Exportar todos os leads em CSV (para backup ou importar em outro CRM, como o Bitrix24)"
+                >
+                    <Download className="w-4 h-4" /> 💾 Exportar CSV
+                </button>
             </div>
 
             <div className="flex-1 overflow-x-auto overflow-y-hidden p-6 custom-scrollbar bg-gray-50/30">

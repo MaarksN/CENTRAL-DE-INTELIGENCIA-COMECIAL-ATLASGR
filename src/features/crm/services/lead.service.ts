@@ -133,6 +133,50 @@ export class LeadService {
         return prisma.lead.delete({ where: { id } });
     }
 
+    /** Exporta todos os leads da organização em CSV (empresa + contato) — usado como ponte manual para importar em outro CRM (ex: Bitrix24). */
+    async exportCsv(organizationId: string): Promise<string> {
+        const leads = await prisma.lead.findMany({
+            where: { organizationId },
+            include: { company: true, contact: true },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const headers = [
+            'Empresa', 'CNPJ', 'Segmento', 'Cidade', 'Estado', 'Website',
+            'Contato', 'Email', 'Telefone', 'Cargo',
+            'Status do Lead', 'Temperatura', 'Score', 'Origem', 'Criado em',
+        ];
+
+        const escape = (value: unknown) => {
+            const s = value == null ? '' : String(value);
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+
+        const rows = leads.map((l) =>
+            [
+                l.company?.tradeName || l.company?.legalName || '',
+                l.company?.cnpj || '',
+                l.company?.segment || '',
+                l.company?.city || '',
+                l.company?.state || '',
+                l.company?.website || '',
+                l.contact?.name || '',
+                l.contact?.email || '',
+                l.contact?.phone || '',
+                l.contact?.role || '',
+                fromPrismaLeadStatus(l.status),
+                l.temperature || '',
+                l.score ?? '',
+                l.source || '',
+                l.createdAt.toISOString(),
+            ]
+                .map(escape)
+                .join(',')
+        );
+
+        return [headers.join(','), ...rows].join('\n');
+    }
+
     /** Reenriquece o lead já prospectado: roda Receita Federal + heurísticas na empresa vinculada e recalcula o fit score. */
     async enrich(organizationId: string, id: string) {
         const lead = await prisma.lead.findFirst({ where: { id, organizationId }, include: { company: true } });

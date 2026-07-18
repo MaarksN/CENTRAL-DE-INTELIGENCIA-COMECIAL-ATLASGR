@@ -1,28 +1,26 @@
 import { useState } from 'react';
 import {
     Search, Loader2, ShieldCheck, AlertTriangle, Building2, MapPin, Users,
-    TrendingUp, Cpu, Database, Globe, CheckCircle2, Landmark, Mail, UserPlus, Sparkles, Link as LinkIcon, type LucideIcon
+    TrendingUp, Cpu, Database, Globe, CheckCircle2, Landmark, UserPlus, Sparkles, type LucideIcon
 } from 'lucide-react';
 import { api } from '../../../lib/api';
 import type { CnpjLookupResult, FitScoreResult } from '../services/enrichment.service';
 import type { ProspectCandidate, ProspectCriteria, DiscoverResult } from '../services/prospecting.service';
 import {
-    SEGMENTO_OPTIONS, PIC_OPTIONS, PERSONA_OPTIONS, LOCALIZACAO_OPTIONS, QUANTIDADE_OPTIONS,
+    SEGMENTO_OPTIONS, LOCALIZACAO_OPTIONS, QUANTIDADE_OPTIONS,
 } from '../constants/icp-options';
 
-type HubTab = 'cnpj' | 'ai';
+type HubTab = 'cnpj' | 'discovery';
 
 const dropdownFields: Array<{ key: keyof Omit<ProspectCriteria, 'quantidade'>; label: string; options: string[] }> = [
     { key: 'segmento', label: 'Segmento (ICP)', options: SEGMENTO_OPTIONS },
-    { key: 'pic', label: 'Cenário / Gatilho (PIC)', options: PIC_OPTIONS },
-    { key: 'persona', label: 'Persona / Decisor-alvo', options: PERSONA_OPTIONS },
     { key: 'localizacao', label: 'Região de Atuação', options: LOCALIZACAO_OPTIONS },
 ];
 
 const loadingSteps = [
+    'Buscando empresas via Google Places e Apollo.io...',
     'Consultando bases públicas (Receita Federal)...',
     'Cruzando dados com heurísticas de mercado...',
-    'Analisando fit com ICP da Atlas...',
     'Calculando Score de Propensão...',
     'Finalizando prospecção...',
 ];
@@ -53,26 +51,23 @@ export function ProspectingHub() {
     const [cnpjResult, setCnpjResult] = useState<CnpjLookupResult | null>(null);
     const [cnpjError, setCnpjError] = useState<string | null>(null);
 
-    // --- AI ICP discovery ---
+    // --- discovery via Google Places + Apollo ---
     const [criteria, setCriteria] = useState<ProspectCriteria>({
         segmento: SEGMENTO_OPTIONS[0],
-        pic: PIC_OPTIONS[0],
-        persona: PERSONA_OPTIONS[0],
         localizacao: LOCALIZACAO_OPTIONS[0],
         quantidade: QUANTIDADE_OPTIONS[0],
     });
     const [isSearching, setIsSearching] = useState(false);
     const [loadingStepIdx, setLoadingStepIdx] = useState(0);
     const [candidates, setCandidates] = useState<ProspectCandidate[]>([]);
-    const [sources, setSources] = useState<Array<{ title: string; uri: string }>>([]);
-    const [aiError, setAiError] = useState<string | null>(null);
+    const [discoverError, setDiscoverError] = useState<string | null>(null);
     const [apolloError, setApolloError] = useState<string | null>(null);
 
     // --- shared: promote-to-CRM state ---
     const [promotingKey, setPromotingKey] = useState<string | null>(null);
     const [promoted, setPromoted] = useState<Record<string, PromoteResult>>({});
 
-    // --- quick filter sobre os resultados já carregados (busca instantânea, sem nova chamada à IA) ---
+    // --- quick filter sobre os resultados já carregados (busca instantânea, sem nova chamada externa) ---
     const [resultFilter, setResultFilter] = useState('');
     const filteredCandidates = candidates
         .map((c, i) => ({ c, i }))
@@ -103,10 +98,9 @@ export function ProspectingHub() {
 
     const handleDiscover = async () => {
         setIsSearching(true);
-        setAiError(null);
+        setDiscoverError(null);
         setApolloError(null);
         setCandidates([]);
-        setSources([]);
         setLoadingStepIdx(0);
         const interval = setInterval(() => {
             setLoadingStepIdx((prev) => Math.min(prev + 1, loadingSteps.length - 1));
@@ -114,10 +108,9 @@ export function ProspectingHub() {
         try {
             const result = await api.post<DiscoverResult>('/api/prospecting/discover', criteria);
             setCandidates(result.candidates);
-            setSources(result.sources);
             setApolloError(result.apolloError || null);
         } catch (error) {
-            setAiError(getErrorMessage(error, 'Falha ao buscar leads'));
+            setDiscoverError(getErrorMessage(error, 'Falha ao buscar leads'));
         } finally {
             clearInterval(interval);
             setIsSearching(false);
@@ -149,7 +142,7 @@ export function ProspectingHub() {
     };
 
     const promoteCandidate = async (candidate: ProspectCandidate, idx: number) => {
-        const key = `ai-${idx}`;
+        const key = `discovery-${idx}`;
         setPromotingKey(key);
         try {
             const result = await api.post<PromoteResult>('/api/prospecting/promote', {
@@ -159,13 +152,12 @@ export function ProspectingHub() {
                 segment: candidate.segment,
                 size: candidate.size,
                 location: candidate.location,
-                source: 'Prospecção IA (ICP)',
-                contact: candidate.suggestedContact,
+                source: 'Prospecção (Google Places / Apollo)',
                 autoEnrich: true,
             });
             setPromoted((prev) => ({ ...prev, [key]: result }));
         } catch (error) {
-            setAiError(getErrorMessage(error, 'Falha ao adicionar ao CRM'));
+            setDiscoverError(getErrorMessage(error, 'Falha ao adicionar ao CRM'));
         } finally {
             setPromotingKey(null);
         }
@@ -187,10 +179,10 @@ export function ProspectingHub() {
                         <Landmark size={16} /> 🏛️ Busca por CNPJ (Dados Reais)
                     </button>
                     <button
-                        onClick={() => setTab('ai')}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${tab === 'ai' ? 'bg-atlas-dark text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}
+                        onClick={() => setTab('discovery')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${tab === 'discovery' ? 'bg-atlas-dark text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        <Sparkles size={16} /> 🤖 Descoberta por IA (ICP)
+                        <Sparkles size={16} /> 🗺️ Descoberta (Google Places + Apollo)
                     </button>
                 </div>
 
@@ -264,7 +256,7 @@ export function ProspectingHub() {
                     </div>
                 )}
 
-                {tab === 'ai' && (
+                {tab === 'discovery' && (
                     <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
                         <div className="xl:col-span-4 bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden flex flex-col h-full max-h-[800px]">
                             <div className="absolute top-0 right-0 w-40 h-40 bg-atlas-orange opacity-5 transform rotate-45 translate-x-20 -translate-y-20" />
@@ -272,9 +264,9 @@ export function ProspectingHub() {
                                 <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-atlas-orange">
                                     <Database size={18} />
                                 </div>
-                                <h2 className="font-black text-xl text-atlas-dark">🤖 Motor de Busca AI Turbo</h2>
+                                <h2 className="font-black text-xl text-atlas-dark">🗺️ Motor de Busca Turbo</h2>
                             </div>
-                            <p className="text-xs text-gray-500 mb-4 relative z-10">Busca com grounding real no Google (via Gemini); cada candidato é validado na Receita Federal antes de virar Lead.</p>
+                            <p className="text-xs text-gray-500 mb-4 relative z-10">Busca real via Google Places e Apollo.io (Organization Search); cada candidato é validado na Receita Federal antes de virar Lead.</p>
 
                             <div className="space-y-4 relative z-10 flex-1 overflow-y-auto pr-2">
                                 {dropdownFields.map(({ key, label, options }) => (
@@ -313,13 +305,13 @@ export function ProspectingHub() {
                                         <><Cpu size={20} /> <span>🚀 Encontrar Leads Ideais</span></>
                                     )}
                                 </button>
-                                {aiError && <p className="text-xs text-red-600 mt-2">{aiError}</p>}
+                                {discoverError && <p className="text-xs text-red-600 mt-2">{discoverError}</p>}
                             </div>
                         </div>
 
                         <div className="xl:col-span-8 flex flex-col h-full">
                             <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
-                                <h2 className="font-black text-2xl text-atlas-dark">✨ Resultados Inteligentes</h2>
+                                <h2 className="font-black text-2xl text-atlas-dark">✨ Resultados</h2>
                                 {candidates.length > 0 && (
                                     <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold">🎯 {filteredCandidates.length}/{candidates.length} Candidatos</span>
                                 )}
@@ -366,27 +358,6 @@ export function ProspectingHub() {
                                 </div>
                             ) : candidates.length > 0 ? (
                                 <div className="space-y-4">
-                                    {sources.length > 0 && (
-                                        <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-4">
-                                            <p className="text-[10px] tracking-wider font-bold uppercase text-blue-700 mb-2 flex items-center gap-1.5">
-                                                <Globe size={12} /> 🌐 Fontes consultadas via Google Search (grounding real)
-                                            </p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {sources.map((s, i) => (
-                                                    <a
-                                                        key={i}
-                                                        href={s.uri}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="flex items-center gap-1 bg-white border border-blue-200 rounded-full px-3 py-1 text-xs text-blue-700 hover:bg-blue-100 transition-colors max-w-xs truncate"
-                                                        title={s.uri}
-                                                    >
-                                                        <LinkIcon size={10} className="shrink-0" /> {s.title}
-                                                    </a>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
                                     {filteredCandidates.length === 0 && (
                                         <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
                                             🔍 Nenhum candidato bate com "{resultFilter}".
@@ -397,9 +368,9 @@ export function ProspectingHub() {
                                             key={i}
                                             candidate={c}
                                             onPromote={() => promoteCandidate(c, i)}
-                                            isPromoting={promotingKey === `ai-${i}`}
-                                            promoted={!!promoted[`ai-${i}`]}
-                                            promotedResult={promoted[`ai-${i}`]}
+                                            isPromoting={promotingKey === `discovery-${i}`}
+                                            promoted={!!promoted[`discovery-${i}`]}
+                                            promotedResult={promoted[`discovery-${i}`]}
                                         />
                                     ))}
                                 </div>
@@ -410,7 +381,7 @@ export function ProspectingHub() {
                                     </div>
                                     <h3 className="font-black text-xl text-atlas-dark mb-2">🔍 Nenhum lead encontrado</h3>
                                     <p className="text-sm text-gray-500 text-center max-w-sm">
-                                        Preencha os critérios de ICP ao lado e deixe a IA da Atlas sugerir oportunidades reais de mercado.
+                                        Preencha os critérios de ICP ao lado e busque oportunidades reais de mercado via Google Places e Apollo.io.
                                     </p>
                                 </div>
                             )}
@@ -532,18 +503,13 @@ function CandidateCard({
                         <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${finalScore >= 75 ? 'bg-green-100 text-green-700' : finalScore >= 45 ? 'bg-blue-100 text-blue-700' : 'bg-atlas-yellow/20 text-atlas-dark'}`}>
                             <TrendingUp size={10} /> Fit {finalScore}% {isEstimate && '(estimado)'}
                         </div>
-                        {candidate.cnpjGuess && !enrichment && (
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-purple-50 text-purple-700">
-                                <Landmark size={10} /> CNPJ sugerido pela IA
-                            </span>
-                        )}
                         {enrichment?.company.googleRating && (
                             <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-yellow-50 text-yellow-700 border border-yellow-200">
                                 ⭐ {enrichment.company.googleRating} Google ({enrichment.company.googleReviewsCount})
                             </span>
                         )}
                     </div>
-                    
+
                     <div className="flex flex-wrap gap-4 text-xs font-semibold text-gray-500 mb-2">
                         <span className="flex items-center gap-1.5"><Building2 size={14} className="text-gray-400" /> {candidate.segment}</span>
                         <span className="flex items-center gap-1.5"><Users size={14} className="text-gray-400" /> {candidate.size}</span>
@@ -557,16 +523,10 @@ function CandidateCard({
                     {enrichment?.company.observations && (
                         <div className="mt-3 p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl">
                             <p className="text-[10px] tracking-wider font-bold uppercase text-indigo-500 mb-1 flex items-center gap-1">
-                                <Sparkles size={12} /> Síntese Estratégica (Atlas AI)
+                                <Sparkles size={12} /> 📝 Resumo do Enriquecimento
                             </p>
                             <p className="text-xs text-gray-600 leading-relaxed">{enrichment.company.observations}</p>
                         </div>
-                    )}
-
-                    {!enrichment && candidate.suggestedContact && (
-                        <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-2">
-                            <Mail size={12} /> Contato sugerido: <strong>{candidate.suggestedContact.name}</strong> ({candidate.suggestedContact.role})
-                        </p>
                     )}
 
                     {enrichment?.apolloContacts && enrichment.apolloContacts.length > 0 && (
@@ -577,7 +537,7 @@ function CandidateCard({
                             <div className="flex flex-wrap gap-2">
                                 {enrichment.apolloContacts.map((contact, idx) => (
                                     <span key={idx} className="bg-gray-50 border border-gray-200 rounded-full px-3 py-1 text-xs text-gray-700 flex items-center gap-1">
-                                        <strong>{contact.name}</strong> 
+                                        <strong>{contact.name}</strong>
                                         {contact.title && <span className="text-gray-400">· {contact.title}</span>}
                                     </span>
                                 ))}
