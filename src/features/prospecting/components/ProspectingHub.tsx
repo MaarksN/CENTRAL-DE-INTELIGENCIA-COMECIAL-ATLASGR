@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
     Search, Loader2, ShieldCheck, AlertTriangle, Building2, MapPin, Users,
     TrendingUp, Cpu, Database, Globe, CheckCircle2, Landmark, UserPlus, Sparkles,
@@ -173,25 +174,25 @@ export function ProspectingHub() {
     };
 
     return (
-        <div className="flex-1 overflow-y-auto bg-gray-50/50 p-6 sm:p-8">
-            <div className="max-w-7xl mx-auto space-y-6">
-                <div>
-                    <h1 className="text-2xl font-black text-atlas-dark">🔍 Prospecção & Enriquecimento ⚡</h1>
-                    <p className="text-gray-500 mt-1">Encontre empresas reais, valide na Receita Federal e leve leads qualificados direto para o CRM.</p>
-                </div>
+        <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100 p-6 sm:p-8 font-sans">
+            <div className="max-w-7xl mx-auto space-y-8">
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+                    <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-atlas-dark to-gray-600 tracking-tight">Prospecção & Inteligência <Sparkles className="inline-block text-atlas-orange -mt-1 ml-1" size={28} /></h1>
+                    <p className="text-gray-500 mt-2 text-sm font-medium">Motor de enriquecimento autônomo com IA para capturar leads corporativos de altíssimo nível.</p>
+                </motion.div>
 
-                <div className="flex gap-2 bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm w-fit">
+                <div className="flex gap-3 bg-white/60 backdrop-blur-xl p-2 rounded-2xl border border-white shadow-sm w-fit relative z-10">
                     <button
                         onClick={() => setTab('cnpj')}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${tab === 'cnpj' ? 'bg-atlas-dark text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${tab === 'cnpj' ? 'bg-gradient-to-br from-atlas-dark to-black text-white shadow-lg shadow-black/10 scale-100' : 'text-gray-500 hover:bg-white hover:shadow-sm scale-95 hover:scale-100'}`}
                     >
-                        <Landmark size={16} /> 🏛️ Busca por CNPJ (Dados Reais)
+                        <Landmark size={18} /> Auditoria Receita (CNPJ)
                     </button>
                     <button
                         onClick={() => setTab('discovery')}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${tab === 'discovery' ? 'bg-atlas-dark text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${tab === 'discovery' ? 'bg-gradient-to-br from-atlas-orange to-[#ff6b3d] text-white shadow-lg shadow-atlas-orange/20 scale-100' : 'text-gray-500 hover:bg-white hover:shadow-sm scale-95 hover:scale-100'}`}
                     >
-                        <Sparkles size={16} /> 🗺️ Descoberta (Google Places + Apollo + OpenStreetMap)
+                        <Database size={18} /> Radar Discovery (Apollo + IA)
                     </button>
                 </div>
 
@@ -485,23 +486,29 @@ export function ProspectingHub() {
                                     </div>
                                 </div>
                             ) : candidates.length > 0 ? (
-                                <div className="space-y-4">
-                                    {filteredCandidates.length === 0 && (
-                                        <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
-                                            🔍 Nenhum candidato bate com "{resultFilter}".
-                                        </div>
-                                    )}
-                                    {filteredCandidates.map(({ c, i }) => (
-                                        <CandidateCard
-                                            key={i}
-                                            candidate={c}
-                                            onPromote={() => promoteCandidate(c, i)}
-                                            isPromoting={promotingKey === `discovery-${i}`}
-                                            promoted={!!promoted[`discovery-${i}`]}
-                                            promotedResult={promoted[`discovery-${i}`]}
-                                        />
-                                    ))}
-                                </div>
+                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                                        {filteredCandidates.length === 0 && (
+                                            <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
+                                                🔍 Nenhum candidato bate com "{resultFilter}".
+                                            </div>
+                                        )}
+                                        {filteredCandidates.map(({ c, i }) => (
+                                            <motion.div 
+                                                key={i} 
+                                                initial={{ opacity: 0, y: 10 }} 
+                                                animate={{ opacity: 1, y: 0 }} 
+                                                transition={{ delay: i * 0.05 }}
+                                            >
+                                                <CandidateCard
+                                                    candidate={c}
+                                                    onPromote={() => promoteCandidate(c, i)}
+                                                    isPromoting={promotingKey === `discovery-${i}`}
+                                                    promoted={!!promoted[`discovery-${i}`]}
+                                                    promotedResult={promoted[`discovery-${i}`]}
+                                                />
+                                            </motion.div>
+                                        ))}
+                                    </motion.div>
                             ) : (
                                 <div className="flex-1 bg-white rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center p-10 min-h-[400px]">
                                     <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5">

@@ -74,9 +74,49 @@ services:
     networks:
       - prospector-net
 
+  meilisearch:
+    image: getmeili/meilisearch:v1.12
+    environment:
+      - MEILI_MASTER_KEY=prospector_meili_master_key
+      - MEILI_ENV=production
+    ports:
+      - "7700:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    networks:
+      - prospector-net
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - prospector-net
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    ports:
+      - "4000:4000"
+    environment:
+      - LITELLM_MASTER_KEY=sk-prospector-litellm-key
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml
+    command: [ "--config", "/app/config.yaml", "--port", "4000" ]
+    networks:
+      - prospector-net
+
 volumes:
   pgdata-primary:
   redisdata:
+  meilisearch_data:
+  minio_data:
 
 networks:
   prospector-net:

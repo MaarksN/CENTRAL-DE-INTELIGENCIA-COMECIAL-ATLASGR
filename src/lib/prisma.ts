@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { meili } from './search/index.js';
+import { logger } from './logger.js';
 
 const connectionString = process.env.DATABASE_URL || "postgresql://dummy:dummy@localhost:5432/dummy";
 
@@ -21,11 +23,40 @@ const adapter = new PrismaPg(pool);
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-export const prisma = globalForPrisma.prisma || new PrismaClient({
+const basePrisma = globalForPrisma.prisma || new PrismaClient({
   adapter,
 });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+export const prisma = basePrisma.$extends({
+  query: {
+    company: {
+      async create({ args, query }) {
+        const result = await query(args);
+        meili.index('companies').addDocuments([{ ...result }]).catch(err => logger.error(err, 'Failed to index company'));
+        return result;
+      },
+      async update({ args, query }) {
+        const result = await query(args);
+        meili.index('companies').updateDocuments([{ ...result }]).catch(err => logger.error(err, 'Failed to update company index'));
+        return result;
+      }
+    },
+    lead: {
+      async create({ args, query }) {
+        const result = await query(args);
+        meili.index('leads').addDocuments([{ ...result }]).catch(err => logger.error(err, 'Failed to index lead'));
+        return result;
+      },
+      async update({ args, query }) {
+        const result = await query(args);
+        meili.index('leads').updateDocuments([{ ...result }]).catch(err => logger.error(err, 'Failed to update lead index'));
+        return result;
+      }
+    }
+  }
+}) as unknown as PrismaClient; // Cast needed due to complex extension types
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = basePrisma;
 
 // Graceful shutdown handling
 process.on('beforeExit', async () => {

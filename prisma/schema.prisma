@@ -1,3 +1,4 @@
+
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
@@ -20,14 +21,14 @@ enum ContactStatus {
 }
 
 enum LeadStatus {
-  Novo_Lead        @map("Novo Lead")
-  Qualificacao     @map("Qualificação")
+  Novo_Lead @map("Novo Lead")
+  Qualificacao @map("Qualificação")
   Primeiro_Contato @map("Primeiro Contato")
-  Diagnostico      @map("Diagnóstico")
+  Diagnostico @map("Diagnóstico")
   Proposta
-  Negociacao       @map("Negociação")
-  Fechado_Ganho    @map("Fechado Ganho")
-  Fechado_Perdido  @map("Fechado Perdido")
+  Negociacao @map("Negociação")
+  Fechado_Ganho @map("Fechado Ganho")
+  Fechado_Perdido @map("Fechado Perdido")
 }
 
 enum LeadTemperature {
@@ -37,10 +38,10 @@ enum LeadTemperature {
 }
 
 enum ActivityType {
-  Ligacao   @map("Ligação")
+  Ligacao @map("Ligação")
   WhatsApp
-  Email     @map("E-mail")
-  Reuniao   @map("Reunião")
+  Email @map("E-mail")
+  Reuniao @map("Reunião")
   Follow_up @map("Follow-up")
   Visita
   Tarefa
@@ -49,7 +50,7 @@ enum ActivityType {
 enum ActivityStatus {
   Pendente
   Em_andamento @map("Em andamento")
-  Concluida    @map("Concluída")
+  Concluida @map("Concluída")
   Cancelada
 }
 
@@ -244,6 +245,12 @@ model User {
   organization   Organization @relation(fields: [organizationId], references: [id])
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  emailVerified  Boolean      @default(false)
+  image          String?
+  sessions       Session[]
+  accounts       Account[]
+
+  @@map("user")
 }
 
 model Organization {
@@ -256,4 +263,52 @@ model Organization {
   activities Activity[]
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }
