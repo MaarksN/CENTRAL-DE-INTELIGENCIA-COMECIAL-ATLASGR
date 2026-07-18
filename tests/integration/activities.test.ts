@@ -13,14 +13,25 @@ describe('ActivityService Integration', () => {
 
   describe('create', () => {
     it('should create a new activity and generate a timeline event', async () => {
-      const company = await prisma.company.create({ data: CompanyFactory.build() });
-      const lead = await prisma.lead.create({ data: LeadFactory.build({ companyId: company.id }) as never });
+      const companyData = CompanyFactory.build({ organizationId: 'test-org-id' });
+      delete companyData.id;
+      const company = await prisma.company.create({ data: companyData as any });
+
+      const leadData = LeadFactory.build({ companyId: company.id, organizationId: 'test-org-id', status: 'Novo_Lead' });
+      const lead = await prisma.lead.create({ data: leadData as never });
       
       const data = ActivityFactory.build({ leadId: lead.id, date: new Date().toISOString() as never });
       delete (data as any).lead;
+      delete (data as any).organizationId;
+      data.status = 'Pendente';
+      data.type = 'Ligação';
 
       const result = await activityService.create('test-org-id', data as any);
       expect(result.leadId).toBe(lead.id);
+
+      // Verify that activity is properly written
+      const activities = await prisma.activity.findMany({ where: { leadId: lead.id } });
+      expect(activities.length).toBeGreaterThan(0);
 
       const timelineEvents = await prisma.timelineEvent.findMany({ where: { leadId: lead.id, type: 'activity' } });
       expect(timelineEvents.length).toBeGreaterThan(0);
