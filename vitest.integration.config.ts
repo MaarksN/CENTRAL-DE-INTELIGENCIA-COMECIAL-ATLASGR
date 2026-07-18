@@ -11,11 +11,6 @@ export default defineConfig({
     include: ['tests/integration/**/*.test.ts', 'tests/integration/**/*.test.tsx'],
     fileParallelism: false, // Run tests sequentially to avoid DB lock/wipe conflicts
     pool: 'threads',
-    poolOptions: {
-        threads: {
-            singleThread: true
-        }
-    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
