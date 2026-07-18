@@ -32,7 +32,7 @@ function ensureDevOrganization() {
 export const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const session = await auth.api.getSession({
-            // @ts-ignore
+            // @ts-expect-error override
             headers: req.headers
         });
         
@@ -57,7 +57,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
             organizationId: (session.user as any).organizationId
         };
         next();
-    } catch (err) {
+    } catch (_err) {
         return res.status(403).json({ success: false, error: 'Invalid session.' });
     }
 };

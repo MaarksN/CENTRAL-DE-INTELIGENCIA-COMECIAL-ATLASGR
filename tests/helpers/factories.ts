@@ -1,5 +1,4 @@
 import { faker } from '@faker-js/faker';
-import type { Prisma } from '@prisma/client';
 
 export const CompanyFactory = {
   build: (overrides?: any): any => ({
@@ -15,6 +14,7 @@ export const CompanyFactory = {
     emails: [faker.internet.email()],
     phones: [faker.phone.number()],
     status: 'Ativo',
+    organizationId: 'test-org-id',
     ...overrides,
   }),
 };
@@ -27,6 +27,7 @@ export const ContactFactory = {
       phone: faker.phone.number(),
       role: faker.person.jobTitle(),
       status: 'Ativo',
+      organizationId: 'test-org-id',
       company: overrides?.company || {
         create: CompanyFactory.build(),
       },
@@ -37,21 +38,23 @@ export const ContactFactory = {
 
 export const LeadFactory = {
   build: (overrides?: any): any => ({
-    status: 'Novo Lead',
+    status: 'Novo_Lead',
     source: faker.helpers.arrayElement(['Inbound', 'Outbound', 'Referral']),
     temperature: faker.helpers.arrayElement(['Frio', 'Morno', 'Quente']),
     score: faker.number.int({ min: 0, max: 100 }),
     owner: faker.person.fullName(),
+    organizationId: 'test-org-id',
     ...overrides,
   }),
 };
 
 export const ActivityFactory = {
   build: (overrides?: any): any => ({
-    type: faker.helpers.arrayElement(['Ligação', 'E-mail', 'Reunião', 'Visita']),
+    type: faker.helpers.arrayElement(['Ligacao', 'WhatsApp', 'Email', 'Reuniao', 'Follow_up', 'Visita', 'Tarefa']),
     owner: faker.person.fullName(),
-    date: faker.date.recent(),
-    status: 'Concluída',
+    date: faker.date.recent().toISOString(),
+    status: 'Concluida',
+    organizationId: 'test-org-id',
     lead: overrides?.lead || {
       create: LeadFactory.build(),
     },
@@ -72,7 +75,7 @@ export const NoteFactory = {
 
 export const TimelineEventFactory = {
   build: (overrides?: any): any => ({
-    type: 'generic',
+    type: 'creation',
     description: faker.lorem.sentence(),
     lead: overrides?.lead || {
       create: LeadFactory.build(),
