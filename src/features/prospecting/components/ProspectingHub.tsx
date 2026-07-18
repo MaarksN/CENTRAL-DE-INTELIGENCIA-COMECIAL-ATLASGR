@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import { api } from '../../../lib/api';
 import type { CnpjLookupResult, FitScoreResult } from '../services/enrichment.service';
-import type { ProspectCandidate, ProspectCriteria, DiscoverResult } from '../services/prospecting.service';
+import type { ProspectCandidate, ProspectCriteria, DiscoverResult, DecisionMaker } from '../services/prospecting.service';
+import type { DecisionMakerCriteria } from '../services/apollo.service';
 import {
     SEGMENTO_OPTIONS, LOCALIZACAO_OPTIONS, QUANTIDADE_OPTIONS, PORTE_OPTIONS, ESTADO_OPTIONS,
 } from '../constants/icp-options';
@@ -190,7 +191,7 @@ export function ProspectingHub() {
                         onClick={() => setTab('discovery')}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${tab === 'discovery' ? 'bg-atlas-dark text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                        <Sparkles size={16} /> 🗺️ Descoberta (Google Places + Apollo)
+                        <Sparkles size={16} /> 🗺️ Descoberta (Google Places + Apollo + OpenStreetMap)
                     </button>
                 </div>
 
@@ -274,7 +275,7 @@ export function ProspectingHub() {
                                 </div>
                                 <h2 className="font-black text-xl text-atlas-dark">🗺️ Motor de Busca Turbo</h2>
                             </div>
-                            <p className="text-xs text-gray-500 mb-4 relative z-10">Busca real via Google Places e Apollo.io (Organization Search); cada candidato é validado na Receita Federal antes de virar Lead.</p>
+                            <p className="text-xs text-gray-500 mb-4 relative z-10">Busca real via Google Places, Apollo.io (Organization Search) e OpenStreetMap; cada candidato é validado na Receita Federal antes de virar Lead.</p>
 
                             <div className="space-y-4 relative z-10 flex-1 overflow-y-auto pr-2">
                                 {dropdownFields.map(({ key, label, options }) => (
@@ -386,6 +387,36 @@ export function ProspectingHub() {
                                                 className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
                                             />
                                         </div>
+                                        <div>
+                                            <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Ano de Fundação (Mín e Máx)</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="number"
+                                                    placeholder="De"
+                                                    value={criteria.anoFundacaoMin ?? ''}
+                                                    onChange={(e) => setCriteria({ ...criteria, anoFundacaoMin: e.target.value ? Number(e.target.value) : undefined })}
+                                                    className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Até"
+                                                    value={criteria.anoFundacaoMax ?? ''}
+                                                    onChange={(e) => setCriteria({ ...criteria, anoFundacaoMax: e.target.value ? Number(e.target.value) : undefined })}
+                                                    className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Tecnologias Utilizadas</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Ex: Salesforce, AWS, SAP"
+                                                value={criteria.tecnologias || ''}
+                                                onChange={(e) => setCriteria({ ...criteria, tecnologias: e.target.value || undefined })}
+                                                className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Separadas por vírgula.</p>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -478,7 +509,7 @@ export function ProspectingHub() {
                                     </div>
                                     <h3 className="font-black text-xl text-atlas-dark mb-2">🔍 Nenhum lead encontrado</h3>
                                     <p className="text-sm text-gray-500 text-center max-w-sm">
-                                        Preencha os critérios de ICP ao lado e busque oportunidades reais de mercado via Google Places e Apollo.io.
+                                        Preencha os critérios de ICP ao lado e busque oportunidades reais de mercado via Google Places, Apollo.io e OpenStreetMap.
                                     </p>
                                 </div>
                             )}
@@ -582,6 +613,223 @@ function InfoTile({ icon: Icon, label, value }: { icon: LucideIcon; label: strin
     );
 }
 
+function DecisionMakerSection({ candidate }: { candidate: ProspectCandidate }) {
+    const [open, setOpen] = useState(false);
+    const [criteria, setCriteria] = useState<DecisionMakerCriteria>({
+        apenasEmailVerificado: true,
+        senioridades: [],
+        departamentos: [],
+    });
+    const [isSearching, setIsSearching] = useState(false);
+    const [results, setResults] = useState<DecisionMaker[] | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const hasDomain = candidate.rationale.includes('domínio: ');
+    const domainMatch = candidate.rationale.match(/domínio: ([a-zA-Z0-9.-]+)/);
+    const domain = domainMatch ? domainMatch[1] : null;
+
+    const SENIORITY_OPTIONS = [
+        { value: 'c_suite', label: 'C-Level' },
+        { value: 'vp', label: 'VP' },
+        { value: 'director', label: 'Diretor' },
+        { value: 'manager', label: 'Gerente' },
+        { value: 'senior', label: 'Sênior' },
+    ];
+    
+    const DEPARTMENT_OPTIONS = [
+        { value: 'sales', label: 'Vendas' },
+        { value: 'marketing', label: 'Marketing' },
+        { value: 'it', label: 'Tecnologia' },
+        { value: 'engineering', label: 'Engenharia' },
+        { value: 'hr', label: 'RH' },
+        { value: 'operations', label: 'Operações' },
+    ];
+
+    const toggleSeniority = (v: string) => {
+        setCriteria(c => ({
+            ...c,
+            senioridades: c.senioridades?.includes(v) ? c.senioridades.filter(x => x !== v) : [...(c.senioridades || []), v]
+        }));
+    };
+
+    const toggleDepartment = (v: string) => {
+        setCriteria(c => ({
+            ...c,
+            departamentos: c.departamentos?.includes(v) ? c.departamentos.filter(x => x !== v) : [...(c.departamentos || []), v]
+        }));
+    };
+
+    const handleSearch = async () => {
+        if (!domain) return;
+        setIsSearching(true);
+        setError(null);
+        try {
+            const res = await api.post<{ decisionMakers: DecisionMaker[], error?: string }>('/api/prospecting/decision-makers', {
+                domain,
+                criteria
+            });
+            setResults(res.decisionMakers);
+            if (res.error) setError(res.error);
+        } catch (err) {
+            setError(getErrorMessage(err, 'Falha ao buscar decisores.'));
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    if (!hasDomain || !domain) return null;
+
+    if (!open) {
+        return (
+            <div className="mt-3">
+                <button
+                    onClick={() => setOpen(true)}
+                    className="text-xs bg-indigo-50 text-indigo-700 font-bold px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-indigo-100 transition-colors"
+                >
+                    <Search size={14} /> Buscar Decisores Nesta Empresa
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-4 p-4 border border-indigo-100 bg-indigo-50/30 rounded-2xl">
+            <div className="flex items-center justify-between mb-4">
+                <h4 className="font-bold text-sm text-indigo-900 flex items-center gap-2"><Users size={16} /> Pesquisa de Decisores (Apollo)</h4>
+                <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xs">Fechar</button>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Cargos Específicos (Vírgula)</label>
+                    <input
+                        type="text"
+                        placeholder="Ex: Diretor de Logística, CEO"
+                        value={criteria.cargos || ''}
+                        onChange={(e) => setCriteria({ ...criteria, cargos: e.target.value || undefined })}
+                        className="w-full p-2.5 bg-white rounded-xl border border-gray-200 outline-none focus:border-indigo-400 text-sm"
+                    />
+                </div>
+                <div>
+                    <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Palavras-chave (Perfil LinkedIn)</label>
+                    <input
+                        type="text"
+                        placeholder="Ex: agile, supply chain"
+                        value={criteria.palavrasChavePerfil || ''}
+                        onChange={(e) => setCriteria({ ...criteria, palavrasChavePerfil: e.target.value || undefined })}
+                        className="w-full p-2.5 bg-white rounded-xl border border-gray-200 outline-none focus:border-indigo-400 text-sm"
+                    />
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Níveis de Senioridade</label>
+                    <div className="flex flex-wrap gap-2">
+                        {SENIORITY_OPTIONS.map(opt => (
+                            <button
+                                key={opt.value}
+                                onClick={() => toggleSeniority(opt.value)}
+                                className={`px-2 py-1 rounded-md text-xs font-medium border ${criteria.senioridades?.includes(opt.value) ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Departamentos</label>
+                    <div className="flex flex-wrap gap-2">
+                        {DEPARTMENT_OPTIONS.map(opt => (
+                            <button
+                                key={opt.value}
+                                onClick={() => toggleDepartment(opt.value)}
+                                className={`px-2 py-1 rounded-md text-xs font-medium border ${criteria.departamentos?.includes(opt.value) ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div className="flex gap-2">
+                    <div className="flex-1">
+                        <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Cidade (opcional)</label>
+                        <input
+                            type="text"
+                            value={criteria.cidade || ''}
+                            onChange={(e) => setCriteria({ ...criteria, cidade: e.target.value || undefined })}
+                            className="w-full p-2.5 bg-white rounded-xl border border-gray-200 outline-none focus:border-indigo-400 text-sm"
+                        />
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Estado (opcional)</label>
+                        <input
+                            type="text"
+                            value={criteria.estado || ''}
+                            onChange={(e) => setCriteria({ ...criteria, estado: e.target.value || undefined })}
+                            className="w-full p-2.5 bg-white rounded-xl border border-gray-200 outline-none focus:border-indigo-400 text-sm"
+                        />
+                    </div>
+                </div>
+                <div className="flex items-center pt-5">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={criteria.apenasEmailVerificado}
+                            onChange={(e) => setCriteria({ ...criteria, apenasEmailVerificado: e.target.checked })}
+                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        Somente e-mails verificados
+                    </label>
+                </div>
+            </div>
+
+            <button
+                onClick={handleSearch}
+                disabled={isSearching}
+                className="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+            >
+                {isSearching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                {isSearching ? 'Buscando pessoas...' : 'Buscar Pessoas'}
+            </button>
+
+            {error && <p className="text-xs text-red-600 mt-3">{error}</p>}
+
+            {results && (
+                <div className="mt-4 border-t border-indigo-100 pt-4">
+                    <h5 className="text-[10px] tracking-wider font-bold uppercase text-gray-500 mb-3">Resultados ({results.length})</h5>
+                    {results.length === 0 ? (
+                        <p className="text-sm text-gray-500">Nenhuma pessoa encontrada com estes filtros.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {results.map((dm, idx) => (
+                                <div key={idx} className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-700">
+                                    <span className="font-bold text-sm text-atlas-dark">{dm.name}</span>
+                                    {dm.title && <span className="text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-md">{dm.title}</span>}
+                                    {dm.email && (
+                                        <span className="flex items-center gap-1 text-green-700 font-medium bg-green-50 px-2 py-0.5 rounded-md">
+                                            <Mail size={12} /> {dm.email}
+                                            {dm.emailSource === 'hunter' && <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-bold ml-1">HUNTER</span>}
+                                        </span>
+                                    )}
+                                    {dm.phone && <span className="flex items-center gap-1 text-gray-600"><Phone size={12} /> {dm.phone}</span>}
+                                    {dm.linkedinUrl && (
+                                        <a href={dm.linkedinUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
+                                            <Linkedin size={12} /> LinkedIn
+                                        </a>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function CandidateCard({
     candidate, onPromote, isPromoting, promoted, promotedResult,
 }: {
@@ -641,33 +889,7 @@ function CandidateCard({
                         <p className="text-xs text-gray-400 italic mb-2">"{candidate.rationale}"</p>
                     )}
 
-                    {!enrichment && candidate.decisionMakers && candidate.decisionMakers.length > 0 && (
-                        <div className="mb-2">
-                            <p className="text-[10px] tracking-wider font-bold uppercase text-gray-500 mb-2 flex items-center gap-1">
-                                <Users size={12} /> Decisores Encontrados (Apollo{candidate.decisionMakers.some((d) => d.emailSource === 'hunter') ? ' + Hunter.io' : ''})
-                            </p>
-                            <div className="space-y-1.5">
-                                {candidate.decisionMakers.map((dm, idx) => (
-                                    <div key={idx} className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-700">
-                                        <span className="font-bold">{dm.name}</span>
-                                        {dm.title && <span className="text-gray-400">{dm.title}</span>}
-                                        {dm.email && (
-                                            <span className="flex items-center gap-1 text-gray-600">
-                                                <Mail size={11} /> {dm.email}
-                                                {dm.emailSource === 'hunter' && <span className="text-[9px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded-full font-bold">HUNTER</span>}
-                                            </span>
-                                        )}
-                                        {dm.phone && <span className="flex items-center gap-1 text-gray-600"><Phone size={11} /> {dm.phone}</span>}
-                                        {dm.linkedinUrl && (
-                                            <a href={dm.linkedinUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
-                                                <Linkedin size={11} /> LinkedIn
-                                            </a>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    <DecisionMakerSection candidate={candidate} />
 
                     {enrichment?.company.observations && (
                         <div className="mt-3 p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl">

@@ -1,8 +1,10 @@
 import { prisma } from '../../../lib/prisma';
 import { isValidCnpj, sanitizeCnpj } from './cnpj.util';
 import { enrichCompany } from './enrichment.service';
-import { fetchApolloCandidates } from './apollo.service';
+import { fetchApolloCandidates, searchDecisionMakersAdvanced } from './apollo.service';
+import type { DecisionMakerCriteria } from './apollo.service';
 import { searchGooglePlacesCandidates } from './places.service';
+import { searchNominatimCandidates } from './nominatim.service';
 import { toPrismaLeadStatus, fromPrismaLeadStatus, fromPrismaCompanyStatus } from '../../../lib/enumMap';
 
 export interface ProspectCriteria {
@@ -21,8 +23,17 @@ export interface ProspectCriteria {
     /** Palavras-chave adicionais (além do segmento), separadas por vírgula. Opcional. */
     palavrasChave?: string;
     /** Busca por nome específico de empresa (Apollo q_organization_name). Opcional. */
+    /** Busca por nome específico de empresa (Apollo q_organization_name). Opcional. */
     nomeEmpresa?: string;
+    /** Ano mínimo de fundação. Opcional. */
+    anoFundacaoMin?: number;
+    /** Ano máximo de fundação. Opcional. */
+    anoFundacaoMax?: number;
+    /** Tecnologias utilizadas (separadas por vírgula). Opcional. */
+    tecnologias?: string;
 }
+
+export type { DecisionMakerCriteria };
 
 export interface DecisionMaker {
     name: string;
@@ -98,8 +109,33 @@ async function discoverViaGooglePlaces(
         }));
 }
 
+/** Descoberta via OpenStreetMap (Nominatim) — alternativa livre para dados geográficos. */
+async function discoverViaNominatim(
+    criteria: ProspectCriteria,
+    count: number,
+    excludeNames: Set<string>
+): Promise<ProspectCandidate[]> {
+    const query = buildPlacesQuery(criteria);
+    const places = await searchNominatimCandidates(query, count + excludeNames.size);
+
+    return places
+        .filter((p) => !excludeNames.has(p.tradeName.trim().toLowerCase()))
+        .slice(0, count)
+        .map((p) => ({
+            tradeName: p.tradeName,
+            legalNameGuess: null,
+            cnpjGuess: null,
+            segment: criteria.segmento,
+            size: 'Não informado',
+            location: [p.city, p.state].filter(Boolean).join(', ') || buildLocationLabel(criteria),
+            fitScoreEstimate: 60,
+            suggestedContact: null,
+            rationale: 'Encontrado via OpenStreetMap (Nominatim)',
+        }));
+}
+
 /**
- * Descoberta de candidatos: combina Apollo.io (Organization Search) e Google Places (Text Search)
+ * Descoberta de candidatos: combina Apollo.io, Google Places e OpenStreetMap (Nominatim).
  * — nenhuma chamada a modelos generativos. Cada candidato ainda passa pelo pipeline de
  * enriquecimento real (Receita Federal + Google Places + Apollo People) antes de virar um Lead confiável.
  */
@@ -127,7 +163,26 @@ export async function discoverCandidates(criteria: ProspectCriteria): Promise<Di
         }
     }
 
+    const remainingAfterPlaces = total - allCandidates.length;
+    if (remainingAfterPlaces > 0) {
+        const nominatimCandidates = await discoverViaNominatim(criteria, remainingAfterPlaces, seenNames);
+        for (const candidate of nominatimCandidates) {
+            const key = candidate.tradeName.trim().toLowerCase();
+            if (seenNames.has(key)) continue;
+            seenNames.add(key);
+            allCandidates.push(candidate);
+        }
+    }
+
     return { candidates: allCandidates, sources: [], apolloError: apollo.error };
+}
+
+/**
+ * Busca de decisores para uma empresa específica (por domínio).
+ */
+export async function discoverDecisionMakers(domain: string, criteria: DecisionMakerCriteria) {
+    const result = await searchDecisionMakersAdvanced(domain, criteria, 10);
+    return { decisionMakers: result.contacts, error: result.error };
 }
 
 export interface PromoteInput {
