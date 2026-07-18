@@ -51,6 +51,11 @@ export interface Company {
     createdAt: string;
     updatedAt: string;
 
+    // Enriquecimento (Receita Federal)
+    situacaoCadastral?: string | null;
+    naturezaJuridica?: string | null;
+    capitalSocial?: number | null;
+
     // Google Negócios (Places API)
     googleRating?: number | null;
     googleReviewsCount?: number | null;

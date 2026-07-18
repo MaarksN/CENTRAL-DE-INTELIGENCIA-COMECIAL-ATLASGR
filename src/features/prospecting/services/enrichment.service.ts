@@ -2,10 +2,7 @@ import { prisma } from '../../../lib/prisma';
 import { isValidCnpj, sanitizeCnpj, formatCnpj } from './cnpj.util';
 import { searchGooglePlace } from './places.service';
 import { enrichOrganizationWithContacts } from './apollo.service';
-import { GoogleGenAI } from '@google/genai';
 import { fromPrismaCompanyStatus } from '../../../lib/enumMap';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const BRASIL_API_BASE = 'https://brasilapi.com.br/api';
 
@@ -533,26 +530,24 @@ async function runEnrichment(
         fleetSizeHint: options.fleetSizeHint,
     });
 
-    // Gemini Strategic Synthesis
-    try {
-        const prompt = `Você é um estrategista B2B (SDR Sênior).
-Analise os seguintes dados coletados sobre a empresa "${updateData.legalName || company.legalName}":
-- Dados Receita: CNAE ${updateData.cnae}, Status ${updateData.situacaoCadastral}, Capital R$ ${updateData.capitalSocial}
-- Google Meu Negócio: Rating ${updateData.googleRating || 'N/A'} (baseado em ${updateData.googleReviewsCount || 0} avaliações)
-- Decisores encontrados: ${apolloContacts.map(c => `${c.name} (${c.title})`).join(', ') || 'Nenhum'}
-
-Escreva APENAS 1 parágrafo (máximo 3 linhas) com o "Rationale Estratégico" (Por que abordar essa empresa e qual o gancho para os decisores encontrados). Não use formatação Markdown pesada.`;
-
-        const geminiRes = await ai.models.generateContent({
-            model: 'gemini-3.5-flash',
-            contents: prompt,
-            config: { temperature: 0.4 }
-        });
-        if (geminiRes.text) {
-            updateData.observations = geminiRes.text.trim();
-        }
-    } catch (e) {
-        console.error('Falha no resumo estratégico Gemini', e);
+    // Resumo determinístico do enriquecimento — montado a partir dos próprios dados coletados
+    // acima (Receita Federal, Google Negócios, Apollo), sem depender de nenhum modelo generativo.
+    const summaryParts: string[] = [];
+    if (updateData.situacaoCadastral) {
+        summaryParts.push(
+            updateData.situacaoCadastral.toUpperCase() === 'ATIVA'
+                ? 'CNPJ ativo na Receita Federal'
+                : `CNPJ com situação "${updateData.situacaoCadastral}" — atenção antes de abordar`
+        );
+    }
+    if (updateData.googleRating != null) {
+        summaryParts.push(`nota ${updateData.googleRating} no Google (${updateData.googleReviewsCount || 0} avaliações)`);
+    }
+    if (apolloContacts.length > 0) {
+        summaryParts.push(`decisores identificados via Apollo: ${apolloContacts.map((c) => `${c.name} (${c.title || 'cargo não informado'})`).join(', ')}`);
+    }
+    if (summaryParts.length > 0) {
+        updateData.observations = `Resumo do enriquecimento — ${summaryParts.join('; ')}.`;
     }
 
     const updated = await prisma.company.update({

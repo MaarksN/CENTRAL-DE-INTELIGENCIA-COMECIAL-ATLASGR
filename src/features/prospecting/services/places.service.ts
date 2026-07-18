@@ -1,3 +1,64 @@
+export interface PlaceCandidate {
+    tradeName: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    rating?: number;
+    userRatingCount?: number;
+    phone?: string;
+    website?: string;
+}
+
+/** Busca candidatos reais de empresas por categoria+região (ex: "Transportadora em Rio de Janeiro") via Google Places (New) Text Search. */
+export async function searchGooglePlacesCandidates(query: string, count: number): Promise<PlaceCandidate[]> {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey || !query.trim()) return [];
+
+    try {
+        const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': apiKey,
+                'X-Goog-FieldMask':
+                    'places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.nationalPhoneNumber,places.websiteUri,places.addressComponents',
+            },
+            body: JSON.stringify({
+                textQuery: query,
+                languageCode: 'pt-BR',
+                maxResultCount: Math.min(Math.max(count, 1), 20),
+            }),
+        });
+
+        if (!res.ok) {
+            console.error('Google Places (discovery) error:', await res.text());
+            return [];
+        }
+
+        const data = await res.json();
+        const places = data.places || [];
+
+        return places.map((p: any) => {
+            const components = p.addressComponents || [];
+            const city = components.find((c: any) => c.types?.includes('administrative_area_level_2'))?.longText;
+            const state = components.find((c: any) => c.types?.includes('administrative_area_level_1'))?.shortText;
+            return {
+                tradeName: p.displayName?.text || 'Empresa sem nome',
+                address: p.formattedAddress,
+                city,
+                state,
+                rating: p.rating,
+                userRatingCount: p.userRatingCount,
+                phone: p.nationalPhoneNumber,
+                website: p.websiteUri,
+            } satisfies PlaceCandidate;
+        });
+    } catch (error) {
+        console.error('Error searching Google Places candidates:', error);
+        return [];
+    }
+}
+
 export interface PlaceSearchResult {
     id: string;
     displayName: string;

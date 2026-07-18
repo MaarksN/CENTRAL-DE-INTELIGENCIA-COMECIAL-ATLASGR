@@ -6,6 +6,9 @@ import type { AuthRequest } from '../../../shared/middlewares/authenticateToken.
 
 const router = Router();
 
+// BOM UTF-8, para o Excel reconhecer acentuação corretamente ao abrir o CSV exportado.
+const UTF8_BOM = String.fromCharCode(0xfeff);
+
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { organizationId: orgId } = (req as AuthRequest).user;
@@ -13,6 +16,21 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
         const limit = parseInt(req.query.limit as string) || 50;
         const result = await leadService.findAll(orgId, req.query.status as string | undefined, page, limit);
         res.json({ success: true, data: result.data, meta: result.meta });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Exporta todos os leads em CSV (empresa + contato) — ponte manual para importar em outro CRM (ex: Bitrix24).
+// Precisa vir antes de "/:id" para não ser interpretada como um id de lead.
+router.get('/export/csv', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { organizationId: orgId } = (req as AuthRequest).user;
+        const csv = await leadService.exportCsv(orgId);
+        const filename = `leads-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(UTF8_BOM + csv);
     } catch (error) {
         next(error);
     }
