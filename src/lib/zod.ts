@@ -1,67 +1,110 @@
 import { z } from 'zod';
 
+// ─── Enums de Domínio ───────────────────────────────────────────────────────
+// Ao invés de strings livres, definimos os valores aceitos explicitamente.
+// Isso garante que o backend rejeite valores inválidos e o TS alerte em
+// tempo de compilação se um valor desconhecido for passado.
+
+export const COMPANY_STATUS = ['Ativo', 'Inativo', 'Em análise'] as const;
+export const LEAD_STATUS = [
+    'Novo Lead',
+    'Qualificação',
+    'Primeiro Contato',
+    'Diagnóstico',
+    'Proposta',
+    'Negociação',
+    'Fechado Ganho',
+    'Fechado Perdido',
+] as const;
+export const ACTIVITY_TYPE = ['Ligação', 'WhatsApp', 'E-mail', 'Reunião', 'Follow-up', 'Visita', 'Tarefa'] as const;
+export const ACTIVITY_STATUS = ['Pendente', 'Em andamento', 'Concluída', 'Cancelada'] as const;
+export const LEAD_TEMPERATURE = ['Frio', 'Morno', 'Quente'] as const;
+export const CONTACT_STATUS = ['Ativo', 'Inativo'] as const;
+
+// TypeScript union types derivados dos arrays de enums
+export type CompanyStatus = (typeof COMPANY_STATUS)[number];
+export type LeadStatus = (typeof LEAD_STATUS)[number];
+export type ActivityType = (typeof ACTIVITY_TYPE)[number];
+export type ActivityStatus = (typeof ACTIVITY_STATUS)[number];
+export type LeadTemperature = (typeof LEAD_TEMPERATURE)[number];
+export type ContactStatus = (typeof CONTACT_STATUS)[number];
+
+// ─── Schemas Zod ────────────────────────────────────────────────────────────
+
 export const companySchema = z.object({
-  legalName: z.string().min(1, 'Razão Social é obrigatória'),
-  tradeName: z.string().min(1, 'Nome Fantasia é obrigatório'),
-  cnpj: z.string().optional().nullable(),
-  stateRegistration: z.string().optional().nullable(),
-  segment: z.string().optional().nullable(),
-  cnae: z.string().optional().nullable(),
-  size: z.string().optional().nullable(),
-  employeeCount: z.number().int().optional().nullable(),
-  estimatedRevenue: z.number().optional().nullable(),
-  website: z.string().optional().nullable(),
-  linkedin: z.string().optional().nullable(),
-  instagram: z.string().optional().nullable(),
-  phones: z.array(z.string()).optional().default([]),
-  emails: z.array(z.string()).optional().default([]),
-  address: z.string().optional().nullable(),
-  city: z.string().optional().nullable(),
-  state: z.string().optional().nullable(),
-  zipCode: z.string().optional().nullable(),
-  owner: z.string().optional().nullable(),
-  status: z.string().default('Ativo'),
-  tags: z.array(z.string()).optional().default([]),
-  observations: z.string().optional().nullable()
+    legalName: z.string().min(1, 'Razão Social é obrigatória'),
+    tradeName: z.string().min(1, 'Nome Fantasia é obrigatório'),
+    cnpj: z.string().optional().nullable(),
+    stateRegistration: z.string().optional().nullable(),
+    segment: z.string().optional().nullable(),
+    cnae: z.string().optional().nullable(),
+    size: z.string().optional().nullable(),
+    employeeCount: z.number().int().optional().nullable(),
+    estimatedRevenue: z.number().optional().nullable(),
+    website: z.string().optional().nullable(),
+    linkedin: z.string().optional().nullable(),
+    instagram: z.string().optional().nullable(),
+    phones: z.array(z.string()).optional().default([]),
+    emails: z.array(z.string()).optional().default([]),
+    address: z.string().optional().nullable(),
+    city: z.string().optional().nullable(),
+    state: z.string().optional().nullable(),
+    zipCode: z.string().optional().nullable(),
+    owner: z.string().optional().nullable(),
+    status: z.enum(COMPANY_STATUS).default('Ativo'),
+    tags: z.array(z.string()).optional().default([]),
+    observations: z.string().optional().nullable(),
 });
 
 export const contactSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório'),
-  role: z.string().optional().nullable(),
-  department: z.string().optional().nullable(),
-  phone: z.string().optional().nullable(),
-  whatsapp: z.string().optional().nullable(),
-  email: z.string().email('E-mail inválido').optional().nullable().or(z.literal('')),
-  linkedin: z.string().optional().nullable(),
-  birthDate: z.string().optional().nullable(),
-  observations: z.string().optional().nullable(),
-  status: z.string().default('Ativo'),
-  companyId: z.string()
+    name: z.string().min(1, 'Nome é obrigatório'),
+    role: z.string().optional().nullable(),
+    department: z.string().optional().nullable(),
+    phone: z.string().optional().nullable(),
+    whatsapp: z.string().optional().nullable(),
+    email: z.string().email('E-mail inválido').optional().nullable().or(z.literal('')),
+    linkedin: z.string().optional().nullable(),
+    birthDate: z.string().optional().nullable(),
+    observations: z.string().optional().nullable(),
+    status: z.enum(CONTACT_STATUS).default('Ativo'),
+    companyId: z.string(),
 });
 
 export const leadSchema = z.object({
-  name: z.string().optional().nullable(),
-  segment: z.string().optional().nullable(),
-  size: z.string().optional().nullable(),
-  location: z.string().optional().nullable(),
-  status: z.string().default('Novo Lead'),
-  fitScore: z.number().int().optional().nullable(),
-  notes: z.string().optional().nullable(),
-  source: z.string().optional().nullable(),
-  channel: z.string().optional().nullable(),
-  temperature: z.string().optional().nullable(),
-  score: z.number().int().optional().nullable(),
-  owner: z.string().optional().nullable(),
-  companyId: z.string().optional().nullable(),
-  contactId: z.string().optional().nullable()
+    // Core CRM fields
+    status: z.enum(LEAD_STATUS).default('Novo Lead'),
+    source: z.string().optional().nullable(),
+    channel: z.string().optional().nullable(),
+    temperature: z.enum(LEAD_TEMPERATURE).optional().nullable(),
+    score: z.number().int().optional().nullable(),
+    owner: z.string().optional().nullable(),
+    companyId: z.string().optional().nullable(),
+    contactId: z.string().optional().nullable(),
 });
 
 export const activitySchema = z.object({
-  type: z.string(),
-  owner: z.string(),
-  date: z.string(),
-  time: z.string().optional().nullable(),
-  status: z.string().default('Pendente'),
-  observations: z.string().optional().nullable(),
-  leadId: z.string()
+    type: z.enum(ACTIVITY_TYPE),
+    owner: z.string().min(1, 'Responsável é obrigatório'),
+    date: z.string(),
+    time: z.string().optional().nullable(),
+    status: z.enum(ACTIVITY_STATUS).default('Pendente'),
+    observations: z.string().optional().nullable(),
+    leadId: z.string(),
+});
+
+export const noteSchema = z.object({
+    content: z.string().min(1, 'Conteúdo é obrigatório'),
+    author: z.string().min(1, 'Autor é obrigatório'),
+});
+
+export const registerSchema = z.object({
+    name: z.string().min(1, 'Nome é obrigatório'),
+    email: z.string().email('E-mail inválido'),
+    password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
+    organizationId: z.string().optional().nullable(),
+});
+
+export const loginSchema = z.object({
+    email: z.string().email('E-mail inválido'),
+    password: z.string().min(1, 'Senha é obrigatória'),
 });

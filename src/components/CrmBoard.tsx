@@ -1,7 +1,9 @@
 import React from "react";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { Download } from 'lucide-react';
 import { Lead, LeadStatus } from '../types';
 import { KanbanColumn } from '../features/crm/components/KanbanColumn';
+import { api } from '../lib/api';
 
 const COLUMNS: LeadStatus[] = [
     'Novo Lead',
@@ -18,34 +20,39 @@ export function CrmBoard() {
     const [leads, setLeads] = useState<Lead[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchLeads = async () => {
+    const fetchLeads = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/leads');
-            if (res.ok) {
-                const data = await res.json();
-                setLeads(data);
+            // For the Kanban board, we want to fetch a large number of leads to visualize the full pipeline
+            // Future optimization: implement virtualized columns or load-on-scroll within columns
+            const url = `/api/leads?limit=1000`;
+            const response = await api.get<{data: Lead[], meta?: any}>(url);
+            
+            if (Array.isArray(response)) {
+                setLeads(response);
+            } else if (response && response.data) {
+                setLeads(response.data);
             }
         } catch (error) {
             console.error('Error fetching leads:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchLeads();
+    }, [fetchLeads]);
+
+    const handleDragStart = useCallback((e: React.DragEvent, leadId: string) => {
+        e.dataTransfer.setData('leadId', leadId);
     }, []);
 
-    const handleDragStart = (e: React.DragEvent, leadId: string) => {
-        e.dataTransfer.setData('leadId', leadId);
-    };
-
-    const handleDragOver = (e: React.DragEvent) => {
+    const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();
-    };
+    }, []);
 
-    const handleDrop = async (e: React.DragEvent, status: LeadStatus) => {
+    const handleDrop = useCallback(async (e: React.DragEvent, status: LeadStatus) => {
         e.preventDefault();
         const leadId = e.dataTransfer.getData('leadId');
         if (!leadId) return;
@@ -54,29 +61,73 @@ export function CrmBoard() {
         setLeads(prev => prev.map(lead => lead.id === leadId ? { ...lead, status } : lead));
 
         try {
-            await fetch(`/api/leads/${leadId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status })
-            });
+            await api.put(`/api/leads/${leadId}`, { status });
         } catch (error) {
             console.error('Error updating lead status:', error);
             fetchLeads(); // Revert on error
         }
-    };
+    }, [fetchLeads]);
 
-    const handleCardClick = (lead: Lead) => {
+    const handleCardClick = useCallback((lead: Lead) => {
         // To be implemented: Open Lead Detail Modal/Drawer
         console.log('Clicked lead:', lead);
-    };
+    }, []);
+
+    const handleCardEnrich = useCallback(async (leadId: string) => {
+        try {
+            const result = await api.post<{ lead: Lead }>(`/api/leads/${leadId}/enrich`);
+            setLeads(prev => prev.map(lead => lead.id === leadId ? result.lead : lead));
+        } catch (error) {
+            console.error('Error enriching lead:', error);
+        }
+    }, []);
+
+    const handleExportCsv = useCallback(async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/leads/export/csv', {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!res.ok) throw new Error('Falha ao exportar leads');
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `leads-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error exporting leads:', error);
+        }
+    }, []);
+
+    const groupedLeads = React.useMemo(() => {
+        const grouped = {} as Record<LeadStatus, Lead[]>;
+        COLUMNS.forEach(status => grouped[status] = []);
+        leads.forEach(lead => {
+            if (grouped[lead.status]) {
+                grouped[lead.status].push(lead);
+            }
+        });
+        return grouped;
+    }, [leads]);
 
     return (
         <div className="flex-1 flex flex-col h-full bg-white animate-in fade-in duration-500 overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
                 <div>
-                    <h2 className="font-bold text-2xl text-gray-900">Pipeline de Vendas</h2>
+                    <h2 className="font-bold text-2xl text-gray-900">🎯 Pipeline de Vendas</h2>
                     <p className="text-gray-500 text-sm mt-1">Arraste os cards para atualizar o estágio da negociação</p>
                 </div>
+                <button
+                    onClick={handleExportCsv}
+                    className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 hover:border-atlas-orange/40 transition-colors shadow-sm"
+                    title="Exportar todos os leads em CSV (para backup ou importar em outro CRM, como o Bitrix24)"
+                >
+                    <Download className="w-4 h-4" /> 💾 Exportar CSV
+                </button>
             </div>
 
             <div className="flex-1 overflow-x-auto overflow-y-hidden p-6 custom-scrollbar bg-gray-50/30">
@@ -93,11 +144,12 @@ export function CrmBoard() {
                             <KanbanColumn
                                 key={status}
                                 status={status}
-                                leads={leads.filter(l => l.status === status)}
+                                leads={groupedLeads[status]}
                                 onDrop={handleDrop}
                                 onDragOver={handleDragOver}
                                 onCardDragStart={handleDragStart}
                                 onCardClick={handleCardClick}
+                                onCardEnrich={handleCardEnrich}
                             />
                         ))}
                     </div>
