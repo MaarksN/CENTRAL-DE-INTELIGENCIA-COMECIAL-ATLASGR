@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, CheckCircle2, Clock, Phone, Mail, MessageCircle, Users, Activity as ActivityIcon } from 'lucide-react';
 import { Activity } from '../../../types';
-import { api } from '../../../lib/api';
 
 export function ActivityList() {
     const [activities, setActivities] = useState<Activity[]>([]);
@@ -10,8 +9,11 @@ export function ActivityList() {
     const fetchActivities = async () => {
         setLoading(true);
         try {
-            const data = await api.get<Activity[]>('/api/activities');
-            setActivities(data);
+            const res = await fetch('/api/activities');
+            if (res.ok) {
+                const data = await res.json();
+                setActivities(data);
+            }
         } catch (error) {
             console.error('Error fetching activities:', error);
         } finally {
@@ -26,8 +28,14 @@ export function ActivityList() {
     const handleStatusToggle = async (activity: Activity) => {
         const newStatus = activity.status === 'Pendente' ? 'Concluída' : 'Pendente';
         try {
-            await api.put(`/api/activities/${activity.id}`, { status: newStatus });
-            setActivities(prev => prev.map(a => a.id === activity.id ? { ...a, status: newStatus } : a));
+            const res = await fetch(`/api/activities/${activity.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (res.ok) {
+                setActivities(prev => prev.map(a => a.id === activity.id ? { ...a, status: newStatus } : a));
+            }
         } catch (error) {
             console.error('Error updating activity status:', error);
         }
