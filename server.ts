@@ -25,9 +25,7 @@ async function startServer() {
     const PORT = 3000;
 
     // Security Middlewares (Hardening)
-    app.use(helmet({
-        contentSecurityPolicy: false, // Disabled to prevent blocking Vite HMR and dynamic inline scripts
-    }));
+    app.use(helmet());
 
     const apiLimiter = rateLimit({
         windowMs: 15 * 60 * 1000, // 15 minutes

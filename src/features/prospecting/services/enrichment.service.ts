@@ -77,6 +77,11 @@ export interface CnpjLookupResult {
 
 /** Fetch com timeout + retry (1 nova tentativa em erro de rede/timeout) — BrasilAPI ocasionalmente é lenta ou instável. */
 async function fetchWithRetry(url: string, init: RequestInit, attempts = 2, timeoutMs = 8000): Promise<Response> {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== 'https:' || parsedUrl.hostname !== 'brasilapi.com.br') {
+        throw new Error('invalid_upstream_url');
+    }
+
     let lastError: unknown;
     for (let attempt = 1; attempt <= attempts; attempt++) {
         const controller = new AbortController();

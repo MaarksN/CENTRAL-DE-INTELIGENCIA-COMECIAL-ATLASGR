@@ -2,7 +2,6 @@ import React from "react";
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Contact, Company } from '../../../types';
-import { api } from '../../../lib/api';
 
 interface ContactFormProps {
     contact?: Contact | null;
@@ -29,8 +28,11 @@ export function ContactForm({ contact, onClose, onSave }: ContactFormProps) {
         }
         const fetchCompanies = async () => {
             try {
-                const data = await api.get<Company[]>('/api/companies');
-                setCompanies(data);
+                const res = await fetch('/api/companies');
+                if (res.ok) {
+                    const data = await res.json();
+                    setCompanies(data);
+                }
             } catch (error) {
                 console.error('Error fetching companies for contact form:', error);
             }
@@ -42,13 +44,16 @@ export function ContactForm({ contact, onClose, onSave }: ContactFormProps) {
         e.preventDefault();
         setLoading(true);
         try {
+            const method = contact ? 'PUT' : 'POST';
             const url = contact ? `/api/contacts/${contact.id}` : '/api/contacts';
-            if (contact) {
-                await api.put(url, formData);
-            } else {
-                await api.post(url, formData);
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            if (res.ok) {
+                onSave();
             }
-            onSave();
         } catch (error) {
             console.error('Error saving contact:', error);
         } finally {
