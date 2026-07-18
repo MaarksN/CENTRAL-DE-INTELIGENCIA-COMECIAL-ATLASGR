@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { discoverCandidates, promoteToCrm } from '../services/prospecting.service.js';
+import { discoverCandidates, promoteToCrm, discoverDecisionMakers } from '../services/prospecting.service.js';
 import { fetchCnpjData } from '../services/enrichment.service.js';
 import type { AuthRequest } from '../../../shared/middlewares/authenticateToken.js';
 
@@ -43,6 +43,20 @@ router.post('/promote', async (req: Request, res: Response, next: NextFunction) 
         const { organizationId } = (req as AuthRequest).user;
         const result = await promoteToCrm({ ...req.body, organizationId });
         res.status(201).json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Busca de decisores para uma empresa específica
+router.post('/decision-makers', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { domain, criteria } = req.body;
+        if (!domain || typeof domain !== 'string') {
+            return res.status(400).json({ success: false, error: 'O domínio da empresa é obrigatório' });
+        }
+        const result = await discoverDecisionMakers(domain, criteria || {});
+        res.json({ success: true, data: result });
     } catch (error) {
         next(error);
     }
