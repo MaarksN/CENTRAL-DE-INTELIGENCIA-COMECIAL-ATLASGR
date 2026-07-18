@@ -1,3 +1,6 @@
+import { initTracing } from './src/lib/tracing.js';
+initTracing();
+
 import 'dotenv/config';
 import express from 'express';
 import helmet from 'helmet';
