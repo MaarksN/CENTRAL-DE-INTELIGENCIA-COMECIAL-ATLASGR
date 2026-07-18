@@ -9,6 +9,28 @@ export interface ProspectCriteria {
     segmento: string;
     localizacao: string;
     quantidade: number;
+    /** Estado (UF por extenso, ex: "Rio de Janeiro") — refina a busca além da região ampla do playbook. Opcional. */
+    estado?: string;
+    /** Cidade específica — refina ainda mais dentro do estado. Opcional. */
+    cidade?: string;
+    /** Faixa de funcionários no formato Apollo "min,max" (ex: "11,50"). Opcional. */
+    porte?: string;
+    /** Faturamento anual estimado em USD — dado da Apollo é normalizado em USD. Opcional. */
+    faturamentoMin?: number;
+    faturamentoMax?: number;
+    /** Palavras-chave adicionais (além do segmento), separadas por vírgula. Opcional. */
+    palavrasChave?: string;
+    /** Busca por nome específico de empresa (Apollo q_organization_name). Opcional. */
+    nomeEmpresa?: string;
+}
+
+export interface DecisionMaker {
+    name: string;
+    title: string | null;
+    email: string | null;
+    emailSource?: 'apollo' | 'hunter';
+    phone: string | null;
+    linkedinUrl: string | null;
 }
 
 export interface ProspectCandidate {
@@ -21,6 +43,14 @@ export interface ProspectCandidate {
     fitScoreEstimate: number;
     suggestedContact: { name: string; role: string } | null;
     rationale: string;
+    // Dados extras retornados pela Apollo — deixam o candidato mais rico em informação antes mesmo de promover.
+    linkedinUrl?: string | null;
+    phone?: string | null;
+    foundedYear?: number | null;
+    annualRevenue?: number | null;
+    technologies?: string[];
+    /** Decisores encontrados via Apollo People Search (+ Hunter.io como fallback de e-mail) já na descoberta. */
+    decisionMakers?: DecisionMaker[];
 }
 
 export interface DiscoverResult {
@@ -29,9 +59,16 @@ export interface DiscoverResult {
     apolloError?: string;
 }
 
-/** Monta a query de busca no Google Places a partir do segmento + região do ICP. */
+/** Monta a localização mais precisa disponível: cidade + estado > estado > região ampla do playbook. */
+export function buildLocationLabel(criteria: ProspectCriteria): string {
+    if (criteria.cidade && criteria.estado) return `${criteria.cidade}, ${criteria.estado}`;
+    if (criteria.estado) return criteria.estado;
+    return criteria.localizacao;
+}
+
+/** Monta a query de busca no Google Places a partir do segmento + localização mais precisa disponível. */
 function buildPlacesQuery(criteria: ProspectCriteria): string {
-    return `${criteria.segmento.split('(')[0].trim()} em ${criteria.localizacao}`;
+    return `${criteria.segmento.split('(')[0].trim()} em ${buildLocationLabel(criteria)}`;
 }
 
 /** Descoberta via Google Places (New) Text Search — empresas reais, sem IA generativa envolvida. */
@@ -52,7 +89,7 @@ async function discoverViaGooglePlaces(
             cnpjGuess: null,
             segment: criteria.segmento,
             size: 'Não informado',
-            location: [p.city, p.state].filter(Boolean).join(', ') || criteria.localizacao,
+            location: [p.city, p.state].filter(Boolean).join(', ') || buildLocationLabel(criteria),
             fitScoreEstimate: p.rating ? Math.round(Math.min(100, p.rating * 20)) : 60,
             suggestedContact: null,
             rationale: p.rating
@@ -106,6 +143,9 @@ export interface PromoteInput {
     contact?: { name: string; role?: string } | null;
     autoEnrich?: boolean;
     organizationId: string;
+    // Dados extras vindos da Apollo (quando o candidato veio da Descoberta) — preenchem a Company já na criação.
+    linkedin?: string | null;
+    phone?: string | null;
 }
 
 function splitLocation(location?: string | null): { city?: string; state?: string } {
@@ -114,13 +154,43 @@ function splitLocation(location?: string | null): { city?: string; state?: strin
     return { city: parts[0], state: parts[1] };
 }
 
-/** Cria Company + Contact + Lead no CRM a partir de um candidato (Google Places/Apollo ou busca por CNPJ) e dispara o enriquecimento real. */
+/**
+ * Localiza uma empresa já cadastrada na organização que corresponda ao candidato
+ * (mesmo CNPJ ou mesmo nome fantasia/razão social) — evita duplicar empresas ao
+ * promover o mesmo candidato mais de uma vez.
+ */
+async function findExistingCompany(input: PromoteInput) {
+    const cnpj = input.cnpj && isValidCnpj(input.cnpj) ? sanitizeCnpj(input.cnpj) : null;
+    if (cnpj) {
+        // O CNPJ pode estar salvo formatado (com pontuação) ou cru — comparamos pelos dígitos.
+        const withCnpj = await prisma.company.findMany({
+            where: { organizationId: input.organizationId, cnpj: { not: null } },
+            select: { id: true, cnpj: true },
+        });
+        const found = withCnpj.find((c) => sanitizeCnpj(c.cnpj!) === cnpj);
+        if (found) return prisma.company.findUnique({ where: { id: found.id } });
+    }
+    return prisma.company.findFirst({
+        where: {
+            organizationId: input.organizationId,
+            OR: [
+                { tradeName: { equals: input.tradeName, mode: 'insensitive' } },
+                { legalName: { equals: input.legalName || input.tradeName, mode: 'insensitive' } },
+            ],
+        },
+    });
+}
+
+/** Cria (ou reaproveita) Company + Contact + Lead no CRM a partir de um candidato e dispara o enriquecimento real. */
 export async function promoteToCrm(input: PromoteInput) {
     const derivedLocation = splitLocation(input.location);
     const city = input.city || derivedLocation.city || null;
     const state = input.state || derivedLocation.state || null;
 
-    const company = await prisma.company.create({
+    const existing = await findExistingCompany(input);
+    const reusedCompany = !!existing;
+
+    const company = existing ?? await prisma.company.create({
         data: {
             legalName: input.legalName || input.tradeName,
             tradeName: input.tradeName,
@@ -129,11 +199,39 @@ export async function promoteToCrm(input: PromoteInput) {
             size: input.size,
             city,
             state,
+            linkedin: input.linkedin || null,
+            phones: input.phone ? [input.phone] : [],
             status: 'Ativo',
             tags: ['Prospecção'],
             organizationId: input.organizationId,
         },
     });
+
+    // Se a empresa já existia e já tem um lead aberto, não cria outro — devolve o existente.
+    if (reusedCompany) {
+        const openLead = await prisma.lead.findFirst({
+            where: {
+                companyId: company.id,
+                organizationId: input.organizationId,
+                status: { notIn: ['Fechado_Ganho', 'Fechado_Perdido'] as any },
+            },
+            include: { company: true, contact: true, timeline: true },
+        });
+        if (openLead) {
+            return {
+                lead: {
+                    ...openLead,
+                    status: fromPrismaLeadStatus(openLead.status),
+                    company: openLead.company
+                        ? { ...openLead.company, status: fromPrismaCompanyStatus(openLead.company.status) }
+                        : openLead.company,
+                },
+                fit: undefined,
+                enrichment: null,
+                alreadyExists: true,
+            };
+        }
+    }
 
     let contact = null;
     if (input.contact?.name) {

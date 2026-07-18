@@ -1,6 +1,12 @@
-import type { ProspectCriteria, ProspectCandidate } from './prospecting.service';
+import type { ProspectCriteria, ProspectCandidate, DecisionMaker } from './prospecting.service';
+import { buildLocationLabel } from './prospecting.service';
+import { findEmailViaHunter } from './hunter.service';
 
 const APOLLO_SEARCH_URL = 'https://api.apollo.io/v1/organizations/search';
+
+// Buscar decisores (Apollo People Search + fallback Hunter.io) custa 1+ chamadas extra por empresa —
+// limitamos aos N primeiros candidatos de cada busca para não estourar cota das APIs.
+const MAX_DECISION_MAKER_LOOKUPS = 5;
 
 interface ApolloOrganization {
     name?: string;
@@ -10,6 +16,13 @@ interface ApolloOrganization {
     city?: string;
     state?: string;
     industry?: string;
+    linkedin_url?: string;
+    phone?: string;
+    primary_phone?: { number?: string };
+    founded_year?: number;
+    annual_revenue?: number;
+    keywords?: string[];
+    technology_names?: string[];
 }
 
 interface ApolloSearchResponse {
@@ -26,8 +39,13 @@ function mapSegmentToKeyword(segmento: string): string {
 }
 
 /**
- * Busca real de empresas via Apollo.io (People/Organization Search API).
+ * Busca real de empresas via Apollo.io (Organization Search API).
  * Opcional: só executa se APOLLO_API_KEY estiver configurada no ambiente.
+ * Suporta os principais filtros firmográficos documentados publicamente pela Apollo:
+ * segmento/keywords, localização (cidade/estado/região), porte (faixa de funcionários),
+ * faturamento estimado e nome da empresa.
+ * Para os primeiros candidatos com domínio conhecido, também busca decisores reais
+ * (Apollo People Search, com Hunter.io como fallback de e-mail) — ver enrichCandidatesWithDecisionMakers.
  * Como não há como validar o contrato de resposta sem uma chave real, os campos
  * abaixo seguem a documentação pública da Apollo — ajuste se o formato divergir.
  */
@@ -38,6 +56,29 @@ export async function fetchApolloCandidates(
     const apiKey = process.env.APOLLO_API_KEY;
     if (!apiKey) return { candidates: [] };
 
+    const extraKeywords = criteria.palavrasChave
+        ? criteria.palavrasChave.split(',').map((k) => k.trim()).filter(Boolean)
+        : [];
+
+    const body: Record<string, unknown> = {
+        q_organization_keyword_tags: [mapSegmentToKeyword(criteria.segmento), ...extraKeywords],
+        organization_locations: [buildLocationLabel(criteria)],
+        per_page: Math.min(count, 25),
+        page: 1,
+    };
+    if (criteria.porte) {
+        body.organization_num_employees_ranges = [criteria.porte];
+    }
+    if (criteria.nomeEmpresa) {
+        body.q_organization_name = criteria.nomeEmpresa;
+    }
+    if (criteria.faturamentoMin != null || criteria.faturamentoMax != null) {
+        body.revenue_range = {
+            ...(criteria.faturamentoMin != null ? { min: criteria.faturamentoMin } : {}),
+            ...(criteria.faturamentoMax != null ? { max: criteria.faturamentoMax } : {}),
+        };
+    }
+
     try {
         const res = await fetch(APOLLO_SEARCH_URL, {
             method: 'POST',
@@ -46,12 +87,7 @@ export async function fetchApolloCandidates(
                 'Cache-Control': 'no-cache',
                 'X-Api-Key': apiKey,
             },
-            body: JSON.stringify({
-                q_organization_keyword_tags: [mapSegmentToKeyword(criteria.segmento)],
-                organization_locations: [criteria.localizacao],
-                per_page: Math.min(count, 25),
-                page: 1,
-            }),
+            body: JSON.stringify(body),
         });
 
         if (!res.ok) {
@@ -60,17 +96,26 @@ export async function fetchApolloCandidates(
         }
 
         const data = (await res.json()) as ApolloSearchResponse;
-        const candidates: ProspectCandidate[] = (data.organizations || []).map((org) => ({
+        const organizations = data.organizations || [];
+
+        const candidates: ProspectCandidate[] = organizations.map((org) => ({
             tradeName: org.name || 'Empresa sem nome (Apollo)',
             legalNameGuess: null,
             cnpjGuess: null,
             segment: org.industry || criteria.segmento,
             size: org.estimated_num_employees ? `~${org.estimated_num_employees} funcionários` : 'Não informado',
-            location: [org.city, org.state].filter(Boolean).join(', ') || criteria.localizacao,
+            location: [org.city, org.state].filter(Boolean).join(', ') || buildLocationLabel(criteria),
             fitScoreEstimate: 70,
             suggestedContact: null,
             rationale: `Encontrado via Apollo.io (busca real de firmographic data)${org.primary_domain ? ` — domínio: ${org.primary_domain}` : ''}`,
+            linkedinUrl: org.linkedin_url || null,
+            phone: org.phone || org.primary_phone?.number || null,
+            foundedYear: org.founded_year || null,
+            annualRevenue: org.annual_revenue || null,
+            technologies: org.technology_names?.slice(0, 6) || undefined,
         }));
+
+        await enrichCandidatesWithDecisionMakers(candidates, organizations);
 
         return { candidates };
     } catch (error) {
@@ -78,10 +123,51 @@ export async function fetchApolloCandidates(
     }
 }
 
+/** Preenche candidate.decisionMakers para os primeiros MAX_DECISION_MAKER_LOOKUPS candidatos com domínio conhecido. */
+async function enrichCandidatesWithDecisionMakers(candidates: ProspectCandidate[], organizations: ApolloOrganization[]) {
+    const withDomain = organizations
+        .map((org, idx) => ({ org, idx }))
+        .filter(({ org }) => !!org.primary_domain)
+        .slice(0, MAX_DECISION_MAKER_LOOKUPS);
+
+    await Promise.all(
+        withDomain.map(async ({ org, idx }) => {
+            const domain = org.primary_domain!;
+            const { contacts } = await enrichOrganizationWithContacts(domain, 3);
+            if (contacts.length === 0) return;
+
+            const decisionMakers: DecisionMaker[] = await Promise.all(
+                contacts.map(async (c): Promise<DecisionMaker> => {
+                    let email = c.email;
+                    let emailSource: DecisionMaker['emailSource'] = email ? 'apollo' : undefined;
+                    if (!email) {
+                        const hunterResult = await findEmailViaHunter(domain, c.name);
+                        if (hunterResult.email) {
+                            email = hunterResult.email;
+                            emailSource = 'hunter';
+                        }
+                    }
+                    return {
+                        name: c.name,
+                        title: c.title,
+                        email,
+                        emailSource,
+                        phone: c.phone || null,
+                        linkedinUrl: c.linkedin_url,
+                    };
+                })
+            );
+
+            candidates[idx].decisionMakers = decisionMakers;
+        })
+    );
+}
+
 export interface ApolloContact {
     name: string;
     title: string | null;
     email: string | null;
+    phone: string | null;
     linkedin_url: string | null;
 }
 
@@ -124,6 +210,7 @@ export async function enrichOrganizationWithContacts(
             name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Sem Nome',
             title: p.title || null,
             email: p.email || p.email_url || null,
+            phone: p.phone_numbers?.[0]?.raw_number || p.sanitized_phone || null,
             linkedin_url: p.linkedin_url || null,
         }));
 

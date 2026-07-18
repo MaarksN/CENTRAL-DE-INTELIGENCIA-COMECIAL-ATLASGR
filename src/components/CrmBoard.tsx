@@ -93,7 +93,7 @@ export function CrmBoard() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `leads-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.download = `leads-bitrix24-${new Date().toISOString().slice(0, 10)}.csv`;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -124,9 +124,9 @@ export function CrmBoard() {
                 <button
                     onClick={handleExportCsv}
                     className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 hover:border-atlas-orange/40 transition-colors shadow-sm"
-                    title="Exportar todos os leads em CSV (para backup ou importar em outro CRM, como o Bitrix24)"
+                    title="Exportar todos os leads no formato de importação de Leads do Bitrix24"
                 >
-                    <Download className="w-4 h-4" /> 💾 Exportar CSV
+                    <Download className="w-4 h-4" /> 💾 Exportar para Bitrix24
                 </button>
             </div>
 

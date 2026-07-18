@@ -1,21 +1,26 @@
 import { useState } from 'react';
 import {
     Search, Loader2, ShieldCheck, AlertTriangle, Building2, MapPin, Users,
-    TrendingUp, Cpu, Database, Globe, CheckCircle2, Landmark, UserPlus, Sparkles, type LucideIcon
+    TrendingUp, Cpu, Database, Globe, CheckCircle2, Landmark, UserPlus, Sparkles,
+    SlidersHorizontal, ChevronDown, ChevronUp, Linkedin, Phone, Calendar, DollarSign, Wrench, Mail, type LucideIcon
 } from 'lucide-react';
 import { api } from '../../../lib/api';
 import type { CnpjLookupResult, FitScoreResult } from '../services/enrichment.service';
 import type { ProspectCandidate, ProspectCriteria, DiscoverResult } from '../services/prospecting.service';
 import {
-    SEGMENTO_OPTIONS, LOCALIZACAO_OPTIONS, QUANTIDADE_OPTIONS,
+    SEGMENTO_OPTIONS, LOCALIZACAO_OPTIONS, QUANTIDADE_OPTIONS, PORTE_OPTIONS, ESTADO_OPTIONS,
 } from '../constants/icp-options';
 
 type HubTab = 'cnpj' | 'discovery';
 
 const dropdownFields: Array<{ key: keyof Omit<ProspectCriteria, 'quantidade'>; label: string; options: string[] }> = [
     { key: 'segmento', label: 'Segmento (ICP)', options: SEGMENTO_OPTIONS },
-    { key: 'localizacao', label: 'Região de Atuação', options: LOCALIZACAO_OPTIONS },
+    { key: 'localizacao', label: 'Região de Atuação (ampla)', options: LOCALIZACAO_OPTIONS },
 ];
+
+function formatUsd(value: number): string {
+    return value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+}
 
 const loadingSteps = [
     'Buscando empresas via Google Places e Apollo.io...',
@@ -57,6 +62,7 @@ export function ProspectingHub() {
         localizacao: LOCALIZACAO_OPTIONS[0],
         quantidade: QUANTIDADE_OPTIONS[0],
     });
+    const [showAdvanced, setShowAdvanced] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
     const [loadingStepIdx, setLoadingStepIdx] = useState(0);
     const [candidates, setCandidates] = useState<ProspectCandidate[]>([]);
@@ -154,6 +160,8 @@ export function ProspectingHub() {
                 location: candidate.location,
                 source: 'Prospecção (Google Places / Apollo)',
                 autoEnrich: true,
+                linkedin: candidate.linkedinUrl,
+                phone: candidate.phone,
             });
             setPromoted((prev) => ({ ...prev, [key]: result }));
         } catch (error) {
@@ -281,6 +289,31 @@ export function ProspectingHub() {
                                         </select>
                                     </div>
                                 ))}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Estado (refina a busca)</label>
+                                        <select
+                                            className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
+                                            value={criteria.estado || ''}
+                                            onChange={(e) => setCriteria({ ...criteria, estado: e.target.value || undefined, cidade: e.target.value ? criteria.cidade : undefined })}
+                                        >
+                                            <option value="">Usar região ampla</option>
+                                            {ESTADO_OPTIONS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Cidade (opcional)</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Ex: Niterói"
+                                            value={criteria.cidade || ''}
+                                            onChange={(e) => setCriteria({ ...criteria, cidade: e.target.value || undefined })}
+                                            disabled={!criteria.estado}
+                                            className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark disabled:opacity-50"
+                                        />
+                                    </div>
+                                </div>
+
                                 <div>
                                     <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Quantidade de Leads</label>
                                     <select
@@ -291,6 +324,70 @@ export function ProspectingHub() {
                                         {QUANTIDADE_OPTIONS.map((n) => <option key={n} value={n}>{n} leads</option>)}
                                     </select>
                                 </div>
+
+                                <button
+                                    onClick={() => setShowAdvanced((v) => !v)}
+                                    className="flex items-center justify-between w-full text-[10px] tracking-wider font-bold uppercase text-gray-500 hover:text-atlas-orange transition-colors pt-2"
+                                >
+                                    <span className="flex items-center gap-1.5"><SlidersHorizontal size={12} /> Filtros Avançados (Apollo.io)</span>
+                                    {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </button>
+
+                                {showAdvanced && (
+                                    <div className="space-y-4 pt-1">
+                                        <div>
+                                            <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Porte (nº de funcionários)</label>
+                                            <select
+                                                className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
+                                                value={criteria.porte || ''}
+                                                onChange={(e) => setCriteria({ ...criteria, porte: e.target.value || undefined })}
+                                            >
+                                                {PORTE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Faturamento Anual Estimado (USD)</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="number"
+                                                    placeholder="Mínimo"
+                                                    value={criteria.faturamentoMin ?? ''}
+                                                    onChange={(e) => setCriteria({ ...criteria, faturamentoMin: e.target.value ? Number(e.target.value) : undefined })}
+                                                    className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Máximo"
+                                                    value={criteria.faturamentoMax ?? ''}
+                                                    onChange={(e) => setCriteria({ ...criteria, faturamentoMax: e.target.value ? Number(e.target.value) : undefined })}
+                                                    className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-gray-400 mt-1">Dado da Apollo é normalizado em dólar, independente do mercado.</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Palavras-chave adicionais</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Ex: refrigerated, cargo, fleet"
+                                                value={criteria.palavrasChave || ''}
+                                                onChange={(e) => setCriteria({ ...criteria, palavrasChave: e.target.value || undefined })}
+                                                className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Separadas por vírgula — somam ao segmento na busca da Apollo.</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Nome específico da empresa</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Ex: Tranziran"
+                                                value={criteria.nomeEmpresa || ''}
+                                                onChange={(e) => setCriteria({ ...criteria, nomeEmpresa: e.target.value || undefined })}
+                                                className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="pt-6 mt-2 relative z-10 border-t border-gray-100">
@@ -514,10 +611,62 @@ function CandidateCard({
                         <span className="flex items-center gap-1.5"><Building2 size={14} className="text-gray-400" /> {candidate.segment}</span>
                         <span className="flex items-center gap-1.5"><Users size={14} className="text-gray-400" /> {candidate.size}</span>
                         <span className="flex items-center gap-1.5"><MapPin size={14} className="text-gray-400" /> {candidate.location}</span>
+                        {candidate.foundedYear && (
+                            <span className="flex items-center gap-1.5"><Calendar size={14} className="text-gray-400" /> Fundada em {candidate.foundedYear}</span>
+                        )}
+                        {candidate.annualRevenue != null && (
+                            <span className="flex items-center gap-1.5"><DollarSign size={14} className="text-gray-400" /> {formatUsd(candidate.annualRevenue)}/ano</span>
+                        )}
+                        {candidate.phone && (
+                            <span className="flex items-center gap-1.5"><Phone size={14} className="text-gray-400" /> {candidate.phone}</span>
+                        )}
+                        {candidate.linkedinUrl && (
+                            <a href={candidate.linkedinUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-blue-600 hover:underline">
+                                <Linkedin size={14} /> LinkedIn
+                            </a>
+                        )}
                     </div>
+
+                    {candidate.technologies && candidate.technologies.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                            {candidate.technologies.map((tech, idx) => (
+                                <span key={idx} className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5 text-[10px] text-gray-600">
+                                    <Wrench size={9} /> {tech}
+                                </span>
+                            ))}
+                        </div>
+                    )}
 
                     {!enrichment && candidate.rationale && (
                         <p className="text-xs text-gray-400 italic mb-2">"{candidate.rationale}"</p>
+                    )}
+
+                    {!enrichment && candidate.decisionMakers && candidate.decisionMakers.length > 0 && (
+                        <div className="mb-2">
+                            <p className="text-[10px] tracking-wider font-bold uppercase text-gray-500 mb-2 flex items-center gap-1">
+                                <Users size={12} /> Decisores Encontrados (Apollo{candidate.decisionMakers.some((d) => d.emailSource === 'hunter') ? ' + Hunter.io' : ''})
+                            </p>
+                            <div className="space-y-1.5">
+                                {candidate.decisionMakers.map((dm, idx) => (
+                                    <div key={idx} className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-700">
+                                        <span className="font-bold">{dm.name}</span>
+                                        {dm.title && <span className="text-gray-400">{dm.title}</span>}
+                                        {dm.email && (
+                                            <span className="flex items-center gap-1 text-gray-600">
+                                                <Mail size={11} /> {dm.email}
+                                                {dm.emailSource === 'hunter' && <span className="text-[9px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded-full font-bold">HUNTER</span>}
+                                            </span>
+                                        )}
+                                        {dm.phone && <span className="flex items-center gap-1 text-gray-600"><Phone size={11} /> {dm.phone}</span>}
+                                        {dm.linkedinUrl && (
+                                            <a href={dm.linkedinUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
+                                                <Linkedin size={11} /> LinkedIn
+                                            </a>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     )}
 
                     {enrichment?.company.observations && (
