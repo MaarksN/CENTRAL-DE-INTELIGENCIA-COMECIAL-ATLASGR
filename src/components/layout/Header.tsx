@@ -1,7 +1,7 @@
-import { LayoutDashboard, Users, Zap, Building2, User, Activity, LayoutTemplate } from 'lucide-react';
+import { LayoutDashboard, Users, Zap, Building2, User, Activity, LayoutTemplate, Sparkles } from 'lucide-react';
 import { Logo } from '../Logo';
 
-export type TabType = 'dashboard' | 'companies' | 'contacts' | 'crm' | 'activities' | 'prospect' | 'intelligence';
+export type TabType = 'dashboard' | 'companies' | 'contacts' | 'crm' | 'activities' | 'prospect' | 'enrich' | 'intelligence';
 
 interface HeaderProps {
     activeTab: TabType;
@@ -16,6 +16,7 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
         { id: 'crm', label: 'Pipeline', emoji: '🎯', icon: LayoutTemplate },
         { id: 'activities', label: 'Atividades', emoji: '📅', icon: Activity },
         { id: 'prospect', label: 'Prospector', emoji: '🔍', icon: Users },
+        { id: 'enrich', label: 'Enriquecedor', emoji: '🧪', icon: Sparkles },
         { id: 'intelligence', label: 'IA', emoji: '⚡', icon: Zap, highlight: true }
     ];
 

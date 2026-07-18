@@ -3,6 +3,7 @@ import { MainLayout } from './components/layout/MainLayout';
 import { TabType } from './components/layout/Header';
 
 import { ProspectingHub } from './features/prospecting/components/ProspectingHub';
+import { EnricherHub } from './features/prospecting/components/EnricherHub';
 import { CrmBoard } from './components/CrmBoard';
 import { Intelligence } from './components/Intelligence';
 import { Dashboard } from './features/dashboard/components/Dashboard';
@@ -15,12 +16,13 @@ export default function App() {
 
     return (
         <MainLayout activeTab={activeTab} onTabChange={setActiveTab}>
-            {activeTab === 'dashboard' && <Dashboard />}
+            {activeTab === 'dashboard' && <Dashboard onNavigate={setActiveTab} />}
             {activeTab === 'companies' && <CompanyList />}
             {activeTab === 'contacts' && <ContactList />}
             {activeTab === 'crm' && <CrmBoard />}
             {activeTab === 'activities' && <ActivityList />}
             {activeTab === 'prospect' && <ProspectingHub />}
+            {activeTab === 'enrich' && <EnricherHub />}
             {activeTab === 'intelligence' && <Intelligence />}
         </MainLayout>
     );

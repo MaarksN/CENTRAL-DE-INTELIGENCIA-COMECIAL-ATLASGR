@@ -1,28 +1,15 @@
-import { GoogleGenAI } from '@google/genai';
 import { prisma } from '../../../lib/prisma';
 import { isValidCnpj, sanitizeCnpj } from './cnpj.util';
 import { enrichCompany } from './enrichment.service';
 import { fetchApolloCandidates } from './apollo.service';
+import { searchGooglePlacesCandidates } from './places.service';
 import { toPrismaLeadStatus, fromPrismaLeadStatus, fromPrismaCompanyStatus } from '../../../lib/enumMap';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export interface ProspectCriteria {
     segmento: string;
-    pic: string;
-    persona: string;
     localizacao: string;
     quantidade: number;
 }
-
-const PIC_CONTEXT: Record<string, string> = {
-    'PIC 1 — Transportadora em expansão operacional':
-        'crescimento recente de frota/rotas/terceiros, sinais como vagas abertas em operações ou GR, processo ainda manual (planilha/WhatsApp)',
-    'PIC 2 — Transportadora sob pressão de risco':
-        'sinistro relevante recente, mudança de seguradora, processo judicial ligado a carga, pressão de seguradora/corretora',
-    'PIC 3 — Empresa em transição de liderança':
-        'novo Diretor de Operações ou Gerente de Risco, reestruturação anunciada, revisão de fornecedores em andamento',
-};
 
 export interface ProspectCandidate {
     tradeName: string;
@@ -42,103 +29,46 @@ export interface DiscoverResult {
     apolloError?: string;
 }
 
-const BATCH_SIZE = 20;
-
-function extractJsonArray(text: string): unknown[] {
-    const fenced = text.replace(/```json/gi, '```').split('```');
-    const candidate = fenced.length > 1 ? fenced[1] : text;
-    const start = candidate.indexOf('[');
-    const end = candidate.lastIndexOf(']');
-    if (start === -1 || end === -1 || end < start) return [];
-    try {
-        return JSON.parse(candidate.slice(start, end + 1));
-    } catch {
-        return [];
-    }
+/** Monta a query de busca no Google Places a partir do segmento + região do ICP. */
+function buildPlacesQuery(criteria: ProspectCriteria): string {
+    return `${criteria.segmento.split('(')[0].trim()} em ${criteria.localizacao}`;
 }
 
-function buildPrompt(criteria: ProspectCriteria, count: number, excludeNames: string[]): string {
-    const exclusion = excludeNames.length
-        ? `\nNão repita estas empresas, já sugeridas antes: ${excludeNames.join(', ')}.`
-        : '';
-
-    const picContext = PIC_CONTEXT[criteria.pic] || '';
-
-    return `Você é um assistente de prospecção B2B (SDR/BDR) da Atlas (empresa de gerenciamento de risco e eficiência logística).
-Use a busca do Google para encontrar empresas REAIS e atualmente em operação no Brasil (não invente nomes fictícios) que se encaixam neste perfil de cliente ideal (ICP):
-- Segmento: ${criteria.segmento}
-- Cenário/Gatilho (PIC): ${criteria.pic}${picContext ? ` — sinais típicos: ${picContext}` : ''}
-- Persona/Decisor-alvo: ${criteria.persona}
-- Localização: ${criteria.localizacao}
-
-Priorize empresas com sinais públicos reais e recentes compatíveis com o cenário/gatilho acima (ex: notícia de expansão, vaga aberta de GR/operações, processo judicial público, troca de liderança anunciada).
-${exclusion}
-
-Sugira exatamente ${count} empresas.
-
-Responda com um array JSON (dentro de um bloco \`\`\`json) de objetos, cada um com exatamente estas chaves:
-{
-  "tradeName": "Nome fantasia da empresa",
-  "legalNameGuess": "Razão social, se souber, senão null",
-  "cnpjGuess": "CNPJ com 14 dígitos SOMENTE se você tiver certeza real do número, senão null — nunca invente um CNPJ",
-  "segment": "Sub-segmento específico",
-  "size": "Tamanho da frota aproximado",
-  "location": "Cidade, UF",
-  "fitScoreEstimate": número de 0 a 100 (estimativa preliminar, será recalculado após enriquecimento),
-  "suggestedContact": { "name": "Nome plausível para a persona ${criteria.persona}", "role": "${criteria.persona}" } ou null,
-  "rationale": "1 frase curta explicando por que essa empresa combina com o ICP"
-}`;
-}
-
-async function discoverBatch(
+/** Descoberta via Google Places (New) Text Search — empresas reais, sem IA generativa envolvida. */
+async function discoverViaGooglePlaces(
     criteria: ProspectCriteria,
     count: number,
-    excludeNames: string[]
-): Promise<DiscoverResult> {
-    const response = await ai.models.generateContent({
-        model: 'gemini-3.5-flash',
-        contents: buildPrompt(criteria, count, excludeNames),
-        config: {
-            tools: [{ googleSearch: {} }],
-            temperature: 0.6,
-        },
-    });
+    excludeNames: Set<string>
+): Promise<ProspectCandidate[]> {
+    const query = buildPlacesQuery(criteria);
+    const places = await searchGooglePlacesCandidates(query, count + excludeNames.size);
 
-    const text = response.text || '[]';
-    const parsed = extractJsonArray(text) as Partial<ProspectCandidate>[];
-
-    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    const sources = groundingChunks
-        .map((chunk) => chunk.web)
-        .filter((web): web is { title?: string; uri?: string } => !!web?.uri)
-        .map((web) => ({ title: web.title || web.uri!, uri: web.uri! }));
-
-    const candidates = parsed.map((c) => ({
-        tradeName: c.tradeName || 'Empresa sem nome',
-        legalNameGuess: c.legalNameGuess || null,
-        cnpjGuess: c.cnpjGuess && isValidCnpj(sanitizeCnpj(c.cnpjGuess)) ? sanitizeCnpj(c.cnpjGuess) : null,
-        segment: c.segment || criteria.segmento,
-        size: c.size || 'Não informado',
-        location: c.location || criteria.localizacao,
-        fitScoreEstimate: typeof c.fitScoreEstimate === 'number' ? c.fitScoreEstimate : 70,
-        suggestedContact: c.suggestedContact || null,
-        rationale: c.rationale || '',
-    }));
-
-    return { candidates, sources };
+    return places
+        .filter((p) => !excludeNames.has(p.tradeName.trim().toLowerCase()))
+        .slice(0, count)
+        .map((p) => ({
+            tradeName: p.tradeName,
+            legalNameGuess: null,
+            cnpjGuess: null,
+            segment: criteria.segmento,
+            size: 'Não informado',
+            location: [p.city, p.state].filter(Boolean).join(', ') || criteria.localizacao,
+            fitScoreEstimate: p.rating ? Math.round(Math.min(100, p.rating * 20)) : 60,
+            suggestedContact: null,
+            rationale: p.rating
+                ? `Encontrado via Google Places — nota ${p.rating} (${p.userRatingCount || 0} avaliações)`
+                : 'Encontrado via Google Places',
+        }));
 }
 
 /**
- * Descoberta assistida por IA: pede à Gemini (com grounding real via Google Search) empresas
- * REAIS do Brasil que combinem com o ICP. O resultado é apenas um ponto de partida — cada
- * candidato ainda passa pelo pipeline de enriquecimento real (Receita Federal) antes de virar
- * um Lead confiável. Quantidades grandes (>20) são divididas em lotes sequenciais para manter
- * a qualidade e evitar truncamento da resposta do modelo.
+ * Descoberta de candidatos: combina Apollo.io (Organization Search) e Google Places (Text Search)
+ * — nenhuma chamada a modelos generativos. Cada candidato ainda passa pelo pipeline de
+ * enriquecimento real (Receita Federal + Google Places + Apollo People) antes de virar um Lead confiável.
  */
 export async function discoverCandidates(criteria: ProspectCriteria): Promise<DiscoverResult> {
     const total = Math.max(1, Math.min(100, criteria.quantidade || 10));
     const allCandidates: ProspectCandidate[] = [];
-    const allSources: Array<{ title: string; uri: string }> = [];
     const seenNames = new Set<string>();
 
     const apollo = await fetchApolloCandidates(criteria, total);
@@ -149,25 +79,18 @@ export async function discoverCandidates(criteria: ProspectCriteria): Promise<Di
         allCandidates.push(candidate);
     }
 
-    let remaining = total - allCandidates.length;
-    while (remaining > 0) {
-        const batchCount = Math.min(BATCH_SIZE, remaining);
-        const { candidates, sources } = await discoverBatch(criteria, batchCount, Array.from(seenNames));
-
-        for (const candidate of candidates) {
+    const remaining = total - allCandidates.length;
+    if (remaining > 0) {
+        const placesCandidates = await discoverViaGooglePlaces(criteria, remaining, seenNames);
+        for (const candidate of placesCandidates) {
             const key = candidate.tradeName.trim().toLowerCase();
             if (seenNames.has(key)) continue;
             seenNames.add(key);
             allCandidates.push(candidate);
         }
-        allSources.push(...sources);
-        remaining -= batchCount;
-
-        if (candidates.length === 0) break; // modelo parou de retornar resultados novos
     }
 
-    const dedupedSources = Array.from(new Map(allSources.map((s) => [s.uri, s])).values());
-    return { candidates: allCandidates, sources: dedupedSources, apolloError: apollo.error };
+    return { candidates: allCandidates, sources: [], apolloError: apollo.error };
 }
 
 export interface PromoteInput {
@@ -191,7 +114,7 @@ function splitLocation(location?: string | null): { city?: string; state?: strin
     return { city: parts[0], state: parts[1] };
 }
 
-/** Cria Company + Contact + Lead no CRM a partir de um candidato (IA ou busca por CNPJ) e dispara o enriquecimento real. */
+/** Cria Company + Contact + Lead no CRM a partir de um candidato (Google Places/Apollo ou busca por CNPJ) e dispara o enriquecimento real. */
 export async function promoteToCrm(input: PromoteInput) {
     const derivedLocation = splitLocation(input.location);
     const city = input.city || derivedLocation.city || null;
@@ -220,7 +143,7 @@ export async function promoteToCrm(input: PromoteInput) {
                 role: input.contact.role,
                 companyId: company.id,
                 status: 'Ativo',
-                observations: 'Contato sugerido por IA — confirmar identidade e dados antes da abordagem.',
+                observations: 'Contato sugerido — confirmar identidade e dados antes da abordagem.',
                 organizationId: input.organizationId,
             },
         });
