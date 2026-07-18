@@ -1,4 +1,27 @@
-export type LeadStatus = 'Novo Lead' | 'Qualificação' | 'Primeiro Contato' | 'Diagnóstico' | 'Proposta' | 'Negociação' | 'Fechado Ganho' | 'Fechado Perdido';
+// Re-export domain enum types from the single source of truth (zod.ts)
+// This ensures frontend types stay in sync with backend validation schemas.
+export type {
+    CompanyStatus,
+    LeadStatus,
+    ActivityType,
+    ActivityStatus,
+    LeadTemperature,
+    ContactStatus,
+} from '../lib/zod';
+
+export type { COMPANY_STATUS, LEAD_STATUS, ACTIVITY_TYPE, ACTIVITY_STATUS, LEAD_TEMPERATURE, CONTACT_STATUS } from '../lib/zod';
+
+export interface PaginatedMeta {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
+
+export interface PaginatedResponse<T> {
+    data: T[];
+    meta: PaginatedMeta;
+}
 
 export interface Company {
     id: string;
@@ -21,11 +44,22 @@ export interface Company {
     state?: string | null;
     zipCode?: string | null;
     owner?: string | null;
-    status: string;
+    status: import('../lib/zod').CompanyStatus;
     tags: string[];
     observations?: string | null;
+    organizationId?: string | null;
     createdAt: string;
     updatedAt: string;
+
+    // Enriquecimento (Receita Federal)
+    situacaoCadastral?: string | null;
+    naturezaJuridica?: string | null;
+    capitalSocial?: number | null;
+
+    // Google Negócios (Places API)
+    googleRating?: number | null;
+    googleReviewsCount?: number | null;
+    businessHours?: { openNow?: boolean; weekdayDescriptions?: string[] } | null;
 
     contacts?: Contact[];
     leads?: Lead[];
@@ -42,32 +76,27 @@ export interface Contact {
     linkedin?: string | null;
     birthDate?: string | null;
     observations?: string | null;
-    status: string;
+    status: import('../lib/zod').ContactStatus;
     companyId: string;
     company?: Company;
+    organizationId?: string | null;
     createdAt: string;
     updatedAt: string;
 }
 
 export interface Lead {
     id: string;
-    // Backward compatibility
-    name?: string | null;
-    segment?: string | null;
-    size?: string | null;
-    location?: string | null;
-    fitScore?: number | null;
-    notes?: string | null;
 
     // CRM Core
-    status: LeadStatus;
+    status: import('../lib/zod').LeadStatus;
     source?: string | null;
     channel?: string | null;
-    temperature?: string | null;
+    temperature?: import('../lib/zod').LeadTemperature | null;
     score?: number | null;
     owner?: string | null;
     lastInteraction?: string | null;
     nextAction?: string | null;
+    organizationId?: string | null;
 
     companyId?: string | null;
     company?: Company | null;
@@ -84,14 +113,15 @@ export interface Lead {
 
 export interface Activity {
     id: string;
-    type: string;
+    type: import('../lib/zod').ActivityType;
     owner: string;
     date: string;
     time?: string | null;
-    status: string;
+    status: import('../lib/zod').ActivityStatus;
     observations?: string | null;
     leadId: string;
     lead?: Lead;
+    organizationId?: string | null;
     createdAt: string;
     updatedAt: string;
 }
