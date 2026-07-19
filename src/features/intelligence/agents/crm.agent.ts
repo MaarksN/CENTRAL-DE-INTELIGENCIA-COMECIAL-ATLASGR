@@ -1,22 +1,18 @@
-import { StateGraph } from '@langchain/langgraph';
+import { StateGraph, Annotation, START, END } from '@langchain/langgraph';
 
-const graphState = {
-    input: {
-        value: null,
-    },
-    action: {
-        value: null,
-    }
-};
+const GraphState = Annotation.Root({
+    input: Annotation<string>(),
+    action: Annotation<string>(),
+});
 
 export class CRMAgent {
     async run(inputData: string) {
-        const graph = new StateGraph({ channels: graphState })
+        const graph = new StateGraph(GraphState)
             .addNode("updateStatus", async (state) => {
                 return { action: `Status updated for: ${state.input}` };
             })
-            .addEdge("__start__", "updateStatus")
-            .addEdge("updateStatus", "__end__");
+            .addEdge(START, "updateStatus")
+            .addEdge("updateStatus", END);
 
         const compiled = graph.compile();
         const result = await compiled.invoke({ input: inputData });

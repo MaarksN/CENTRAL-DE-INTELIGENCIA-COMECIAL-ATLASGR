@@ -1,23 +1,19 @@
-import { StateGraph } from '@langchain/langgraph';
+import { StateGraph, Annotation, START, END } from '@langchain/langgraph';
 import { prisma } from '../../../lib/prisma.js';
 
-const graphState = {
-    input: {
-        value: null,
-    },
-    output: {
-        value: null,
-    }
-};
+const GraphState = Annotation.Root({
+    input: Annotation<string>(),
+    output: Annotation<string>(),
+});
 
 export class SDRAgent {
     async run(inputData: string, sessionId: string) {
-        const graph = new StateGraph({ channels: graphState })
+        const graph = new StateGraph(GraphState)
             .addNode("formatCall", async (state) => {
                 return { output: `Formatted cold call for: ${state.input}` };
             })
-            .addEdge("__start__", "formatCall")
-            .addEdge("formatCall", "__end__");
+            .addEdge(START, "formatCall")
+            .addEdge("formatCall", END);
 
         const compiled = graph.compile();
         const result = await compiled.invoke({ input: inputData });

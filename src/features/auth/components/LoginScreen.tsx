@@ -20,7 +20,7 @@ export function LoginScreen() {
         setError('');
 
         if (isSignUp) {
-            const { data: signUpData, error: signUpError } = await authClient.signUp.email({
+            const { error: signUpError } = await authClient.signUp.email({
                 name: name || email.split('@')[0],
                 email,
                 password
@@ -32,7 +32,7 @@ export function LoginScreen() {
             }
         }
 
-        const { data, error } = await authClient.signIn.email({
+        const { error } = await authClient.signIn.email({
             email,
             password
         });
