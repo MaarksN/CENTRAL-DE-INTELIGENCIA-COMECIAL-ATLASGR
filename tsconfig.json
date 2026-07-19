@@ -21,6 +21,21 @@
       ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
-  }
+    "noEmit": true,
+
+    // ── TypeScript Strict Mode ──────────────────────────────
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": false,
+
+    // ── Qualidade adicional ─────────────────────────────────
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "exactOptionalPropertyTypes": false
+  },
+  "include": ["src", "server.ts"],
+  "exclude": ["node_modules", "dist", "server"]
 }

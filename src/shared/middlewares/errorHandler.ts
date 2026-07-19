@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
+import { logger } from '../../lib/logger.js';
 
 export interface ApiResponse<T = unknown> {
     success: boolean;
@@ -21,26 +22,28 @@ export class AppError extends Error {
     }
 }
 
-export const errorHandler = (err: Error & { statusCode?: number, details?: unknown }, req: Request, res: Response, next: NextFunction) => {
-    console.error('Global Error Handler:', err);
+export const errorHandler = (err: Error & { statusCode?: number; details?: unknown }, _req: Request, res: Response, _next: NextFunction): void => {
+    logger.error({ err, status: (err as any).statusCode }, 'Global error handler');
 
     if (err instanceof ZodError) {
-        return res.status(400).json({
+        res.status(400).json({
             success: false,
             error: 'Erro de Validação',
             details: err.issues
         });
+        return;
     }
 
     if (err instanceof AppError) {
-        return res.status(err.statusCode).json({
+        res.status(err.statusCode).json({
             success: false,
             error: err.message,
             details: err.details
         });
+        return;
     }
 
-    const status = err.statusCode || 500;
+    const status = err.statusCode ?? 500;
     res.status(status).json({
         success: false,
         error: err.message || 'Erro Interno do Servidor'
