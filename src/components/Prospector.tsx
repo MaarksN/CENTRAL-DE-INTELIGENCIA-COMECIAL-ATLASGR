@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Loader2, Save, MapPin, Building2, Users, Database, Globe, CheckCircle2, TrendingUp, Cpu } from 'lucide-react';
 import { SearchCriteria } from '../types/index';
 import { api } from '../lib/api';
