@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+
 import { discoverCandidates, promoteToCrm, discoverDecisionMakers } from '../services/prospecting.service.js';
 import { fetchCnpjData } from '../services/enrichment.service.js';
 import type { AuthRequest } from '../../../shared/middlewares/authenticateToken.js';
@@ -8,7 +9,7 @@ const router = Router();
 // Descoberta de candidatos via IA a partir de um ICP (Perfil de Cliente Ideal).
 router.post('/discover', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const criteria = req.body as Record<string, unknown>;
+        const criteria = req.body as import("../services/prospecting.service.js").ProspectCriteria;
         if (!criteria || typeof criteria !== 'object') {
             res.status(400).json({ success: false, error: 'Critérios de busca inválidos' });
             return;

@@ -18,7 +18,8 @@ vi.mock('@/features/companies/services/company.service', () => ({
 const app = express();
 app.use(express.json());
 app.use((req, res, next) => {
-    (req as any).user = { id: 'test-user', organizationId: 'test-org-id' };
+    (req as any).user = { id: 'test-user', organizationId: 'test-org-id', role: 'ADMIN' };
+
     next();
 });
 app.use('/api/companies', companyRoutes);

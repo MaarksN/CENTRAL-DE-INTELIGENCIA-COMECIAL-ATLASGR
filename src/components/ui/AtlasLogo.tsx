@@ -1,4 +1,3 @@
-import React from 'react';
 
 export function AtlasLogo({ className = "w-10 h-10", color = "currentColor" }: { className?: string, color?: string }) {
     return (
