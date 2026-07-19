@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Building2, Target, Activity, CheckCircle2, LayoutTemplate, Users, Search, Sparkles, ArrowRight } from 'lucide-react';
 import { Lead, Activity as ActivityType, Company } from '../../../types';
 import { api } from '../../../lib/api';

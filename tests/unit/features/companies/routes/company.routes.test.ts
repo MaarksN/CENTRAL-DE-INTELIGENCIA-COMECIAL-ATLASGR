@@ -96,7 +96,17 @@ describe('Company Routes', () => {
     it('DELETE /api/companies/:id should delete a company', async () => {
         vi.mocked(companyService.delete).mockResolvedValue({ id: '1' } as any);
 
-        const res = await request(app).delete('/api/companies/1');
+        // Override default user to have ADMIN role for this specific test
+        const adminApp = express();
+        adminApp.use(express.json());
+        adminApp.use((req, res, next) => {
+            (req as any).user = { id: 'test-admin', organizationId: 'test-org-id', role: 'ADMIN' };
+            next();
+        });
+        adminApp.use('/api/companies', companyRoutes);
+        adminApp.use(errorHandler);
+
+        const res = await request(adminApp).delete('/api/companies/1');
         expect(res.status).toBe(204);
     });
 });

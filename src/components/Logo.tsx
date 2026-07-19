@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface LogoProps {
     variant?: 'default' | 'white' | 'symbol';
     className?: string;
