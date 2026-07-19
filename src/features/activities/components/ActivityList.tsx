@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, CheckCircle2, Clock, Phone, Mail, MessageCircle, Users, Activity as ActivityIcon } from 'lucide-react';
 import { Activity } from '../../../types';
 
