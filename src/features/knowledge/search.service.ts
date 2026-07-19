@@ -1,5 +1,5 @@
-import { prisma } from '../../../lib/prisma.js';
-import { meili } from '../../../lib/search/index.js';
+import { prisma } from '../../lib/prisma';
+import { meili } from '../../lib/search/index';
 
 export class SearchService {
     async hybridSearch(query: string) {
@@ -13,7 +13,7 @@ export class SearchService {
 
         // 2. Keyword search via Meilisearch
         // Note: in a real implementation we would search a "documents" index.
-        let keywordResults = [];
+        let keywordResults: any[] = [];
         try {
             const meiliRes = await meili.index('leads').search(query, { limit: 5 });
             keywordResults = meiliRes.hits;
