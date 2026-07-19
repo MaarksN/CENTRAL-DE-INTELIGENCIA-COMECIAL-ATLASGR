@@ -143,7 +143,7 @@ export async function fetchApolloCandidates(
 }
 
 /** Preenche candidate.decisionMakers para os primeiros MAX_DECISION_MAKER_LOOKUPS candidatos com domínio conhecido. */
-async function enrichCandidatesWithDecisionMakers(candidates: ProspectCandidate[], organizations: ApolloOrganization[]) {
+export async function enrichCandidatesWithDecisionMakers(candidates: ProspectCandidate[], organizations: ApolloOrganization[]) {
     const withDomain = organizations
         .map((org, idx) => ({ org, idx }))
         .filter(({ org }) => !!org.primary_domain)

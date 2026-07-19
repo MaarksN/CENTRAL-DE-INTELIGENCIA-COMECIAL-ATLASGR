@@ -13,6 +13,7 @@ import { toNodeHandler } from 'better-auth/node';
 import { auth } from './src/lib/auth.js';
 import { intelligenceRoutes } from './src/features/intelligence/routes/intelligence.routes.js';
 import { authenticateToken } from './src/shared/middlewares/authenticateToken.js';
+import { requireTenant } from './src/shared/middlewares/authorization.js';
 import { prisma } from './src/lib/prisma.js';
 import { companyRoutes } from './src/features/companies/routes/company.routes.js';
 import { contactRoutes } from './src/features/contacts/routes/contact.routes.js';
@@ -24,10 +25,17 @@ import { errorHandler } from './src/shared/middlewares/errorHandler.js';
 import { logger } from './src/lib/logger.js';
 import { createLeadsWorker } from './src/lib/queue/index.js';
 import { initMeiliIndexes } from './src/lib/search/index.js';
+import { observabilityMiddleware } from './src/shared/middlewares/observability.js';
+import client from 'prom-client';
 
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
-    : ['http://localhost:3000', 'http://localhost:5173'];
+    : (process.env.NODE_ENV !== 'production' ? ['http://localhost:3000', 'http://localhost:5173'] : []);
+
+if (process.env.NODE_ENV === 'production' && ALLOWED_ORIGINS.length === 0) {
+    console.error('FATAL ERROR: ALLOWED_ORIGINS is not set in production. Failing fast.');
+    process.exit(1);
+}
 
 async function startServer() {
     const app = express();
@@ -67,6 +75,17 @@ async function startServer() {
 
     app.use(express.json({ limit: '10mb' }));
 
+    // ── Metrics ────────────────────────────────────────────────────────────
+    client.collectDefaultMetrics();
+    app.get('/metrics', async (_req, res) => {
+        try {
+            res.set('Content-Type', client.register.contentType);
+            res.end(await client.register.metrics());
+        } catch (ex) {
+            res.status(500).end(ex);
+        }
+    });
+
     // ── Health Checks ──────────────────────────────────────────────────────
     app.get('/health/live', (_req, res) => {
         res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -86,13 +105,15 @@ async function startServer() {
     app.all('/api/auth/*', toNodeHandler(auth));
 
     // ── Rotas protegidas ───────────────────────────────────────────────────
-    app.use('/api/companies', authenticateToken, companyRoutes);
-    app.use('/api/contacts', authenticateToken, contactRoutes);
-    app.use('/api/leads', authenticateToken, leadRoutes);
-    app.use('/api/leads/:leadId/notes', authenticateToken, noteRoutes);
-    app.use('/api/activities', authenticateToken, activityRoutes);
-    app.use('/api/prospecting', authenticateToken, prospectingRoutes);
-    app.use('/api/intelligence', authenticateToken, intelligenceRoutes);
+    app.use(observabilityMiddleware);
+
+    app.use('/api/companies', authenticateToken, requireTenant, companyRoutes);
+    app.use('/api/contacts', authenticateToken, requireTenant, contactRoutes);
+    app.use('/api/leads', authenticateToken, requireTenant, leadRoutes);
+    app.use('/api/leads/:leadId/notes', authenticateToken, requireTenant, noteRoutes);
+    app.use('/api/activities', authenticateToken, requireTenant, activityRoutes);
+    app.use('/api/prospecting', authenticateToken, requireTenant, prospectingRoutes);
+    app.use('/api/intelligence', authenticateToken, requireTenant, intelligenceRoutes);
 
     // ── Frontend ───────────────────────────────────────────────────────────
     if (process.env.NODE_ENV !== 'production') {

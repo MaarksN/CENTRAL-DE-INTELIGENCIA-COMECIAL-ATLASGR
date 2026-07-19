@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+
 import { activityService } from '../services/activity.service.js';
 import { validateRequest } from '../../../shared/middlewares/validateRequest.js';
 import { activitySchema } from '../../../lib/zod.js';

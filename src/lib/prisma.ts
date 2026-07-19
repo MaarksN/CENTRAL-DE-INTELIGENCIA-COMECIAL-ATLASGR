@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
+import { AuditService } from './audit/audit.service.js';
+
 import { PrismaPg } from '@prisma/adapter-pg';
 import { meili } from './search/index.js';
 import { logger } from './logger.js';
@@ -33,11 +35,18 @@ export const prisma = basePrisma.$extends({
       async create({ args, query }) {
         const result = await query(args);
         meili.index('companies').addDocuments([{ ...result }]).catch(err => logger.error(err, 'Failed to index company'));
+        AuditService.log({ action: 'CREATE', entity: 'Company', entityId: result.id, tenantId: result.organizationId || undefined }).catch(err => logger.error(err, 'AuditLog failed'));
         return result;
       },
       async update({ args, query }) {
         const result = await query(args);
         meili.index('companies').updateDocuments([{ ...result }]).catch(err => logger.error(err, 'Failed to update company index'));
+        AuditService.log({ action: 'UPDATE', entity: 'Company', entityId: result.id, tenantId: result.organizationId || undefined }).catch(err => logger.error(err, 'AuditLog failed'));
+        return result;
+      },
+      async delete({ args, query }) {
+        const result = await query(args);
+        AuditService.log({ action: 'DELETE', entity: 'Company', entityId: result.id, tenantId: result.organizationId || undefined }).catch(err => logger.error(err, 'AuditLog failed'));
         return result;
       }
     },
@@ -45,11 +54,18 @@ export const prisma = basePrisma.$extends({
       async create({ args, query }) {
         const result = await query(args);
         meili.index('leads').addDocuments([{ ...result }]).catch(err => logger.error(err, 'Failed to index lead'));
+        AuditService.log({ action: 'CREATE', entity: 'Lead', entityId: result.id, tenantId: result.organizationId || undefined }).catch(err => logger.error(err, 'AuditLog failed'));
         return result;
       },
       async update({ args, query }) {
         const result = await query(args);
         meili.index('leads').updateDocuments([{ ...result }]).catch(err => logger.error(err, 'Failed to update lead index'));
+        AuditService.log({ action: 'UPDATE', entity: 'Lead', entityId: result.id, tenantId: result.organizationId || undefined }).catch(err => logger.error(err, 'AuditLog failed'));
+        return result;
+      },
+      async delete({ args, query }) {
+        const result = await query(args);
+        AuditService.log({ action: 'DELETE', entity: 'Lead', entityId: result.id, tenantId: result.organizationId || undefined }).catch(err => logger.error(err, 'AuditLog failed'));
         return result;
       }
     }

@@ -105,6 +105,9 @@ model Company {
   @@index([organizationId])
   @@index([cnpj])
   @@index([legalName])
+  deletedAt DateTime?
+  deletedBy String?
+  deleteReason String?
 }
 
 model EnrichmentLog {
@@ -144,6 +147,9 @@ model Contact {
   updatedAt DateTime @updatedAt
 
   @@index([organizationId])
+  deletedAt DateTime?
+  deletedBy String?
+  deleteReason String?
 }
 
 model Lead {
@@ -175,6 +181,9 @@ model Lead {
 
   @@index([organizationId])
   @@index([organizationId, status])
+  deletedAt DateTime?
+  deletedBy String?
+  deleteReason String?
 }
 
 model Activity {
@@ -195,6 +204,9 @@ model Activity {
   updatedAt DateTime @updatedAt
 
   @@index([organizationId])
+  deletedAt DateTime?
+  deletedBy String?
+  deleteReason String?
 }
 
 model TimelineEvent {
