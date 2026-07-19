@@ -1,9 +1,8 @@
-import { LeadRepository, Lead } from '../domain/Lead';
+import { LeadRepository } from '../domain/Lead';
 import { z } from 'zod';
 import { leadSchema } from '../../../lib/zod';
 import { enrichCompany } from '../../prospecting/services/enrichment.service';
 import { fromPrismaLeadStatus } from '../../../lib/enumMap';
-import { prisma } from '../../../lib/prisma';
 
 export class LeadUseCases {
     constructor(private leadRepository: LeadRepository) {}
@@ -39,8 +38,8 @@ export class LeadUseCases {
         if (!lead.companyId) throw new Error('Lead sem empresa vinculada — não é possível enriquecer');
 
         const result = await enrichCompany(lead.companyId, {
-            segmentKeywords: lead.company?.segment ? [lead.company.segment] : undefined,
-            fleetSizeHint: lead.company?.size || undefined,
+            segmentKeywords: (lead.company as any)?.segment ? [(lead.company as any).segment] : undefined,
+            fleetSizeHint: (lead.company as any)?.size || undefined,
         });
 
         // Note: Timeline events should ideally be emitted as domain events.

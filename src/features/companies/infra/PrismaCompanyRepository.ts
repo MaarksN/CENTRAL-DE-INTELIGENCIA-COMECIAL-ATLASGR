@@ -3,7 +3,7 @@ import { prisma } from '../../../lib/prisma';
 import { Prisma } from '@prisma/client';
 
 export class PrismaCompanyRepository implements CompanyRepository {
-    async findAllWithFilters(organizationId: string, query?: string, page: number = 1, limit: number = 50): Promise<{ data: Company[], meta: any }> {
+    async findAllWithFilters(organizationId: string, query?: string, page: number = 1, limit: number = 50): Promise<{ data: Company[], meta: unknown }> {
         const where: Prisma.CompanyWhereInput = { organizationId };
 
         if (query) {
@@ -34,19 +34,19 @@ export class PrismaCompanyRepository implements CompanyRepository {
         });
     }
 
-    async create(organizationId: string, data: any): Promise<Company> {
+    async create(organizationId: string, data: Partial<Company>): Promise<Company> {
         return prisma.company.create({
-            data: { ...data, organizationId }
+            data: { ...data, organizationId } as Prisma.CompanyCreateInput
         });
     }
 
-    async update(organizationId: string, id: string, data: any): Promise<Company> {
+    async update(organizationId: string, id: string, data: Partial<Company>): Promise<Company> {
         const existing = await prisma.company.findFirst({ where: { id, organizationId } });
         if (!existing) throw new Error('Company not found');
 
         return prisma.company.update({
             where: { id },
-            data
+            data: data as Prisma.CompanyUpdateInput
         });
     }
 

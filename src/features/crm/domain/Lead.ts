@@ -16,15 +16,15 @@ export interface Lead {
     organizationId: string | null;
     createdAt: Date;
     updatedAt: Date;
-    company?: any;
-    contact?: any;
-    activities?: any[];
-    timeline?: any[];
-    internalNotes?: any[];
+    company?: unknown;
+    contact?: unknown;
+    activities?: unknown[];
+    timeline?: unknown[];
+    internalNotes?: unknown[];
 }
 
 export interface LeadRepository extends Repository<Lead> {
-    findAllWithFilters(organizationId: string, status?: string, page?: number, limit?: number): Promise<{ data: Lead[], meta: any }>;
+    findAllWithFilters(organizationId: string, status?: string, page?: number, limit?: number): Promise<{ data: Lead[], meta: unknown }>;
     updateStatus(organizationId: string, id: string, newStatus: string): Promise<Lead>;
     findAllForExport(organizationId: string): Promise<Lead[]>;
 }

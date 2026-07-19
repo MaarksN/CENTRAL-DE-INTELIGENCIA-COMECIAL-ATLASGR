@@ -11,11 +11,11 @@ export class ActivityUseCases {
 
     async createActivity(organizationId: string, data: z.infer<typeof activitySchema>) {
         const validated = activitySchema.parse(data);
-        return this.activityRepository.createWithTimeline(organizationId, validated);
+        return this.activityRepository.createWithTimeline(organizationId, validated as any);
     }
 
     async updateActivity(organizationId: string, id: string, data: Partial<z.infer<typeof activitySchema>>) {
-        return this.activityRepository.updateWithTimeline(organizationId, id, data);
+        return this.activityRepository.updateWithTimeline(organizationId, id, data as any);
     }
 
     async deleteActivity(organizationId: string, id: string) {

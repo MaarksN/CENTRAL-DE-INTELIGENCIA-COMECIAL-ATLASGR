@@ -31,20 +31,20 @@ export interface Company {
     naturezaJuridica: string | null;
     capitalSocial: number | null;
     dataAbertura: Date | null;
-    qsa: any | null;
+    qsa: unknown | null;
     enrichmentStatus: string;
     enrichmentSource: string | null;
     enrichedAt: Date | null;
     googleRating: number | null;
     googleReviewsCount: number | null;
-    businessHours: any | null;
+    businessHours: unknown | null;
     organizationId: string | null;
 }
 
 export interface CompanyRepository extends Repository<Company> {
-    findAllWithFilters(organizationId: string, query?: string, page?: number, limit?: number): Promise<{ data: Company[], meta: any }>;
+    findAllWithFilters(organizationId: string, query?: string, page?: number, limit?: number): Promise<{ data: Company[], meta: unknown }>;
     findById(organizationId: string, id: string): Promise<Company | null>;
-    create(organizationId: string, data: any): Promise<Company>;
-    update(organizationId: string, id: string, data: any): Promise<Company>;
+    create(organizationId: string, data: Partial<Company>): Promise<Company>;
+    update(organizationId: string, id: string, data: Partial<Company>): Promise<Company>;
     delete(organizationId: string, id: string): Promise<Company>;
 }
