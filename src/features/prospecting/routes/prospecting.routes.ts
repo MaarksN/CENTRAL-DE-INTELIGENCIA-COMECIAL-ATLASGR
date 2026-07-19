@@ -6,11 +6,12 @@ import type { AuthRequest } from '../../../shared/middlewares/authenticateToken.
 const router = Router();
 
 // Descoberta de candidatos via IA a partir de um ICP (Perfil de Cliente Ideal).
-router.post('/discover', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/discover', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const criteria = req.body;
+        const criteria = req.body as Record<string, unknown>;
         if (!criteria || typeof criteria !== 'object') {
-            return res.status(400).json({ success: false, error: 'Critérios de busca inválidos' });
+            res.status(400).json({ success: false, error: 'Critérios de busca inválidos' });
+            return;
         }
         const result = await discoverCandidates(criteria);
         res.json({ success: true, data: result });
@@ -20,11 +21,12 @@ router.post('/discover', async (req: Request, res: Response, next: NextFunction)
 });
 
 // Consulta em tempo real (sem persistir) de um CNPJ na Receita Federal via BrasilAPI.
-router.post('/enrich-cnpj', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/enrich-cnpj', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const { cnpj } = req.body;
+        const { cnpj } = req.body as { cnpj?: string };
         if (!cnpj || typeof cnpj !== 'string') {
-            return res.status(400).json({ success: false, error: 'CNPJ é obrigatório' });
+            res.status(400).json({ success: false, error: 'CNPJ é obrigatório' });
+            return;
         }
         const result = await fetchCnpjData(cnpj);
         res.json({ success: true, data: result });
@@ -34,11 +36,12 @@ router.post('/enrich-cnpj', async (req: Request, res: Response, next: NextFuncti
 });
 
 // Promove um candidato (IA ou CNPJ) para o CRM: cria Company + Contact + Lead e enriquece automaticamente.
-router.post('/promote', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/promote', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const { tradeName, source } = req.body;
-        if (!tradeName || !source) {
-            return res.status(400).json({ success: false, error: 'tradeName e source são obrigatórios' });
+        const body = req.body as { tradeName?: string; source?: string };
+        if (!body.tradeName || !body.source) {
+            res.status(400).json({ success: false, error: 'tradeName e source são obrigatórios' });
+            return;
         }
         const { organizationId } = (req as AuthRequest).user;
         const result = await promoteToCrm({ ...req.body, organizationId });
@@ -49,13 +52,14 @@ router.post('/promote', async (req: Request, res: Response, next: NextFunction) 
 });
 
 // Busca de decisores para uma empresa específica
-router.post('/decision-makers', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/decision-makers', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const { domain, criteria } = req.body;
+        const { domain, criteria } = req.body as { domain?: string; criteria?: Record<string, unknown> };
         if (!domain || typeof domain !== 'string') {
-            return res.status(400).json({ success: false, error: 'O domínio da empresa é obrigatório' });
+            res.status(400).json({ success: false, error: 'O domínio da empresa é obrigatório' });
+            return;
         }
-        const result = await discoverDecisionMakers(domain, criteria || {});
+        const result = await discoverDecisionMakers(domain, criteria ?? {});
         res.json({ success: true, data: result });
     } catch (error) {
         next(error);

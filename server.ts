@@ -4,6 +4,8 @@ initTracing();
 import 'dotenv/config';
 import express from 'express';
 import helmet from 'helmet';
+import cors from 'cors';
+import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
@@ -23,34 +25,55 @@ import { logger } from './src/lib/logger.js';
 import { createLeadsWorker } from './src/lib/queue/index.js';
 import { initMeiliIndexes } from './src/lib/search/index.js';
 
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+    : ['http://localhost:3000', 'http://localhost:5173'];
+
 async function startServer() {
     const app = express();
-    const PORT = 3000;
+    const PORT = parseInt(process.env.PORT || '3000', 10);
 
-    // Security Middlewares (Hardening)
-    app.use(helmet());
+    // ── Segurança ──────────────────────────────────────────────────────────
+    // Helmet adiciona cabeçalhos HTTP de segurança (X-Frame-Options, HSTS, etc.)
+    app.use(helmet({
+        contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+    }));
 
+    // CORS — permite apenas origens explicitamente listadas em ALLOWED_ORIGINS
+    app.use(cors({
+        origin: (origin, callback) => {
+            // Permitir requests sem origin (Postman, curl, apps mobile)
+            if (!origin) return callback(null, true);
+            if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+            callback(new Error(`CORS policy: origin ${origin} not allowed`));
+        },
+        credentials: true, // Necessário para Better Auth (cookies de sessão)
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    }));
+
+    // Compressão gzip/brotli — reduz tamanho de resposta até 70%
+    app.use(compression());
+
+    // Rate Limiting — 500 req/15min por IP nas rotas /api
     const apiLimiter = rateLimit({
-        windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 500, // Limit each IP to 500 requests per `window` (here, per 15 minutes)
-        standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-        legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+        windowMs: 15 * 60 * 1000,
+        max: 500,
+        standardHeaders: true,
+        legacyHeaders: false,
         message: { success: false, error: 'Too many requests from this IP, please try again after 15 minutes' }
     });
-
-    // Apply the rate limiting middleware to API calls only
     app.use('/api', apiLimiter);
 
-    app.use(express.json());
+    app.use(express.json({ limit: '10mb' }));
 
-    // Health Checks
-    app.get('/health/live', (req, res) => {
+    // ── Health Checks ──────────────────────────────────────────────────────
+    app.get('/health/live', (_req, res) => {
         res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
     });
 
-    app.get('/health/ready', async (req, res) => {
+    app.get('/health/ready', async (_req, res) => {
         try {
-            // Check Database connection
             await prisma.$queryRaw`SELECT 1`;
             res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
         } catch (error) {
@@ -59,22 +82,20 @@ async function startServer() {
         }
     });
 
-    // Auth Routes (Better Auth)
+    // ── Auth (Better Auth) ─────────────────────────────────────────────────
     app.all('/api/auth/*', toNodeHandler(auth));
 
-    // API Routes Mounts
+    // ── Rotas protegidas ───────────────────────────────────────────────────
     app.use('/api/companies', authenticateToken, companyRoutes);
     app.use('/api/contacts', authenticateToken, contactRoutes);
     app.use('/api/leads', authenticateToken, leadRoutes);
     app.use('/api/leads/:leadId/notes', authenticateToken, noteRoutes);
     app.use('/api/activities', authenticateToken, activityRoutes);
     app.use('/api/prospecting', authenticateToken, prospectingRoutes);
-
-
     app.use('/api/intelligence', authenticateToken, intelligenceRoutes);
 
-    // Vite middleware for development
-    if (process.env.NODE_ENV !== "production") {
+    // ── Frontend ───────────────────────────────────────────────────────────
+    if (process.env.NODE_ENV !== 'production') {
         const vite = await createViteServer({
             server: { middlewareMode: true },
             appType: 'spa',
@@ -83,29 +104,31 @@ async function startServer() {
     } else {
         const distPath = path.join(process.cwd(), 'dist');
         app.use(express.static(distPath));
-        app.get('*', (req, res) => {
+        app.get('*', (_req, res) => {
             res.sendFile(path.join(distPath, 'index.html'));
         });
     }
 
-    // Error handling middleware
+    // ── Error Handler (deve ser o último middleware) ───────────────────────
     app.use(errorHandler);
 
-    // Initialize Background Workers & Services
+    // ── Background Workers & Services ─────────────────────────────────────
     const leadsWorker = createLeadsWorker();
-    
-    // Initialize Search Indexes
     await initMeiliIndexes();
-    
-    // Graceful shutdown
-    process.on('SIGTERM', async () => {
-        logger.info('SIGTERM received: closing queues and workers');
-        await leadsWorker.close();
-        process.exit(0);
-    });
 
-    app.listen(PORT, "0.0.0.0", () => {
-        logger.info(`Server running on http://0.0.0.0:${PORT}`);
+    // Graceful shutdown
+    const shutdown = async (signal: string) => {
+        logger.info(`${signal} received: closing gracefully`);
+        await leadsWorker.close();
+        await prisma.$disconnect();
+        process.exit(0);
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+
+    app.listen(PORT, '0.0.0.0', () => {
+        logger.info({ port: PORT, env: process.env.NODE_ENV }, 'Server running');
     });
 }
 
