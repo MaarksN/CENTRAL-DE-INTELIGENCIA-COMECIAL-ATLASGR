@@ -44,7 +44,7 @@ export class AIService {
 
         await prisma.aILog.create({
             data: {
-                tokens: response.response_metadata?.tokenUsage?.totalTokens || 0,
+                tokens: (response.response_metadata as any)?.tokenUsage?.totalTokens || 0,
                 cost: 0,
                 latencyMs,
                 model: 'gemini-pro',
