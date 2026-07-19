@@ -6,7 +6,7 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
     // Check if there is an auth token in localStorage (if used)
     const token = localStorage.getItem('token');
     if (token) {
-        (defaultHeaders as any)['Authorization'] = `Bearer ${token}`;
+        (defaultHeaders as Record<string, string>)['Authorization'] = `Bearer ${token}`;
     }
 
     const response = await fetch(endpoint, {
