@@ -18,10 +18,10 @@ export interface Contact {
     organizationId: string | null;
     createdAt: Date;
     updatedAt: Date;
-    company?: any;
-    leads?: any[];
+    company?: unknown;
+    leads?: unknown[];
 }
 
 export interface ContactRepository extends Repository<Contact> {
-    findAllWithFilters(organizationId: string, query?: string, page?: number, limit?: number): Promise<{ data: Contact[], meta: any }>;
+    findAllWithFilters(organizationId: string, query?: string, page?: number, limit?: number): Promise<{ data: Contact[], meta: unknown }>;
 }

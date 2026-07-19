@@ -16,11 +16,11 @@ export class CompanyUseCases {
 
     async createCompany(organizationId: string, data: z.infer<typeof companySchema>) {
         const validated = companySchema.parse(data);
-        return this.companyRepository.create!(organizationId, validated);
+        return this.companyRepository.create!(organizationId, validated as any);
     }
 
     async updateCompany(organizationId: string, id: string, data: Partial<z.infer<typeof companySchema>>) {
-        return this.companyRepository.update!(organizationId, id, data);
+        return this.companyRepository.update!(organizationId, id, data as any);
     }
 
     async deleteCompany(organizationId: string, id: string) {

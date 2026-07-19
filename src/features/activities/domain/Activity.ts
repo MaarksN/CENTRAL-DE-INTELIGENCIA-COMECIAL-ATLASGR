@@ -13,11 +13,11 @@ export interface Activity {
     organizationId: string | null;
     createdAt: Date;
     updatedAt: Date;
-    lead?: any;
+    lead?: unknown;
 }
 
 export interface ActivityRepository extends Repository<Activity> {
     findAllWithFilters(organizationId: string, dateStr?: string): Promise<Activity[]>;
-    createWithTimeline(organizationId: string, data: any): Promise<Activity>;
-    updateWithTimeline(organizationId: string, id: string, data: any): Promise<Activity>;
+    createWithTimeline(organizationId: string, data: Partial<Activity> & { type: ActivityType, status: ActivityStatus, leadId: string, date: string | Date }): Promise<Activity>;
+    updateWithTimeline(organizationId: string, id: string, data: Partial<Activity> & { type?: ActivityType, status?: ActivityStatus, date?: string | Date }): Promise<Activity>;
 }
