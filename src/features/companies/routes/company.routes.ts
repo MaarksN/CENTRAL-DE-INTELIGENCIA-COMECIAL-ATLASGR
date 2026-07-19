@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { companyService } from '../services/company.service.js';
 import { validateRequest } from '../../../shared/middlewares/validateRequest.js';
+import { requireRole } from '../../../shared/middlewares/requireRole.js';
 import { companySchema } from '../../../lib/zod.js';
 import { enrichCompany } from '../../prospecting/services/enrichment.service.js';
 import type { AuthRequest } from '../../../shared/middlewares/authenticateToken.js';
@@ -19,12 +20,13 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 });
 
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { organizationId: orgId } = (req as AuthRequest).user;
         const company = await companyService.findById(orgId, req.params.id);
         if (!company) {
-            return res.status(404).json({ success: false, error: 'Company not found' });
+            res.status(404).json({ success: false, error: 'Company not found' });
+            return;
         }
         res.json({ success: true, data: company });
     } catch (error) {
@@ -52,7 +54,8 @@ router.put('/:id', validateRequest(companySchema.partial()), async (req: Request
     }
 });
 
-router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+// Apenas ADMIN e GESTOR podem deletar empresas
+router.delete('/:id', requireRole(['ADMIN', 'GESTOR']), async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { organizationId: orgId } = (req as AuthRequest).user;
         await companyService.delete(orgId, req.params.id);
@@ -63,12 +66,13 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
 });
 
 // Re-enriquece uma empresa já existente no CRM (Receita Federal + heurísticas de domínio/e-mail).
-router.post('/:id/enrich', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:id/enrich', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { organizationId: orgId } = (req as AuthRequest).user;
         const company = await companyService.findById(orgId, req.params.id);
         if (!company) {
-            return res.status(404).json({ success: false, error: 'Company not found' });
+            res.status(404).json({ success: false, error: 'Company not found' });
+            return;
         }
         const result = await enrichCompany(req.params.id, { cnpj: req.body?.cnpj, segmentKeywords: req.body?.segmentKeywords });
         res.json({ success: true, data: result });

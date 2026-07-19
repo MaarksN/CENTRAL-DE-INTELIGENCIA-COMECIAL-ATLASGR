@@ -1,5 +1,5 @@
 import { getAiModel } from '../../../lib/ai/gateway.js';
-import { SystemMessage, HumanMessage } from '@langchain/core/messages';
+import { HumanMessage } from '@langchain/core/messages';
 import { compileLeadGraph } from '../graphs/leadQualification.js';
 
 export class AIService {

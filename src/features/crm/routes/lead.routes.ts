@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { leadService } from '../services/lead.service.js';
 import { validateRequest } from '../../../shared/middlewares/validateRequest.js';
+import { requireRole } from '../../../shared/middlewares/requireRole.js';
 import { leadSchema } from '../../../lib/zod.js';
 import type { AuthRequest } from '../../../shared/middlewares/authenticateToken.js';
 
@@ -36,12 +37,13 @@ router.get('/export/csv', async (req: Request, res: Response, next: NextFunction
     }
 });
 
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { organizationId: orgId } = (req as AuthRequest).user;
         const lead = await leadService.findById(orgId, req.params.id);
         if (!lead) {
-            return res.status(404).json({ success: false, error: 'Lead not found' });
+            res.status(404).json({ success: false, error: 'Lead not found' });
+            return;
         }
         res.json({ success: true, data: lead });
     } catch (error) {
@@ -75,7 +77,8 @@ router.put('/:id', validateRequest(leadSchema.partial()), async (req: Request, r
     }
 });
 
-router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+// Apenas ADMIN e GESTOR podem deletar leads
+router.delete('/:id', requireRole(['ADMIN', 'GESTOR']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { organizationId: orgId } = (req as AuthRequest).user;
         await leadService.delete(orgId, req.params.id);

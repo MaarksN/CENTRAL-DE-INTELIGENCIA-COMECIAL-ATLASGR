@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { contactService } from '../services/contact.service.js';
 import { validateRequest } from '../../../shared/middlewares/validateRequest.js';
+import { requireRole } from '../../../shared/middlewares/requireRole.js';
 import { contactSchema } from '../../../lib/zod.js';
 import type { AuthRequest } from '../../../shared/middlewares/authenticateToken.js';
 
@@ -18,12 +19,13 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 });
 
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { organizationId: orgId } = (req as AuthRequest).user;
         const contact = await contactService.findById(orgId, req.params.id);
         if (!contact) {
-            return res.status(404).json({ success: false, error: 'Contact not found' });
+            res.status(404).json({ success: false, error: 'Contact not found' });
+            return;
         }
         res.json({ success: true, data: contact });
     } catch (error) {
@@ -51,7 +53,8 @@ router.put('/:id', validateRequest(contactSchema.partial()), async (req: Request
     }
 });
 
-router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+// Apenas ADMIN e GESTOR podem deletar contatos
+router.delete('/:id', requireRole(['ADMIN', 'GESTOR']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { organizationId: orgId } = (req as AuthRequest).user;
         await contactService.delete(orgId, req.params.id);
