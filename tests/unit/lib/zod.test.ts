@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from 'vitest';
 import { companySchema, contactSchema } from '@/lib/zod';
 
 describe('Zod Schemas', () => {
