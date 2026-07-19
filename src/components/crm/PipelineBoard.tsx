@@ -10,7 +10,7 @@ export type PipelineBoardProps = {
 };
 
 export function PipelineBoard({ board: initialBoard }: PipelineBoardProps): React.JSX.Element {
-  const [board, setBoard] = useState(initialBoard);
+  const [board] = useState(initialBoard);
   const [activeDeal, setActiveDeal] = useState<PipelineDealCard | null>(null);
 
   const sensors = useSensors(
