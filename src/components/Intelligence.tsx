@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Target, AlertCircle, RefreshCw, Copy, CheckCircle2, Mail, UserCheck, ShieldAlert, Phone, MessageCircle } from 'lucide-react';
 
 type ToolType = 'script_call' | 'script_whatsapp' | 'script_email' | 'prompt' | 'objections' | 'followup' | 'profile' | 'risk' | null;
