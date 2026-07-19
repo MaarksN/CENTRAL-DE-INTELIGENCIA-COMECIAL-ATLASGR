@@ -1,4 +1,4 @@
-import { prisma } from '../../../lib/prisma';
+import { prisma } from '../../../lib/prisma.js';
 import { isValidCnpj, sanitizeCnpj, formatCnpj } from './cnpj.util';
 import { searchGooglePlace } from './places.service';
 import { enrichOrganizationWithContacts } from './apollo.service';

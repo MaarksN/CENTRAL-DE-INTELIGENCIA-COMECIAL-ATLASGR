@@ -24,6 +24,7 @@ import { errorHandler } from './src/shared/middlewares/errorHandler.js';
 import { logger } from './src/lib/logger.js';
 import { createLeadsWorker } from './src/lib/queue/index.js';
 import { initMeiliIndexes } from './src/lib/search/index.js';
+import { setupDI } from './src/shared/di/setup.js';
 
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
@@ -112,7 +113,8 @@ async function startServer() {
     // ── Error Handler (deve ser o último middleware) ───────────────────────
     app.use(errorHandler);
 
-    // ── Background Workers & Services ─────────────────────────────────────
+    // ── Bootstrapping DI & Services ───────────────────────────────────────
+    setupDI();
     const leadsWorker = createLeadsWorker();
     await initMeiliIndexes();
 
