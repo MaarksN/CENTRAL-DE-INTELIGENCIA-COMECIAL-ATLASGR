@@ -54,16 +54,17 @@ export class PrismaActivityRepository implements ActivityRepository {
         return activities.map(serializeActivity) as unknown as Activity[];
     }
 
-    async createWithTimeline(organizationId: string, data: any): Promise<Activity> {
+    async createWithTimeline(organizationId: string, data: Partial<Activity> & { type: ActivityType, status: ActivityStatus, leadId: string, date: string | Date }): Promise<Activity> {
         const [activity] = await prisma.$transaction([
             prisma.activity.create({
                 data: {
                     ...data,
-                    type: toPrismaActivityType(data.type) as any,
-                    status: toPrismaActivityStatus(data.status) as any,
+                    type: toPrismaActivityType(data.type) as unknown as any,
+                    status: toPrismaActivityStatus(data.status) as unknown as any,
                     organizationId,
-                    date: new Date(data.date)
-                }
+                    date: new Date(data.date),
+                    lead: undefined
+                } as unknown as Prisma.ActivityCreateInput
             }),
             prisma.timelineEvent.create({
                 data: {
@@ -77,14 +78,14 @@ export class PrismaActivityRepository implements ActivityRepository {
         return serializeActivity(activity) as unknown as Activity;
     }
 
-    async updateWithTimeline(organizationId: string, id: string, data: any): Promise<Activity> {
+    async updateWithTimeline(organizationId: string, id: string, data: Partial<Activity> & { type?: ActivityType, status?: ActivityStatus, date?: string | Date }): Promise<Activity> {
         const currentActivity = await prisma.activity.findFirst({ where: { id, organizationId } });
         if (!currentActivity) throw new Error('Activity not found');
 
         const updateData: Prisma.ActivityUpdateInput = { ...data } as Prisma.ActivityUpdateInput;
         if (data.date) updateData.date = new Date(data.date);
-        if (data.type) updateData.type = toPrismaActivityType(data.type) as any;
-        if (data.status) updateData.status = toPrismaActivityStatus(data.status) as any;
+        if (data.type) updateData.type = toPrismaActivityType(data.type) as unknown as any;
+        if (data.status) updateData.status = toPrismaActivityStatus(data.status) as unknown as any;
 
         const activity = await prisma.activity.update({
             where: { id },

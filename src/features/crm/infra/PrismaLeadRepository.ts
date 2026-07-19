@@ -1,6 +1,6 @@
 import { Lead, LeadRepository } from '../domain/Lead';
 import { prisma } from '../../../lib/prisma';
-import { Prisma, LeadStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import {
     toPrismaLeadStatus,
     fromPrismaLeadStatus,
@@ -15,7 +15,7 @@ function serializeLead<
         company?: { status: string } | null;
         activities?: Array<{ type: string; status: string }>;
     }
->(lead: T): any {
+>(lead: T): unknown {
     return {
         ...lead,
         status: fromPrismaLeadStatus(lead.status),
@@ -33,10 +33,10 @@ function serializeLead<
 }
 
 export class PrismaLeadRepository implements LeadRepository {
-    async findAllWithFilters(organizationId: string, status?: string, page: number = 1, limit: number = 50): Promise<{ data: Lead[], meta: any }> {
+    async findAllWithFilters(organizationId: string, status?: string, page: number = 1, limit: number = 50): Promise<{ data: Lead[], meta: unknown }> {
         const where: Prisma.LeadWhereInput = { organizationId };
         if (status) {
-            where.status = toPrismaLeadStatus(status as any) as any;
+            where.status = toPrismaLeadStatus(status as any) as unknown as any;
         }
 
         const skip = (page - 1) * limit;
@@ -72,25 +72,29 @@ export class PrismaLeadRepository implements LeadRepository {
         return lead ? (serializeLead(lead) as unknown as Lead) : null;
     }
 
-    async create(organizationId: string, data: any): Promise<Lead> {
+    async create(organizationId: string, data: Partial<Lead> & { status: string }): Promise<Lead> {
         const lead = await prisma.lead.create({
             data: {
                 ...data,
-                status: toPrismaLeadStatus(data.status) as any,
+                status: toPrismaLeadStatus(data.status as any) as unknown as any,
                 organizationId,
+                company: undefined,
+                contact: undefined,
+                activities: undefined,
+                internalNotes: undefined,
                 timeline: {
                     create: {
                         type: 'creation',
                         description: 'Lead criado no sistema'
                     }
                 }
-            },
+            } as Prisma.LeadCreateInput,
             include: { company: true, contact: true }
         });
         return serializeLead(lead) as unknown as Lead;
     }
 
-    async update(organizationId: string, id: string, data: any): Promise<Lead> {
+    async update(organizationId: string, id: string, data: Partial<Lead> & { status?: string }): Promise<Lead> {
         const currentLead = await prisma.lead.findFirst({ where: { id, organizationId } });
         if (!currentLead) throw new Error('Lead not found');
 
@@ -98,14 +102,19 @@ export class PrismaLeadRepository implements LeadRepository {
             where: { id },
             data: {
                 ...data,
-                ...(data.status ? { status: toPrismaLeadStatus(data.status) as any } : {}),
+                ...(data.status ? { status: toPrismaLeadStatus(data.status as any) as unknown as any } : {}),
+                organizationId: undefined,
+                company: undefined,
+                contact: undefined,
+                activities: undefined,
+                internalNotes: undefined,
                 timeline: {
                     create: {
                         type: 'edition',
                         description: 'Dados do lead atualizados'
                     }
                 }
-            }
+            } as Prisma.LeadUpdateInput,
         });
         return serializeLead(lead) as unknown as Lead;
     }
@@ -118,7 +127,7 @@ export class PrismaLeadRepository implements LeadRepository {
         const lead = await prisma.lead.update({
             where: { id },
             data: {
-                status: toPrismaLeadStatus(newStatus as any) as any,
+                status: toPrismaLeadStatus(newStatus as any) as unknown as any,
                 timeline: {
                     create: {
                         type: 'movement',

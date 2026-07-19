@@ -3,7 +3,7 @@ import { prisma } from '../../../lib/prisma';
 import { Prisma } from '@prisma/client';
 
 export class PrismaContactRepository implements ContactRepository {
-    async findAllWithFilters(organizationId: string, query?: string, page: number = 1, limit: number = 50): Promise<{ data: Contact[], meta: any }> {
+    async findAllWithFilters(organizationId: string, query?: string, page: number = 1, limit: number = 50): Promise<{ data: Contact[], meta: unknown }> {
         const where: Prisma.ContactWhereInput = { organizationId };
         if (query) {
             where.OR = [
@@ -35,18 +35,18 @@ export class PrismaContactRepository implements ContactRepository {
         });
     }
 
-    async create(organizationId: string, data: any): Promise<Contact> {
+    async create(organizationId: string, data: Partial<Contact> & { birthDate?: string | Date }): Promise<Contact> {
         return prisma.contact.create({
             data: {
                 ...data,
                 organizationId,
                 birthDate: data.birthDate ? new Date(data.birthDate) : null
-            }
+            } as Prisma.ContactCreateInput
         });
     }
 
-    async update(organizationId: string, id: string, data: any): Promise<Contact> {
-        const updateData: Prisma.ContactUpdateInput = { ...data };
+    async update(organizationId: string, id: string, data: Partial<Contact> & { birthDate?: string | Date }): Promise<Contact> {
+        const updateData: any = { ...data };
         if (data.birthDate) updateData.birthDate = new Date(data.birthDate);
 
         const existing = await prisma.contact.findFirst({ where: { id, organizationId } });
@@ -54,7 +54,7 @@ export class PrismaContactRepository implements ContactRepository {
 
         return prisma.contact.update({
             where: { id },
-            data: updateData
+            data: updateData as Prisma.ContactUpdateInput
         });
     }
 

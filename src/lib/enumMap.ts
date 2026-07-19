@@ -47,10 +47,10 @@ const COMPANY_STATUS_FROM_PRISMA = invert(COMPANY_STATUS_TO_PRISMA);
 const ACTIVITY_TYPE_FROM_PRISMA = invert(ACTIVITY_TYPE_TO_PRISMA);
 const ACTIVITY_STATUS_FROM_PRISMA = invert(ACTIVITY_STATUS_TO_PRISMA);
 
-export const toPrismaLeadStatus = (v: LeadStatus): string => LEAD_STATUS_TO_PRISMA[v];
+export const toPrismaLeadStatus = (v: LeadStatus): string => LEAD_STATUS_TO_PRISMA[v] ?? v;
 export const fromPrismaLeadStatus = (v: string): LeadStatus => (LEAD_STATUS_FROM_PRISMA[v] ?? v) as LeadStatus;
 
-export const toPrismaCompanyStatus = (v: CompanyStatus): string => COMPANY_STATUS_TO_PRISMA[v];
+export const toPrismaCompanyStatus = (v: CompanyStatus): string => COMPANY_STATUS_TO_PRISMA[v] ?? v;
 export const fromPrismaCompanyStatus = (v: string): CompanyStatus => (COMPANY_STATUS_FROM_PRISMA[v] ?? v) as CompanyStatus;
 
 export const toPrismaActivityType = (v: ActivityType): string => ACTIVITY_TYPE_TO_PRISMA[v];
