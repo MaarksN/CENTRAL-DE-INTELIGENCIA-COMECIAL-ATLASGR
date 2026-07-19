@@ -1,4 +1,4 @@
-import { prisma } from '../../../lib/prisma';
+import { prisma } from '../../../lib/prisma.js';
 import { isValidCnpj, sanitizeCnpj } from './cnpj.util';
 import { enrichCompany } from './enrichment.service';
 import { fetchApolloCandidates, searchDecisionMakersAdvanced } from './apollo.service';
@@ -342,7 +342,7 @@ export async function promoteToCrm(input: PromoteInput) {
         lead: {
             ...lead,
             status: fromPrismaLeadStatus(lead.status),
-            company: lead.company ? { ...lead.company, status: fromPrismaCompanyStatus(lead.company.status) } : null,
+            company: lead.company ? { ...lead.company, status: fromPrismaCompanyStatus(lead.company.status) } : undefined,
         },
         fit,
         enrichment: enrichmentResult,
