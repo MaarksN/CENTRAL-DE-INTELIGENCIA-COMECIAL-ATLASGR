@@ -1,69 +1,52 @@
-/**
+﻿/**
  * @file Entity.ts
- * @description Base class for all Domain Entities, providing identity comparison,
- * encapsulated typed properties and inheritance support for Clean/Hexagonal Architecture.
+ * @description Base class for every Entity, encapsulating identity and equality semantics.
  */
 
 import { UniqueEntityID } from './UniqueEntityID.js';
 
 /**
- * Base contract for any object that can be uniquely identified by an `UniqueEntityID`.
- */
-export interface EntityIdentifiable {
-  readonly id: UniqueEntityID;
-}
-
-/**
- * Abstract base class representing a Domain Entity.
+ * Base class reused by every Domain Entity.
  *
- * An Entity is defined by its identity (`UniqueEntityID`), not by its attributes.
- * Two entities with the same id are considered equal regardless of their props.
+ * Responsible for identity, equality, comparison and encapsulation of props.
  *
- * @typeParam TProps - Shape of the properties encapsulated by the entity.
+ * @typeParam TProps - Shape of the entity's encapsulated properties.
+ * @typeParam TId - Type of the entity's identity. Defaults to {@link UniqueEntityID}.
  */
-export abstract class Entity<TProps> implements EntityIdentifiable {
-  protected readonly _id: UniqueEntityID;
+export abstract class Entity<TProps, TId extends UniqueEntityID = UniqueEntityID> {
   protected readonly props: TProps;
+  protected readonly _id: TId;
 
-  protected constructor(props: TProps, id?: UniqueEntityID) {
-    this._id = id ?? new UniqueEntityID();
+  protected constructor(props: TProps, id: TId) {
     this.props = props;
+    this._id = id;
   }
 
   /**
-   * Unique identifier of this entity.
+   * The unique identity of this entity.
    */
-  public get id(): UniqueEntityID {
+  public get id(): TId {
     return this._id;
   }
 
   /**
-   * Determines whether the provided candidate is an `Entity` instance.
-   */
-  private static isEntity(candidate: unknown): candidate is Entity<unknown> {
-    return candidate instanceof Entity;
-  }
-
-  /**
    * Compares this entity with another for identity equality.
-   *
-   * Entities are equal when they reference the same object OR
-   * share the same `UniqueEntityID`.
+   * Two entities are equal when they share the same identity, regardless
+   * of their current property values.
    */
-  public equals(entity?: Entity<TProps>): boolean {
-    if (entity === null || entity === undefined) {
+  public equals(other?: Entity<TProps, TId> | null): boolean {
+    if (other === null || other === undefined) {
       return false;
     }
 
-    if (this === entity) {
+    if (this === other) {
       return true;
     }
 
-    if (!Entity.isEntity(entity)) {
+    if (!(other instanceof Entity)) {
       return false;
     }
 
-    return this._id.equals(entity._id);
+    return this._id.equals(other._id);
   }
 }
-

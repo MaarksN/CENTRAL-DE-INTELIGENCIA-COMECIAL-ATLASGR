@@ -1,84 +1,70 @@
-/**
+﻿/**
  * @file UniqueEntityID.ts
- * @description Value type representing a globally unique identifier for
- * Entities and Aggregate Roots, backed by RFC 4122 UUIDs.
+ * @description Value object representing a unique identity based on UUID.
  */
 
 import { randomUUID } from 'node:crypto';
 
-const UUID_V4_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 /**
- * Represents a globally unique identifier for a Domain Entity.
- *
- * Wraps a UUID v4 string, providing automatic generation, validation,
- * serialization and equality comparison.
+ * Represents a unique identifier for an Entity or Aggregate Root.
+ * Wraps a UUID string, providing generation, validation, comparison and
+ * serialization semantics.
  */
 export class UniqueEntityID {
   private readonly value: string;
 
-  public constructor(id?: string) {
-    if (id !== undefined) {
-      if (!UniqueEntityID.isValid(id)) {
-        throw new Error(`UniqueEntityID: invalid identifier "${id}".`);
-      }
+  private constructor(value: string) {
+    this.value = value;
+  }
 
-      this.value = id;
-      return;
+  /**
+   * Creates a new {@link UniqueEntityID}. When no value is provided a new
+   * UUID (v4) is generated automatically.
+   */
+  public static create(value?: string): UniqueEntityID {
+    if (value !== undefined) {
+      UniqueEntityID.ensureIsValid(value);
+      return new UniqueEntityID(value);
     }
 
-    this.value = randomUUID();
+    return new UniqueEntityID(randomUUID());
+  }
+
+  private static ensureIsValid(value: string): void {
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (!uuidPattern.test(value)) {
+      throw new Error(`Invalid UniqueEntityID value: "${value}".`);
+    }
   }
 
   /**
-   * Validates whether the provided string is a well-formed UUID v4.
+   * Compares this identity with another for structural equality.
    */
-  public static isValid(id: string): boolean {
-    return UUID_V4_PATTERN.test(id);
+  public equals(other?: UniqueEntityID | null): boolean {
+    if (other === null || other === undefined) {
+      return false;
+    }
+
+    if (!(other instanceof UniqueEntityID)) {
+      return false;
+    }
+
+    return this.value === other.value;
   }
 
   /**
-   * Creates a `UniqueEntityID` from a raw string, validating its format.
-   */
-  public static create(id?: string): UniqueEntityID {
-    return new UniqueEntityID(id);
-  }
-
-  /**
-   * Returns the raw string representation of the identifier.
+   * Returns the underlying string representation of this identity.
    */
   public toString(): string {
     return this.value;
   }
 
   /**
-   * Returns the primitive value of the identifier.
+   * Returns the underlying string value.
    */
   public toValue(): string {
     return this.value;
   }
-
-  /**
-   * Serializes the identifier to JSON as its raw string value.
-   */
-  public toJSON(): string {
-    return this.value;
-  }
-
-  /**
-   * Compares this identifier with another for equality.
-   */
-  public equals(id?: UniqueEntityID): boolean {
-    if (id === null || id === undefined) {
-      return false;
-    }
-
-    if (!(id instanceof UniqueEntityID)) {
-      return false;
-    }
-
-    return this.value === id.value;
-  }
 }
-
