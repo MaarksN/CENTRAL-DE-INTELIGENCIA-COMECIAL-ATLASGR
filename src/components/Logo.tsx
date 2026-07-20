@@ -1,3 +1,4 @@
+
 interface LogoProps {
     variant?: 'default' | 'white' | 'symbol';
     className?: string;

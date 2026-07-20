@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+
 import { aiService } from '../services/ai.service.js';
 import { leadsQueue } from '../../../lib/queue/index.js';
 import { logger } from '../../../lib/logger.js';

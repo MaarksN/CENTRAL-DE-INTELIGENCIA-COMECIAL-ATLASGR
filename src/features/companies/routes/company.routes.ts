@@ -1,4 +1,6 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
+
+import { companyService } from '../services/company.service.js';
 import { validateRequest } from '../../../shared/middlewares/validateRequest.js';
 import { requireRole } from '../../../shared/middlewares/requireRole.js';
 import { companySchema } from '../../../lib/zod.js';

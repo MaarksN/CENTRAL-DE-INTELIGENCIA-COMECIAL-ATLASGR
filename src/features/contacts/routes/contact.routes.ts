@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+
 import { contactService } from '../services/contact.service.js';
 import { validateRequest } from '../../../shared/middlewares/validateRequest.js';
 import { requireRole } from '../../../shared/middlewares/requireRole.js';
