@@ -1,8 +1,14 @@
 import { prisma } from '../../../lib/prisma.js';
 import { isValidCnpj, sanitizeCnpj, formatCnpj } from './cnpj.util';
 import { searchGooglePlace } from './places.service';
-import { enrichOrganizationWithContacts } from './apollo.service';
+import { enrichOrganizationWithContacts, enrichOrganizationByDomain } from './apollo.service';
 import { fromPrismaCompanyStatus } from '../../../lib/enumMap';
+
+// Trechos (lowercase) de nomes de ERP/TMS comuns no mercado logístico/transportador brasileiro —
+// usados para um pequeno bônus de fit score quando a Apollo detecta um deles na empresa (ver
+// computeFitScore). Comparamos por "contains" porque a Apollo devolve nomes de exibição livres
+// (ex: "SAP Business One", "TOTVS Protheus"), não os UIDs usados como filtro de busca.
+const LOGISTICS_RELEVANT_TECH_KEYWORDS = ['sap', 'protheus', 'sankhya', 'netsuite', 'totvs'];
 
 const BRASIL_API_BASE = 'https://brasilapi.com.br/api';
 
@@ -217,6 +223,17 @@ export interface DomainGuess {
     emails: string[];
 }
 
+/** Extrai o hostname (sem "www.") de uma URL de site já conhecida — usado para preferir um domínio real a uma heurística. */
+function extractDomainFromWebsite(website?: string | null): string | null {
+    if (!website) return null;
+    try {
+        const url = new URL(website.startsWith('http') ? website : `https://${website}`);
+        return url.hostname.replace(/^www\./, '') || null;
+    } catch {
+        return null;
+    }
+}
+
 /**
  * Heurística de descoberta de domínio/e-mail (SDR manual faz isso o tempo todo):
  * deriva um domínio provável a partir do nome e tenta uma verificação HTTP real.
@@ -270,6 +287,8 @@ export interface FitScoreInput {
     state?: string | null;
     /** Faixa de frota selecionada no ICP (texto do dropdown) — usado para o bônus de frota do playbook Atlas. */
     fleetSizeHint?: string | null;
+    /** UIDs de tecnologia detectados via Apollo Organization Enrich — usado para o bônus de ERP/TMS logístico. */
+    technologies?: string[] | null;
 }
 
 /** Score de fit determinístico e auditável — cada critério é real (dado da Receita) e explicado. */
@@ -340,6 +359,14 @@ export function computeFitScore(input: FitScoreInput): FitScoreResult {
         breakdown.push({ label: 'Região de risco (playbook Atlas)', points: 10, detail: `Atuação em ${riskRegion.trim()} — região com maior índice de roubo de carga` });
     }
 
+    const relevantTech = (input.technologies || []).find((t) =>
+        LOGISTICS_RELEVANT_TECH_KEYWORDS.some((k) => t.toLowerCase().includes(k))
+    );
+    if (relevantTech) {
+        score += 5;
+        breakdown.push({ label: 'Stack de ERP/TMS (Apollo)', points: 5, detail: `Usa "${relevantTech}" — indício de operação já digitalizada, mais fácil de integrar` });
+    }
+
     score = Math.max(0, Math.min(100, score + 25)); // 25 pontos base de participação no funil
 
     const temperature: FitScoreResult['temperature'] = score >= 75 ? 'Quente' : score >= 45 ? 'Morno' : 'Frio';
@@ -376,6 +403,11 @@ interface CompanyUpdateData {
     googleReviewsCount?: number;
     businessHours?: any;
     observations?: string;
+    linkedin?: string;
+    technologies?: string[];
+    keywords?: string[];
+    logoUrl?: string;
+    apolloOrgId?: string;
 }
 
 /** Orquestra o enriquecimento completo de uma empresa já existente no CRM e grava o histórico. */
@@ -439,11 +471,20 @@ async function runEnrichment(
         }
     }
 
-    const domainGuess = await guessDomainAndEmails(company.tradeName || company.legalName);
+    // Se já sabemos o domínio real (ex: `primary_domain` da Apollo ou `websiteUri` do Google Places,
+    // capturados no momento da promoção do candidato), usamos ele diretamente — só recorremos à
+    // heurística de adivinhação por nome quando não há nenhum site conhecido. Isso evita o caso em
+    // que a empresa tem domínio verificado (ex: "dmslog.com") mas a heurística "chuta" um domínio
+    // diferente e errado (ex: "dmslogistics.com.br"), pulando os passos de enriquecimento de contatos.
+    const knownDomain = extractDomainFromWebsite(company.website);
+    const domainGuess: DomainGuess = knownDomain
+        ? { domain: knownDomain, verified: true, emails: [`contato@${knownDomain}`, `comercial@${knownDomain}`, `atendimento@${knownDomain}`] }
+        : await guessDomainAndEmails(company.tradeName || company.legalName);
+
     await prisma.enrichmentLog.create({
         data: {
             companyId,
-            source: 'Domain-Heuristic',
+            source: knownDomain ? 'Website-Conhecido' : 'Domain-Heuristic',
             field: 'website-e-emails',
             status: domainGuess.domain ? (domainGuess.verified ? 'success' : 'not_found') : 'failed',
             rawData: JSON.parse(JSON.stringify(domainGuess)),
@@ -488,24 +529,58 @@ async function runEnrichment(
         enrichmentSourceLabel += ' + Google';
     }
 
-    // Apollo People Enrichment
-    let apolloContacts: any[] = [];
+    // Apollo Organization Enrich — perfil firmográfico completo (tecnologias, keywords, redes
+    // sociais, capital de mercado etc.), disponível mesmo em planos básicos da Apollo.
+    if (domainGuess.verified && domainGuess.domain) {
+        const orgEnrich = await enrichOrganizationByDomain(domainGuess.domain);
+        await prisma.enrichmentLog.create({
+            data: {
+                companyId,
+                source: 'Apollo-Organization',
+                field: 'firmographics',
+                status: orgEnrich.organization ? 'success' : orgEnrich.error ? 'failed' : 'not_found',
+                rawData: orgEnrich.organization ? JSON.parse(JSON.stringify(orgEnrich.organization)) : undefined,
+            },
+        });
+
+        if (orgEnrich.organization) {
+            const org = orgEnrich.organization;
+            updateData.technologies = org.technology_names?.slice(0, 20) || [];
+            updateData.keywords = org.keywords?.slice(0, 20) || [];
+            if (org.logo_url) updateData.logoUrl = org.logo_url;
+            if (org.id) updateData.apolloOrgId = org.id;
+            if (org.linkedin_url && !company.linkedin) updateData.linkedin = org.linkedin_url;
+            // A Receita Federal (CNPJ) é a fonte de verdade para porte/funcionários quando disponível;
+            // a Apollo só complementa quando a Receita não trouxe nada.
+            if (org.estimated_num_employees && !updateData.employeeCount && !company.employeeCount) {
+                updateData.employeeCount = org.estimated_num_employees;
+            }
+            enrichmentSourceLabel += ' + Apollo (firmographics)';
+        }
+    }
+
+    // Apollo People Enrichment — com fallback automático para Hunter.io Domain Search quando o
+    // plano da chave Apollo não inclui People Search (ver apollo.service.ts).
+    let apolloContacts: Array<{ name: string; title: string | null; email: string | null; phone: string | null; linkedin_url: string | null }> = [];
+    let contactsSource: 'apollo' | 'hunter' | null = null;
     if (domainGuess.verified && domainGuess.domain) {
         const apolloRes = await enrichOrganizationWithContacts(domainGuess.domain);
         if (apolloRes.contacts.length > 0) {
             apolloContacts = apolloRes.contacts;
-            enrichmentSourceLabel += ' + Apollo';
+            contactsSource = apolloRes.source ?? 'apollo';
+            const sourceLabel = contactsSource === 'hunter' ? 'Hunter.io (Domain Search)' : 'Apollo (People Search)';
+            enrichmentSourceLabel += ` + ${sourceLabel}`;
 
             await prisma.enrichmentLog.create({
                 data: {
                     companyId,
-                    source: 'Apollo-People',
+                    source: contactsSource === 'hunter' ? 'Hunter-DomainSearch' : 'Apollo-People',
                     field: 'contatos-decisores',
                     status: 'success',
                     rawData: JSON.parse(JSON.stringify(apolloContacts)),
                 }
             });
-            
+
             // Save contacts to CRM
             for (const c of apolloContacts) {
                 if (!c.name || c.name === 'Sem Nome') continue;
@@ -516,7 +591,8 @@ async function runEnrichment(
                         email: c.email,
                         phone: c.phone,
                         linkedin: c.linkedin_url,
-                        source: 'Apollo',
+                        source: contactsSource === 'hunter' ? 'Hunter' : 'Apollo',
+                        emailStatus: c.email ? 'guessed' : null,
                         companyId,
                         organizationId: company.organizationId
                     }
@@ -534,6 +610,7 @@ async function runEnrichment(
         city: updateData.city ?? company.city,
         state: updateData.state ?? company.state,
         fleetSizeHint: options.fleetSizeHint,
+        technologies: updateData.technologies ?? company.technologies,
     });
 
     // Resumo determinístico do enriquecimento — montado a partir dos próprios dados coletados
@@ -549,8 +626,12 @@ async function runEnrichment(
     if (updateData.googleRating != null) {
         summaryParts.push(`nota ${updateData.googleRating} no Google (${updateData.googleReviewsCount || 0} avaliações)`);
     }
+    if (updateData.technologies && updateData.technologies.length > 0) {
+        summaryParts.push(`stack de tecnologia identificado: ${updateData.technologies.slice(0, 5).join(', ')}`);
+    }
     if (apolloContacts.length > 0) {
-        summaryParts.push(`decisores identificados via Apollo: ${apolloContacts.map((c) => `${c.name} (${c.title || 'cargo não informado'})`).join(', ')}`);
+        const sourceLabel = contactsSource === 'hunter' ? 'Hunter.io' : 'Apollo';
+        summaryParts.push(`decisores identificados via ${sourceLabel}: ${apolloContacts.map((c) => `${c.name} (${c.title || 'cargo não informado'})`).join(', ')}`);
     }
     if (summaryParts.length > 0) {
         updateData.observations = `Resumo do enriquecimento — ${summaryParts.join('; ')}.`;

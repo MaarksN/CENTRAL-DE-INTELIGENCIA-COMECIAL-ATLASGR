@@ -1,17 +1,27 @@
-import { useState } from 'react';
-import { Target, AlertCircle, RefreshCw, Copy, CheckCircle2, Mail, UserCheck, ShieldAlert, Phone, MessageCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
+    Target, AlertCircle, RefreshCw, Copy, CheckCircle2, Mail, UserCheck, ShieldAlert, Phone,
+    MessageCircle, Linkedin, PhoneMissed, Calculator, Search, X, Building2, User,
+} from 'lucide-react';
+import { api } from '../lib/api';
+import type { Lead } from '../types';
 
-type ToolType = 'script_call' | 'script_whatsapp' | 'script_email' | 'prompt' | 'objections' | 'followup' | 'profile' | 'risk' | null;
+type ToolType =
+    | 'script_call' | 'script_whatsapp' | 'script_email' | 'prompt' | 'objections' | 'followup'
+    | 'profile' | 'risk' | 'linkedin_invite' | 'voicemail' | 'roi_pitch' | null;
 
 const TOOLS = [
-    { id: 'script_call', icon: Phone, title: 'Script de Ligação', desc: 'Crie abordagens de Cold Call diretas, focadas em agendar reuniões.' },
-    { id: 'script_whatsapp', icon: MessageCircle, title: 'Mensagem (WhatsApp/LinkedIn)', desc: 'Mensagens curtas e informais focadas em Social Selling e WhatsApp.' },
-    { id: 'script_email', icon: Mail, title: 'Template de E-mail', desc: 'Cold e-mails persuasivos baseados em dores de transporte.' },
-    { id: 'prompt', icon: Target, title: 'Prompts de Qualificação', desc: 'Perguntas-chave baseadas na dor específica do lead.' },
-    { id: 'objections', icon: AlertCircle, title: 'Matriz de Objeções', desc: 'Contorne objeções usando as técnicas homologadas da Atlas.' },
-    { id: 'followup', icon: Mail, title: 'E-mail de Follow-up', desc: 'Rascunhe e-mails pós-reunião focados em conversão e próximos passos.' },
-    { id: 'profile', icon: UserCheck, title: 'Análise de Perfil', desc: 'Dicas de abordagem via Social Selling e perfil comportamental.' },
-    { id: 'risk', icon: ShieldAlert, title: 'Diagnóstico de Risco', desc: 'Avalie os riscos de fechamento e gaps na negociação.' }
+    { id: 'script_call', icon: Phone, title: 'Script de Ligação', desc: 'Cold call com abertura, diagnóstico, contorno e fechamento.' },
+    { id: 'script_whatsapp', icon: MessageCircle, title: 'Mensagem (WhatsApp/LinkedIn)', desc: 'Duas variações prontas de Social Selling.' },
+    { id: 'script_email', icon: Mail, title: 'Template de E-mail', desc: 'Cold e-mail com 2 opções de assunto testável.' },
+    { id: 'prompt', icon: Target, title: 'Prompts de Qualificação', desc: 'Perguntas BANT/SPIN com o que cada resposta revela.' },
+    { id: 'objections', icon: AlertCircle, title: 'Matriz de Objeções', desc: 'As 3 objeções mais prováveis deste lead e como contornar.' },
+    { id: 'followup', icon: Mail, title: 'E-mail de Follow-up', desc: 'Pós-reunião, focado em próximo passo com data.' },
+    { id: 'profile', icon: UserCheck, title: 'Análise de Perfil (DiSC)', desc: 'Como abordar o decisor deste lead especificamente.' },
+    { id: 'risk', icon: ShieldAlert, title: 'Diagnóstico de Risco', desc: 'Riscos reais de perder esta negociação e como mitigar.' },
+    { id: 'linkedin_invite', icon: Linkedin, title: 'Convite LinkedIn', desc: 'Convite + mensagem de follow-up pós-aceite.' },
+    { id: 'voicemail', icon: PhoneMissed, title: 'Script de Caixa Postal', desc: 'Recado de 20-30s para quando o decisor não atende.' },
+    { id: 'roi_pitch', icon: Calculator, title: 'Pitch de Números (ROI)', desc: 'Gancho consultivo com impacto financeiro estimado.' },
 ] as const;
 
 export function Intelligence() {
@@ -20,28 +30,53 @@ export function Intelligence() {
     const [result, setResult] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
 
+    const [leads, setLeads] = useState<Lead[]>([]);
+    const [leadsLoading, setLeadsLoading] = useState(false);
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [leadQuery, setLeadQuery] = useState('');
+    const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+    useEffect(() => {
+        setLeadsLoading(true);
+        api.get<{ data: Lead[] }>('/api/leads?limit=100')
+            .then((res) => setLeads(res.data))
+            .catch((e) => console.error('Error loading leads:', e))
+            .finally(() => setLeadsLoading(false));
+    }, []);
+
+    const filteredLeads = leads.filter((l) => {
+        const q = leadQuery.trim().toLowerCase();
+        if (!q) return true;
+        return (
+            l.company?.tradeName?.toLowerCase().includes(q) ||
+            l.contact?.name?.toLowerCase().includes(q) ||
+            l.company?.segment?.toLowerCase().includes(q)
+        );
+    });
+
     const handleGenerate = async (tool: ToolType) => {
         setActiveTool(tool);
         setIsGenerating(true);
         setResult(null);
         setCopied(false);
-        
+
         try {
             const response = await fetch('/api/intelligence', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tool })
+                body: JSON.stringify({ tool, leadId: selectedLead?.id }),
             });
 
             if (response.ok) {
                 const data = await response.json();
                 setResult(data.result);
             } else {
-                setResult("Erro ao gerar conteúdo. Tente novamente.");
+                const err = await response.json().catch(() => null);
+                setResult(err?.error ? `Erro ao gerar conteúdo: ${err.error}` : 'Erro ao gerar conteúdo. Tente novamente.');
             }
         } catch (error) {
-            console.error("Error generating intelligence:", error);
-            setResult("Erro ao conectar com a IA.");
+            console.error('Error generating intelligence:', error);
+            setResult('Erro ao conectar com a IA.');
         } finally {
             setIsGenerating(false);
         }
@@ -60,12 +95,80 @@ export function Intelligence() {
             <div className="lg:col-span-4 flex flex-col h-full">
                 <div>
                     <h2 className="font-black text-2xl text-atlas-dark mb-2">Atlas Intelligence</h2>
-                    <p className="text-gray-500 text-sm mb-6">Ferramentas avançadas de IA para potencializar suas abordagens.</p>
+                    <p className="text-gray-500 text-sm mb-4">Ferramentas de IA para potencializar suas abordagens — personalizadas com os dados reais do lead.</p>
                 </div>
+
+                {/* Seletor de lead — sem isso, o conteúdo gerado fica genérico */}
+                <div className="mb-5">
+                    {selectedLead ? (
+                        <div className="p-3 rounded-xl border-2 border-atlas-orange bg-orange-50/50 flex items-start gap-3">
+                            <div className="shrink-0 w-9 h-9 rounded-lg bg-atlas-orange text-white flex items-center justify-center">
+                                <Building2 size={16} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="font-black text-sm text-atlas-dark truncate">{selectedLead.company?.tradeName || 'Empresa sem nome'}</p>
+                                {selectedLead.contact?.name && (
+                                    <p className="text-xs text-gray-500 truncate flex items-center gap-1"><User size={11} /> {selectedLead.contact.name}{selectedLead.contact.role ? ` · ${selectedLead.contact.role}` : ''}</p>
+                                )}
+                                {selectedLead.temperature && (
+                                    <span className="inline-block mt-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-white border border-atlas-orange/30 text-atlas-orange">{selectedLead.temperature}</span>
+                                )}
+                            </div>
+                            <button onClick={() => setPickerOpen(true)} className="text-xs font-bold text-gray-500 hover:text-atlas-orange shrink-0">Trocar</button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setPickerOpen(true)}
+                            className="w-full p-3 rounded-xl border-2 border-dashed border-gray-200 hover:border-atlas-orange/50 text-sm font-bold text-gray-500 hover:text-atlas-orange transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Search size={14} /> Selecionar um lead (recomendado)
+                        </button>
+                    )}
+                    {!selectedLead && (
+                        <p className="text-[11px] text-gray-400 mt-1.5 px-1">Sem lead selecionado, o conteúdo gerado será genérico — vinculando a um lead real, a IA usa segmento, cidade, decisor e dados de enriquecimento para personalizar.</p>
+                    )}
+                </div>
+
+                {pickerOpen && (
+                    <div className="mb-5 p-3 border border-gray-200 rounded-xl bg-white shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] tracking-wider font-bold uppercase text-gray-500">Buscar lead</span>
+                            <button onClick={() => setPickerOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                        </div>
+                        <div className="relative mb-2">
+                            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                                autoFocus
+                                type="text"
+                                placeholder="Empresa, contato ou segmento..."
+                                value={leadQuery}
+                                onChange={(e) => setLeadQuery(e.target.value)}
+                                className="w-full pl-8 pr-3 py-2 bg-gray-50/50 border border-gray-200 rounded-lg text-xs outline-none focus:border-atlas-orange"
+                            />
+                        </div>
+                        <div className="max-h-56 overflow-y-auto space-y-1">
+                            {leadsLoading && <p className="text-xs text-gray-400 text-center py-3">Carregando leads...</p>}
+                            {!leadsLoading && filteredLeads.length === 0 && (
+                                <p className="text-xs text-gray-400 text-center py-3">Nenhum lead encontrado — prospecte e promova leads primeiro.</p>
+                            )}
+                            {filteredLeads.map((l) => (
+                                <button
+                                    key={l.id}
+                                    onClick={() => { setSelectedLead(l); setPickerOpen(false); setLeadQuery(''); }}
+                                    className="w-full text-left p-2 rounded-lg hover:bg-orange-50/60 flex items-center gap-2 text-xs"
+                                >
+                                    <Building2 size={13} className="text-gray-400 shrink-0" />
+                                    <span className="font-bold text-atlas-dark truncate">{l.company?.tradeName || 'Sem empresa'}</span>
+                                    {l.contact?.name && <span className="text-gray-400 truncate">· {l.contact.name}</span>}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3 overflow-y-auto pr-2 pb-4 max-h-[600px] scrollbar-thin scrollbar-thumb-gray-200">
                     {TOOLS.map(tool => (
-                        <div 
+                        <div
                             key={tool.id}
                             onClick={() => handleGenerate(tool.id as ToolType)}
                             className={`p-4 rounded-xl border-2 cursor-pointer transition-all group flex items-start gap-4 ${activeTool === tool.id ? 'border-atlas-orange bg-orange-50/50 shadow-sm' : 'border-gray-100 bg-white hover:border-atlas-orange/30'}`}
@@ -93,8 +196,11 @@ export function Intelligence() {
                             <div className="w-2.5 h-2.5 rounded-full bg-atlas-orange animate-pulse"></div>
                             <span className="font-bold text-sm tracking-widest uppercase">Output de Inteligência</span>
                         </div>
+                        {selectedLead && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-white/60">{selectedLead.company?.tradeName}</span>
+                        )}
                     </div>
-                    
+
                     <div className="p-8 flex-1 flex flex-col bg-gray-50/30">
                         {!activeTool && !isGenerating && !result && (
                             <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
@@ -123,7 +229,7 @@ export function Intelligence() {
                                     <div className="text-xs font-bold uppercase tracking-wider text-gray-400">
                                         Resultado Gerado
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={handleCopy}
                                         className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-atlas-dark transition-colors bg-white px-3 py-2 rounded-lg border border-gray-200 shadow-sm"
                                     >

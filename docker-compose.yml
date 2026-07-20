@@ -9,17 +9,29 @@ services:
       - "${APP_PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      # Dentro da rede Docker os serviços se enxergam pelo nome do serviço, não por localhost/porta
+      # publicada no host — por isso aqui sobrescrevemos DATABASE_URL/REDIS_URL do .env (que apontam
+      # para localhost:5434/6379, corretos apenas para `npm run dev` rodando fora do Docker).
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-primary:5432/${POSTGRES_DB}?schema=public
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - JWT_SECRET=${JWT_SECRET}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+      - APP_URL=${APP_URL}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - MEILI_HOST=http://meilisearch:7700
       - MEILI_MASTER_KEY=${MEILI_MASTER_KEY}
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - STORAGE_BUCKET=${STORAGE_BUCKET}
       - LITELLM_URL=http://litellm:4000/v1
       - LITELLM_KEY=${LITELLM_KEY}
+      # Integrações externas de prospecção/enriquecimento — sem isso o container nunca recebia as chaves.
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - APOLLO_API_KEY=${APOLLO_API_KEY}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - HUNTER_API_KEY=${HUNTER_API_KEY}
     depends_on:
       postgres-primary:
         condition: service_healthy
