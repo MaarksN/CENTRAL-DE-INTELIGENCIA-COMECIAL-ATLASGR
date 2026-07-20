@@ -1,3 +1,4 @@
+
 export function AtlasLogo({ className = "w-10 h-10", color = "currentColor" }: { className?: string, color?: string }) {
     return (
         <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">

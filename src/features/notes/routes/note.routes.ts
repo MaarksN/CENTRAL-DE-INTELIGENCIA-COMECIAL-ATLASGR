@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+
 import { noteService } from '../services/note.service.js';
 import { validateRequest } from '../../../shared/middlewares/validateRequest.js';
 import { noteSchema } from '../../../lib/zod.js';
