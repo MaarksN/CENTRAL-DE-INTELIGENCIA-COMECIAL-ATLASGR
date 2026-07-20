@@ -12,7 +12,7 @@ const LeadQualificationState = Annotation.Root({
 });
 
 export const leadQualificationGraph = new StateGraph(LeadQualificationState)
-    .addNode('research', async (state) => {
+    .addNode('research', async (_state) => {
         // Dummy research node for now - in reality, we would use Firecrawl or Serper
         return {
             companyInfo: `The company has been operating in the software industry for 5 years and shows strong growth potential.`,
@@ -35,7 +35,7 @@ export const leadQualificationGraph = new StateGraph(LeadQualificationState)
                 summary: result.summary || "No summary provided",
                 status: result.score > 70 ? "QUALIFIED" : "UNQUALIFIED"
             };
-        } catch (e) {
+        } catch {
             return {
                 qualificationScore: 50,
                 summary: "Failed to parse AI response",

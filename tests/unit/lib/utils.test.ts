@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from 'vitest';
 import { cn } from '@/lib/utils';
 
 describe('Lib utils', () => {

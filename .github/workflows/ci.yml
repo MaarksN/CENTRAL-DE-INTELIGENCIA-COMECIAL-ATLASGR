@@ -57,7 +57,7 @@ jobs:
 
       - name: Audit for vulnerabilities
         run: npm audit --audit-level=high
-        continue-on-error: true  # Alerta mas não bloqueia ainda; mudar para false quando auditoria estiver limpa
+        continue-on-error: true # Known issue with better-auth pending upstream resolution
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -69,13 +69,20 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Run Unit Tests
-        run: npm run test:unit
+        run: npm run test:unit -- --coverage
 
       - name: Run Migrations (para testes de integração)
         run: npx prisma migrate deploy
 
       - name: Run Integration Tests
-        run: npm run test:integration
+        run: npm run test:integration -- --coverage
 
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: coverage/
+        if: always()
       - name: Run Build
         run: npm run build

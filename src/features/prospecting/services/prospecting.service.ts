@@ -342,7 +342,7 @@ export async function promoteToCrm(input: PromoteInput) {
         lead: {
             ...lead,
             status: fromPrismaLeadStatus(lead.status),
-            company: lead.company ? { ...lead.company, status: fromPrismaCompanyStatus(lead.company.status) } : undefined,
+            company: lead.company ? { ...lead.company, status: fromPrismaCompanyStatus(lead.company.status) } : null,
         },
         fit,
         enrichment: enrichmentResult,
