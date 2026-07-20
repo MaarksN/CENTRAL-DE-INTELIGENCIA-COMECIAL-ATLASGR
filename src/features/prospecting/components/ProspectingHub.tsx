@@ -10,7 +10,7 @@ import type { CnpjLookupResult, FitScoreResult } from '../services/enrichment.se
 import type { ProspectCandidate, ProspectCriteria, DiscoverResult, DecisionMaker } from '../services/prospecting.service';
 import type { DecisionMakerCriteria } from '../services/apollo.service';
 import {
-    SEGMENTO_OPTIONS, LOCALIZACAO_OPTIONS, QUANTIDADE_OPTIONS, PORTE_OPTIONS, ESTADO_OPTIONS,
+    SEGMENTO_OPTIONS, LOCALIZACAO_OPTIONS, QUANTIDADE_OPTIONS, PORTE_OPTIONS, ESTADO_OPTIONS, TECNOLOGIA_OPTIONS,
 } from '../constants/icp-options';
 
 type HubTab = 'cnpj' | 'discovery';
@@ -164,6 +164,7 @@ export function ProspectingHub() {
                 autoEnrich: true,
                 linkedin: candidate.linkedinUrl,
                 phone: candidate.phone,
+                website: candidate.website,
             });
             setPromoted((prev) => ({ ...prev, [key]: result }));
         } catch (error) {
@@ -406,17 +407,30 @@ export function ProspectingHub() {
                                                     className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
                                                 />
                                             </div>
+                                            <p className="text-[10px] text-gray-400 mt-1">A Apollo não filtra por ano nativamente — buscamos mais candidatos e filtramos localmente por fundação real.</p>
                                         </div>
                                         <div>
                                             <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Tecnologias Utilizadas</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Ex: Salesforce, AWS, SAP"
-                                                value={criteria.tecnologias || ''}
-                                                onChange={(e) => setCriteria({ ...criteria, tecnologias: e.target.value || undefined })}
-                                                className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
-                                            />
-                                            <p className="text-[10px] text-gray-400 mt-1">Separadas por vírgula.</p>
+                                            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-gray-50/50 rounded-xl border border-gray-200">
+                                                {TECNOLOGIA_OPTIONS.map((opt) => {
+                                                    const selected = (criteria.tecnologias || '').split(',').filter(Boolean).includes(opt.value);
+                                                    return (
+                                                        <button
+                                                            key={opt.value}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const current = (criteria.tecnologias || '').split(',').filter(Boolean);
+                                                                const next = selected ? current.filter((v) => v !== opt.value) : [...current, opt.value];
+                                                                setCriteria({ ...criteria, tecnologias: next.length ? next.join(',') : undefined });
+                                                            }}
+                                                            className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors ${selected ? 'bg-atlas-orange border-atlas-orange text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-atlas-orange/40'}`}
+                                                        >
+                                                            {opt.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-[10px] text-gray-400 mt-1">Lista curada e validada contra a API — a Apollo só filtra por identificador interno, não por nome livre.</p>
                                         </div>
                                     </div>
                                 )}

@@ -96,6 +96,12 @@ model Company {
   googleReviewsCount Int?
   businessHours      Json?
 
+  // Apollo Organization Enrich — firmographics reais além do que a Receita Federal expõe
+  technologies String[]
+  keywords     String[]
+  logoUrl      String?
+  apolloOrgId  String?
+
   contacts       Contact[]
   leads          Lead[]
   enrichmentLogs EnrichmentLog[]
@@ -135,7 +141,9 @@ model Contact {
   birthDate    DateTime?
   observations String?
   status       ContactStatus @default(Ativo)
-  source       String? // ex: "Apollo"
+  source       String? // ex: "Apollo", "Hunter"
+  seniority    String? // ex: "c_suite", "vp", "director", "manager" — vindo da Apollo/Hunter
+  emailStatus  String? // ex: "verified", "guessed" — confiabilidade do e-mail encontrado
 
   companyId      String
   company        Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)

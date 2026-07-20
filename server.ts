@@ -27,6 +27,7 @@ import { createLeadsWorker } from './src/lib/queue/index.js';
 import { initMeiliIndexes } from './src/lib/search/index.js';
 import { observabilityMiddleware } from './src/shared/middlewares/observability.js';
 import client from 'prom-client';
+import { setupDI } from './src/shared/di/setup.js';
 
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())

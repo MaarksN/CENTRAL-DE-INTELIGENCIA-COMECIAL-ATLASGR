@@ -57,6 +57,9 @@ export interface ProspectCandidate {
     // Dados extras retornados pela Apollo — deixam o candidato mais rico em informação antes mesmo de promover.
     linkedinUrl?: string | null;
     phone?: string | null;
+    /** Domínio/site real já conhecido (Apollo primary_domain ou Google Places websiteUri) — evita
+     * que o enriquecimento precise "adivinhar" um domínio a partir do nome da empresa depois. */
+    website?: string | null;
     foundedYear?: number | null;
     annualRevenue?: number | null;
     technologies?: string[];
@@ -106,6 +109,7 @@ async function discoverViaGooglePlaces(
             rationale: p.rating
                 ? `Encontrado via Google Places — nota ${p.rating} (${p.userRatingCount || 0} avaliações)`
                 : 'Encontrado via Google Places',
+            website: p.website || null,
         }));
 }
 
@@ -201,6 +205,8 @@ export interface PromoteInput {
     // Dados extras vindos da Apollo (quando o candidato veio da Descoberta) — preenchem a Company já na criação.
     linkedin?: string | null;
     phone?: string | null;
+    /** Domínio/site já conhecido (Apollo primary_domain ou Google Places) — evita heurística de adivinhação no enriquecimento. */
+    website?: string | null;
 }
 
 function splitLocation(location?: string | null): { city?: string; state?: string } {
@@ -255,6 +261,7 @@ export async function promoteToCrm(input: PromoteInput) {
             city,
             state,
             linkedin: input.linkedin || null,
+            website: input.website || null,
             phones: input.phone ? [input.phone] : [],
             status: 'Ativo',
             tags: ['Prospecção'],

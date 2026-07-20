@@ -8,8 +8,8 @@ const router = Router();
 
 router.post('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const { tool } = req.body as { tool: string };
-        const result = await aiService.generateContent(tool);
+        const { tool, leadId } = req.body as { tool: string; leadId?: string };
+        const result = await aiService.generateContent(tool, leadId);
         res.json({ result });
     } catch (error: unknown) {
         const err = error as Error;
