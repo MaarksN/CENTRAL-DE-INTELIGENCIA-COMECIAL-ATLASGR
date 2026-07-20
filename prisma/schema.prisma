@@ -324,3 +324,79 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+model Prompt {
+  id        String   @id @default(cuid())
+  name      String
+  version   String
+  owner     String
+  category  String
+  tags      String[]
+  variables Json
+  history   Json
+  approved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id        String          @id @default(cuid())
+  title     String
+  metadata  Json?
+  content   String
+  chunks    DocumentChunk[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model DocumentChunk {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content    String
+  vector     Unsupported("vector(1536)")?
+
+  @@index([documentId])
+}
+
+model AgentMemory {
+  id        String   @id @default(cuid())
+  sessionId String
+  agentType String
+  messages  Json
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+}
+
+model AILog {
+  id        String   @id @default(cuid())
+  tokens    Int
+  cost      Float
+  latencyMs Int
+  model     String
+  promptId  String?
+  createdAt DateTime @default(now())
+}
+
+model AIGovernancePolicy {
+  id       String @id @default(cuid())
+  name     String
+  rules    Json
+  tenantId String
+}
+
+model AIEvaluation {
+  id                 String @id @default(cuid())
+  logId              String
+  precisionScore     Float
+  hallucinationScore Float
+}
+
+model AIPendingAction {
+  id       String  @id @default(cuid())
+  entity   String
+  action   String
+  payload  Json
+  approved Boolean @default(false)
+}

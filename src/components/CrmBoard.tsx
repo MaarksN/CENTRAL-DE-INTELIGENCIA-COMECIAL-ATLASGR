@@ -26,7 +26,7 @@ export function CrmBoard() {
             // For the Kanban board, we want to fetch a large number of leads to visualize the full pipeline
             // Future optimization: implement virtualized columns or load-on-scroll within columns
             const url = `/api/leads?limit=1000`;
-            const response = await api.get<{data: Lead[], meta?: any}>(url);
+            const response = await api.get<{data: Lead[], meta?: { total: number, page: number, limit: number, totalPages: number }}>(url);
             
             if (Array.isArray(response)) {
                 setLeads(response);

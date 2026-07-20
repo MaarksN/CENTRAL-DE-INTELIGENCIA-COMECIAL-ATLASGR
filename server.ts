@@ -133,7 +133,8 @@ async function startServer() {
     // ── Error Handler (deve ser o último middleware) ───────────────────────
     app.use(errorHandler);
 
-    // ── Background Workers & Services ─────────────────────────────────────
+    // ── Bootstrapping DI & Services ───────────────────────────────────────
+    setupDI();
     const leadsWorker = createLeadsWorker();
     await initMeiliIndexes();
 
