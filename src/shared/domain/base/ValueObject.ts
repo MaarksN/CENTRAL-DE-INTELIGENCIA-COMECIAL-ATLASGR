@@ -1,19 +1,17 @@
-/**
+﻿/**
  * @file ValueObject.ts
- * @description Base class for Domain Value Objects, enforcing immutability
- * and structural (deep) equality comparison.
+ * @description Base class for every Value Object, guaranteeing immutability and structural equality.
  */
 
 /**
- * Abstract base class representing a Domain Value Object.
+ * Base class reused by every Domain Value Object.
  *
- * A Value Object has no conceptual identity; it is defined entirely by the
- * combination of its properties. Instances are immutable - `props` is frozen
- * on construction - and equality is evaluated structurally.
+ * Responsible for immutability (via `Object.freeze`) and deep structural
+ * equality comparison.
  *
- * @typeParam TProps - Shape of the properties encapsulated by the value object.
+ * @typeParam TProps - Shape of the value object's encapsulated properties.
  */
-export abstract class ValueObject<TProps extends Record<string, unknown>> {
+export abstract class ValueObject<TProps> {
   protected readonly props: TProps;
 
   protected constructor(props: TProps) {
@@ -21,65 +19,41 @@ export abstract class ValueObject<TProps extends Record<string, unknown>> {
   }
 
   /**
-   * Performs a deep structural equality check between two arbitrary values.
+   * Compares this value object with another for deep structural equality.
    */
-  private static deepEquals(left: unknown, right: unknown): boolean {
-    if (left === right) {
+  public equals(other?: ValueObject<TProps> | null): boolean {
+    if (other === null || other === undefined) {
+      return false;
+    }
+
+    if (!(other instanceof ValueObject)) {
+      return false;
+    }
+
+    return ValueObject.deepEqual(this.props, other.props);
+  }
+
+  private static deepEqual(a: unknown, b: unknown): boolean {
+    if (a === b) {
       return true;
     }
 
-    if (
-      left === null ||
-      right === null ||
-      typeof left !== 'object' ||
-      typeof right !== 'object'
-    ) {
+    if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) {
       return false;
     }
 
-    if (left instanceof Date && right instanceof Date) {
-      return left.getTime() === right.getTime();
-    }
+    const aKeys = Object.keys(a as Record<string, unknown>);
+    const bKeys = Object.keys(b as Record<string, unknown>);
 
-    if (Array.isArray(left) || Array.isArray(right)) {
-      if (!Array.isArray(left) || !Array.isArray(right)) {
-        return false;
-      }
-
-      if (left.length !== right.length) {
-        return false;
-      }
-
-      return left.every((item, index) => ValueObject.deepEquals(item, right[index]));
-    }
-
-    const leftRecord = left as Record<string, unknown>;
-    const rightRecord = right as Record<string, unknown>;
-    const leftKeys = Object.keys(leftRecord);
-    const rightKeys = Object.keys(rightRecord);
-
-    if (leftKeys.length !== rightKeys.length) {
+    if (aKeys.length !== bKeys.length) {
       return false;
     }
 
-    return leftKeys.every((key) =>
-      ValueObject.deepEquals(leftRecord[key], rightRecord[key]),
+    return aKeys.every((key) =>
+      ValueObject.deepEqual(
+        (a as Record<string, unknown>)[key],
+        (b as Record<string, unknown>)[key],
+      ),
     );
   }
-
-  /**
-   * Compares this Value Object with another for structural (deep) equality.
-   */
-  public equals(valueObject?: ValueObject<TProps>): boolean {
-    if (valueObject === null || valueObject === undefined) {
-      return false;
-    }
-
-    if (!(valueObject instanceof ValueObject)) {
-      return false;
-    }
-
-    return ValueObject.deepEquals(this.props, valueObject.props);
-  }
 }
-
