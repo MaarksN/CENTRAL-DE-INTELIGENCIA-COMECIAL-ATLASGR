@@ -1,38 +1,31 @@
-/**
+﻿/**
  * @file DomainEvent.ts
- * @description Abstract base class implemented by concrete Domain Events.
+ * @description Base class for every concrete Domain Event.
  */
 
 import { randomUUID } from 'node:crypto';
 import type { IDomainEvent } from './IDomainEvent.js';
 
 /**
- * Base class for concrete Domain Events.
- *
- * Concrete subclasses must define `eventName` and provide the `payload`
- * describing the event, while `eventId` and `occurredOn` are generated
- * automatically upon construction.
- *
- * @typeParam TPayload - Shape of the data carried by the event.
+ * Base class implementing {@link IDomainEvent}, reused by every concrete
+ * Domain Event raised across the Domain layer.
  */
-export abstract class DomainEvent<TPayload = Record<string, unknown>>
-  implements IDomainEvent<TPayload>
-{
+export abstract class DomainEvent implements IDomainEvent {
   public readonly eventId: string;
   public readonly aggregateId: string;
   public readonly occurredOn: Date;
-  public readonly payload: TPayload;
+  public readonly eventName: string;
+  public readonly payload: Readonly<Record<string, unknown>>;
 
-  /**
-   * Unique name identifying the event type. Must be implemented by subclasses.
-   */
-  public abstract readonly eventName: string;
-
-  protected constructor(aggregateId: string, payload: TPayload) {
+  protected constructor(
+    aggregateId: string,
+    eventName: string,
+    payload: Readonly<Record<string, unknown>> = {},
+  ) {
     this.eventId = randomUUID();
     this.aggregateId = aggregateId;
     this.occurredOn = new Date();
+    this.eventName = eventName;
     this.payload = payload;
   }
 }
-

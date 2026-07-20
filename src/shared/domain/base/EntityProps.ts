@@ -1,20 +1,16 @@
-/**
+﻿/**
  * @file EntityProps.ts
- * @description Reusable base type for Entity properties, exposing common
- * auditing and versioning fields without forcing their usage.
+ * @description Reusable base type for Entity/Aggregate props, without forcing usage.
  */
 
 /**
- * Base type offering optional auditing and versioning fields that can be
- * composed into concrete Entity `props` types.
- *
- * Usage of any of these fields is entirely optional per Entity.
+ * Reusable base shape for Entity props, preparing every Entity for common
+ * cross-cutting concerns without forcing their usage.
  */
-export type BaseEntityProps = Readonly<{
-  createdAt?: Date;
-  updatedAt?: Date;
-  deletedAt?: Date | null;
-  version?: number;
-  metadata?: Readonly<Record<string, unknown>>;
-}>;
-
+export interface EntityProps {
+  readonly createdAt?: Date;
+  readonly updatedAt?: Date;
+  readonly deletedAt?: Date | null;
+  readonly version?: number;
+  readonly metadata?: Readonly<Record<string, unknown>>;
+}

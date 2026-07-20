@@ -1,75 +1,58 @@
-/**
+﻿/**
  * @file AggregateRoot.ts
- * @description Base class for Domain Aggregates, extending Entity with
- * Domain Event registration, retrieval and lifecycle management.
+ * @description Base class for every Aggregate Root, responsible for Domain Event lifecycle.
  */
 
 import { Entity } from './Entity.js';
-import { UniqueEntityID } from './UniqueEntityID.js';
+import type { UniqueEntityID } from './UniqueEntityID.js';
 import type { IDomainEvent } from './IDomainEvent.js';
 
 /**
- * Abstract base class representing an Aggregate Root.
+ * Base class reused by every Aggregate Root.
  *
- * An Aggregate Root is the single entry point for consistency within an
- * Aggregate boundary. It extends `Entity` and is additionally responsible
- * for collecting Domain Events raised during state transitions, so that
- * they can be dispatched by the Application layer after persistence.
+ * Extends {@link Entity} and adds responsibility for registering, exposing,
+ * removing and clearing Domain Events, guaranteeing consistency boundaries
+ * for the Aggregate.
  *
- * @typeParam TProps - Shape of the properties encapsulated by the aggregate.
+ * @typeParam TProps - Shape of the aggregate's encapsulated properties.
+ * @typeParam TId - Type of the aggregate's identity.
  */
-export abstract class AggregateRoot<TProps> extends Entity<TProps> {
-  private readonly _domainEvents: IDomainEvent[] = [];
+export abstract class AggregateRoot<TProps, TId extends UniqueEntityID = UniqueEntityID> extends Entity<
+  TProps,
+  TId
+> {
+  private domainEvents: IDomainEvent[] = [];
 
-  protected constructor(props: TProps, id?: UniqueEntityID) {
+  protected constructor(props: TProps, id: TId) {
     super(props, id);
   }
 
   /**
-   * Read-only view of the Domain Events raised by this aggregate since
-   * the last time they were cleared.
+   * Read-only view of the Domain Events currently registered on this Aggregate.
    */
-  public get domainEvents(): ReadonlyArray<IDomainEvent> {
-    return [...this._domainEvents];
+  public get events(): ReadonlyArray<IDomainEvent> {
+    return [...this.domainEvents];
   }
 
   /**
-   * Registers a new Domain Event raised by this aggregate.
+   * Registers a new Domain Event raised by this Aggregate.
    */
   protected addDomainEvent(event: IDomainEvent): void {
-    this._domainEvents.push(event);
+    this.domainEvents.push(event);
   }
 
   /**
-   * Removes a specific Domain Event from the aggregate, identified by its `eventId`.
+   * Removes a specific Domain Event previously registered.
    */
-  public removeDomainEvent(eventId: string): void {
-    const index = this._domainEvents.findIndex(
-      (domainEvent) => domainEvent.eventId === eventId,
-    );
-
-    if (index >= 0) {
-      this._domainEvents.splice(index, 1);
-    }
+  protected removeDomainEvent(event: IDomainEvent): void {
+    this.domainEvents = this.domainEvents.filter((registered) => registered.eventId !== event.eventId);
   }
 
   /**
-   * Clears every Domain Event currently registered on this aggregate.
-   *
-   * Should be invoked by the Application layer right after the events
-   * have been successfully published/dispatched.
+   * Clears every Domain Event currently registered on this Aggregate.
+   * Typically invoked after events have been successfully dispatched.
    */
   public clearEvents(): void {
-    this._domainEvents.splice(0, this._domainEvents.length);
-  }
-
-  /**
-   * Returns and clears all pending Domain Events in a single atomic operation.
-   */
-  public pullDomainEvents(): ReadonlyArray<IDomainEvent> {
-    const events = [...this._domainEvents];
-    this.clearEvents();
-    return events;
+    this.domainEvents = [];
   }
 }
-
