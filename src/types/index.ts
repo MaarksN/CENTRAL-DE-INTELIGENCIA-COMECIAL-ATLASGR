@@ -37,6 +37,8 @@ export interface Company {
     website?: string | null;
     linkedin?: string | null;
     instagram?: string | null;
+    twitter?: string | null;
+    facebook?: string | null;
     phones: string[];
     emails: string[];
     address?: string | null;
