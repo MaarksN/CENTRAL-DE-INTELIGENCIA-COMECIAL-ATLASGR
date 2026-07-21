@@ -8,12 +8,12 @@ const router = Router();
 
 router.post('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const { tool, leadId } = req.body as { tool: string; leadId?: string };
-        const result = await aiService.generateContent(tool, leadId);
+        const { tool, leadId, competitor } = req.body as { tool: string; leadId?: string; competitor?: string };
+        const result = await aiService.generateContent(tool, leadId, { competitor });
         res.json({ result });
     } catch (error: unknown) {
         const err = error as Error;
-        if (err.message === 'Invalid tool') {
+        if (err.message === 'Invalid tool' || err.message === 'Missing competitor') {
             res.status(400).json({ error: err.message });
             return;
         }
