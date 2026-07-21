@@ -11,6 +11,7 @@ import type { ProspectCandidate, ProspectCriteria, DiscoverResult, DecisionMaker
 import type { DecisionMakerCriteria } from '../services/apollo.service';
 import {
     SEGMENTO_OPTIONS, LOCALIZACAO_OPTIONS, QUANTIDADE_OPTIONS, PORTE_OPTIONS, ESTADO_OPTIONS, TECNOLOGIA_OPTIONS,
+    ATLAS_PERSONA_OPTIONS,
 } from '../constants/icp-options';
 
 type HubTab = 'cnpj' | 'discovery';
@@ -715,6 +716,26 @@ function DecisionMakerSection({ candidate }: { candidate: ProspectCandidate }) {
         }));
     };
 
+    const isPersonaActive = (persona: typeof ATLAS_PERSONA_OPTIONS[number]) => {
+        const currentTitles = (criteria.cargos || '').split(',').map((t) => t.trim()).filter(Boolean);
+        return persona.titles.split(',').every((t) => currentTitles.includes(t));
+    };
+
+    const togglePersona = (persona: typeof ATLAS_PERSONA_OPTIONS[number]) => {
+        setCriteria((c) => {
+            const currentTitles = (c.cargos || '').split(',').map((t) => t.trim()).filter(Boolean);
+            const personaTitles = persona.titles.split(',');
+            const active = personaTitles.every((t) => currentTitles.includes(t));
+            const nextTitles = active
+                ? currentTitles.filter((t) => !personaTitles.includes(t))
+                : Array.from(new Set([...currentTitles, ...personaTitles]));
+            const nextSeniorities = active
+                ? (c.senioridades || []).filter((s) => !(persona.seniorities as readonly string[]).includes(s))
+                : Array.from(new Set([...(c.senioridades || []), ...persona.seniorities]));
+            return { ...c, cargos: nextTitles.length ? nextTitles.join(',') : undefined, senioridades: nextSeniorities };
+        });
+    };
+
     const toggleDepartment = (v: string) => {
         setCriteria(c => ({
             ...c,
@@ -761,7 +782,28 @@ function DecisionMakerSection({ candidate }: { candidate: ProspectCandidate }) {
                 <h4 className="font-bold text-sm text-indigo-900 flex items-center gap-2"><Users size={16} /> Pesquisa de Decisores (Apollo)</h4>
                 <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xs">Fechar</button>
             </div>
-            
+
+            <div className="mb-4">
+                <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Personas Atlas (Playbook de Pré-Vendas)</label>
+                <div className="flex flex-wrap gap-1.5">
+                    {ATLAS_PERSONA_OPTIONS.map((persona) => {
+                        const active = isPersonaActive(persona);
+                        return (
+                            <button
+                                key={persona.label}
+                                type="button"
+                                onClick={() => togglePersona(persona)}
+                                title={persona.nivel}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${active ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-indigo-300'}`}
+                            >
+                                {persona.label}
+                            </button>
+                        );
+                    })}
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">Direto da tabela "Contatos ideais" do Playbook — cada clique já ajusta cargo e senioridade.</p>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                     <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Cargos Específicos (Vírgula)</label>
