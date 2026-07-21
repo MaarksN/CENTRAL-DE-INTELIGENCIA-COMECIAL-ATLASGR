@@ -18,7 +18,8 @@ export const auth = betterAuth({
             },
             organizationId: {
                 type: "string",
-                required: true
+                required: false,
+                input: false
             }
         }
     },
