@@ -270,7 +270,10 @@ model User {
   id             String       @id @default(cuid())
   name           String
   email          String       @unique
-  passwordHash   String
+  // Better Auth guarda a senha em Account.password (provider "credential"), não aqui — este
+  // campo é resquício de um fluxo de auth anterior e não é mais escrito por ninguém no app real.
+  // Precisa ser opcional para não quebrar `prisma.user.create()` do adapter do Better Auth.
+  passwordHash   String?
   role           String       @default("VISUALIZADOR")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
