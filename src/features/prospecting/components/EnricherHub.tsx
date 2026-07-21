@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Sparkles, Loader2, Building2, Star, Clock, Users, ShieldCheck, MapPin } from 'lucide-react';
+import { Search, Sparkles, Loader2, Building2, Star, Clock, Users, ShieldCheck, MapPin, Wrench } from 'lucide-react';
 import { Company } from '../../../types';
 import { api } from '../../../lib/api';
 
@@ -161,6 +161,19 @@ export function EnricherHub() {
                                                 <span className="text-xs text-gray-600">{selected.businessHours.openNow ? 'Aberto agora' : 'Fechado agora'}</span>
                                             </div>
                                         )}
+                                    </div>
+                                )}
+
+                                {selected.technologies && selected.technologies.length > 0 && (
+                                    <div>
+                                        <p className="text-[10px] tracking-wider font-bold uppercase text-gray-500 mb-2 flex items-center gap-1">
+                                            <Wrench size={12} /> Tecnologias (Apollo)
+                                        </p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {selected.technologies.slice(0, 12).map((t, idx) => (
+                                                <span key={idx} className="bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 text-xs text-gray-700">{t}</span>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
 

@@ -149,6 +149,19 @@ export async function fetchApolloCandidates(
         // Espera-se uma lista de UIDs confirmados (ex: "salesforce,aws") — ver TECNOLOGIA_OPTIONS.
         body.currently_using_any_of_technology_uids = criteria.tecnologias.split(',').map((t) => t.trim()).filter(Boolean);
     }
+    if (criteria.tecnologiasExcluir) {
+        body.currently_not_using_any_of_technology_uids = criteria.tecnologiasExcluir.split(',').map((t) => t.trim()).filter(Boolean);
+    }
+    if (criteria.localizacaoExcluir) {
+        body.organization_not_locations = criteria.localizacaoExcluir
+            .split(',')
+            .map((l) => l.trim())
+            .filter(Boolean)
+            .map((l) => (l.toLowerCase().endsWith('brazil') ? l : `${l}, Brazil`));
+    }
+    if (criteria.apenasCapitalAberto) {
+        body.organization_trading_status = ['public'];
+    }
 
     try {
         const res = await fetch(APOLLO_SEARCH_URL, {

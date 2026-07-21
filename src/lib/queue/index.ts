@@ -2,6 +2,7 @@ import { Queue, Worker, QueueEvents, Job } from 'bullmq';
 import { connection } from './redis.js';
 import { logger } from '../logger.js';
 import { aiService } from '../../features/intelligence/services/ai.service.js';
+import { prisma } from '../prisma.js';
 
 /**
  * Base queue setup. 
@@ -31,14 +32,29 @@ export const createLeadsWorker = () => {
         
         try {
             const { leadId, companyInfo } = job.data;
-            if (!leadId || !companyInfo) {
-                throw new Error("Missing leadId or companyInfo in job data");
+            if (!leadId) {
+                throw new Error("Missing leadId in job data");
             }
 
-            const qualificationResult = await aiService.qualifyLead(leadId, companyInfo);
-            
-            // In a full implementation, we'd save this to Prisma/Meilisearch here
-            logger.info({ leadId, status: qualificationResult.status }, "Lead Qualified Successfully");
+            const qualificationResult = await aiService.qualifyLead(leadId, companyInfo || '');
+            const score = qualificationResult.qualificationScore ?? null;
+            const temperature = score != null ? (score >= 75 ? 'Quente' : score >= 45 ? 'Morno' : 'Frio') : undefined;
+
+            await prisma.lead.update({
+                where: { id: leadId },
+                data: {
+                    score: score ?? undefined,
+                    temperature: temperature as any,
+                    timeline: {
+                        create: {
+                            type: 'generic',
+                            description: `Qualificação por IA: score ${score ?? '?'}/100 — ${qualificationResult.summary || 'sem resumo'}`,
+                        },
+                    },
+                },
+            });
+
+            logger.info({ leadId, status: qualificationResult.status, score }, "Lead Qualified Successfully");
 
             return { success: true, processedAt: new Date().toISOString(), result: qualificationResult };
         } catch (error: any) {

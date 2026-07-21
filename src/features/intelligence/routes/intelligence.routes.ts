@@ -26,13 +26,13 @@ router.post('/qualify', async (req: Request, res: Response, next: NextFunction):
     try {
         const { leadId, companyInfo } = req.body as { leadId?: string; companyInfo?: string };
 
-        if (!leadId || !companyInfo) {
-            res.status(400).json({ error: 'Missing leadId or companyInfo' });
+        if (!leadId) {
+            res.status(400).json({ error: 'Missing leadId' });
             return;
         }
 
-        // Push to BullMQ instead of blocking the request
-        const job = await leadsQueue.add('qualify-lead', { leadId, companyInfo });
+        // companyInfo é opcional — quando ausente, o worker busca os dados reais da empresa no CRM.
+        const job = await leadsQueue.add('qualify-lead', { leadId, companyInfo: companyInfo || '' });
 
         res.status(202).json({
             message: 'Lead qualification started in background',

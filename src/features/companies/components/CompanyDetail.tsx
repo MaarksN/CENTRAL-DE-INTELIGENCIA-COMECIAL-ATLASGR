@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Building2, MapPin, Users, FileText, Activity, Star, Clock, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Users, FileText, Activity, Star, Clock, Sparkles, Loader2, Wrench, Tag } from 'lucide-react';
 import { Company } from '../../../types';
 import { api } from '../../../lib/api';
 
@@ -74,8 +74,12 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
                 </button>
 
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex items-start gap-6">
-                    <div className="w-20 h-20 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                        <Building2 className="w-10 h-10" />
+                    <div className="w-20 h-20 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 overflow-hidden">
+                        {company.logoUrl ? (
+                            <img src={company.logoUrl} alt="" className="w-full h-full object-contain" />
+                        ) : (
+                            <Building2 className="w-10 h-10" />
+                        )}
                     </div>
                     <div className="flex-1">
                         <div className="flex justify-between items-start">
@@ -179,6 +183,33 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
                                                 <li key={i}>{d}</li>
                                             ))}
                                         </ul>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        {((company.technologies && company.technologies.length > 0) || (company.keywords && company.keywords.length > 0)) && (
+                            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                                <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">🔧 Firmographics (Apollo)</h2>
+                                <div className="space-y-4">
+                                    {company.technologies && company.technologies.length > 0 && (
+                                        <div>
+                                            <p className="text-xs text-gray-500 mb-2 flex items-center gap-1"><Wrench className="w-3.5 h-3.5" /> Tecnologias</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {company.technologies.slice(0, 12).map((t, i) => (
+                                                    <span key={i} className="bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 text-xs text-gray-700">{t}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {company.keywords && company.keywords.length > 0 && (
+                                        <div>
+                                            <p className="text-xs text-gray-500 mb-2 flex items-center gap-1"><Tag className="w-3.5 h-3.5" /> Palavras-chave</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {company.keywords.slice(0, 10).map((k, i) => (
+                                                    <span key={i} className="bg-indigo-50 border border-indigo-100 rounded-full px-2.5 py-1 text-xs text-indigo-700">{k}</span>
+                                                ))}
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>
