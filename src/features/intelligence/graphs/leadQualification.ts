@@ -1,6 +1,7 @@
 import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { getAiModel } from '../../../lib/ai/gateway.js';
+import { prisma } from '../../../lib/prisma.js';
 
 // Define the state for the graph
 const LeadQualificationState = Annotation.Root({
@@ -12,34 +13,62 @@ const LeadQualificationState = Annotation.Root({
 });
 
 export const leadQualificationGraph = new StateGraph(LeadQualificationState)
-    .addNode('research', async (_state) => {
-        // Dummy research node for now - in reality, we would use Firecrawl or Serper
-        return {
-            companyInfo: `The company has been operating in the software industry for 5 years and shows strong growth potential.`,
-        };
+    .addNode('research', async (state) => {
+        // Se quem chamou já informou uma descrição real da empresa, respeitamos ela.
+        // Só buscamos os dados reais no banco quando nada foi passado.
+        if (state.companyInfo && state.companyInfo.trim().length > 0) {
+            return {};
+        }
+
+        const lead = await prisma.lead.findUnique({
+            where: { id: state.leadId },
+            include: { company: true, contact: true },
+        });
+
+        if (!lead?.company) {
+            return { companyInfo: 'Nenhuma informação disponível sobre esta empresa no CRM.' };
+        }
+
+        const c = lead.company;
+        const p = lead.contact;
+        const parts = [
+            `Empresa: ${c.tradeName}`,
+            c.segment && `Segmento: ${c.segment}`,
+            (c.city || c.state) && `Localização: ${[c.city, c.state].filter(Boolean).join(', ')}`,
+            c.size && `Porte: ${c.size}${c.employeeCount ? ` (~${c.employeeCount} funcionários)` : ''}`,
+            c.situacaoCadastral && `Situação cadastral (Receita Federal): ${c.situacaoCadastral}`,
+            c.technologies?.length ? `Tecnologias em uso: ${c.technologies.slice(0, 6).join(', ')}` : null,
+            c.googleRating != null ? `Reputação no Google: nota ${c.googleRating} (${c.googleReviewsCount ?? 0} avaliações)` : null,
+            c.observations && `Resumo do enriquecimento: ${c.observations}`,
+            p && `Contato/decisor: ${p.name}${p.role ? `, ${p.role}` : ''}`,
+        ].filter(Boolean);
+
+        return { companyInfo: parts.length > 0 ? parts.join(' | ') : 'Empresa cadastrada sem dados de enriquecimento ainda.' };
     })
     .addNode('analyze', async (state) => {
-        const model = getAiModel('gemini-pro', 0.1);
-        
+        const model = getAiModel('gemini-pro', 0.2);
+
         const response = await model.invoke([
-            new SystemMessage("You are an expert Sales Development Representative. Your job is to analyze lead data and provide a qualification score from 0 to 100."),
-            new HumanMessage(`Analyze this lead and company info: ${state.companyInfo}. Provide only a JSON response with keys: score (number) and summary (string).`)
+            new SystemMessage(
+                'Você é um SDR/BDR sênior especialista em qualificação de leads B2B para o setor de logística no Brasil. Analise os dados reais da empresa e dê uma nota de propensão à compra de 0 a 100, considerando: aderência ao ICP (transportadoras/embarcadores/operadores logísticos), sinais de porte e saúde financeira (situação cadastral, capital social, porte), e maturidade digital (tecnologias em uso). Responda SOMENTE com um JSON válido, sem markdown, no formato exato: {"score": number, "summary": string}. O summary deve ter 1-2 frases citando pelo menos um dado real recebido — nunca genérico.'
+            ),
+            new HumanMessage(`Dados da empresa: ${state.companyInfo}`),
         ]);
 
         try {
-            // Very naive JSON parsing for demo purposes
             const jsonText = (response.content as string).replace(/```json/g, '').replace(/```/g, '').trim();
             const result = JSON.parse(jsonText);
+            const score = typeof result.score === 'number' ? Math.max(0, Math.min(100, result.score)) : 50;
             return {
-                qualificationScore: result.score || 50,
-                summary: result.summary || "No summary provided",
-                status: result.score > 70 ? "QUALIFIED" : "UNQUALIFIED"
+                qualificationScore: score,
+                summary: result.summary || 'Sem resumo gerado pela IA.',
+                status: score >= 70 ? 'QUALIFIED' : 'UNQUALIFIED',
             };
         } catch {
             return {
                 qualificationScore: 50,
-                summary: "Failed to parse AI response",
-                status: "UNQUALIFIED"
+                summary: 'Falha ao interpretar a resposta da IA — verifique manualmente.',
+                status: 'UNQUALIFIED',
             };
         }
     })
