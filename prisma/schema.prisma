@@ -68,6 +68,8 @@ model Company {
   website           String?
   linkedin          String?
   instagram         String?
+  twitter           String?
+  facebook          String?
   phones            String[]
   emails            String[]
   address           String?

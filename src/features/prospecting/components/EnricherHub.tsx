@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Sparkles, Loader2, Building2, Star, Clock, Users, ShieldCheck, MapPin, Wrench } from 'lucide-react';
+import { Search, Sparkles, Loader2, Building2, Star, Clock, Users, ShieldCheck, MapPin, Wrench, Phone, Globe, Linkedin, Instagram, Twitter, Facebook } from 'lucide-react';
 import { Company } from '../../../types';
 import { api } from '../../../lib/api';
 
@@ -125,6 +125,14 @@ export function EnricherHub() {
                                     <div>
                                         <h3 className="font-black text-2xl text-atlas-dark">{selected.tradeName || selected.legalName}</h3>
                                         <p className="text-sm text-gray-500">{selected.legalName} · {selected.cnpj || 'Sem CNPJ'}</p>
+                                        <div className="flex flex-wrap gap-3 mt-2 text-xs">
+                                            {selected.phones?.[0] && <span className="flex items-center gap-1 text-gray-600"><Phone size={12} /> {selected.phones[0]}</span>}
+                                            {selected.website && <a href={selected.website} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline"><Globe size={12} /> Site</a>}
+                                            {selected.linkedin && <a href={selected.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline"><Linkedin size={12} /> LinkedIn</a>}
+                                            {selected.instagram && <a href={selected.instagram} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-pink-600 hover:underline"><Instagram size={12} /> Instagram</a>}
+                                            {selected.twitter && <a href={selected.twitter} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-sky-600 hover:underline"><Twitter size={12} /> X/Twitter</a>}
+                                            {selected.facebook && <a href={selected.facebook} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-700 hover:underline"><Facebook size={12} /> Facebook</a>}
+                                        </div>
                                     </div>
                                     <button
                                         onClick={handleEnrich}

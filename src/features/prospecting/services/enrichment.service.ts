@@ -10,6 +10,15 @@ import { fromPrismaCompanyStatus } from '../../../lib/enumMap';
 // (ex: "SAP Business One", "TOTVS Protheus"), não os UIDs usados como filtro de busca.
 const LOGISTICS_RELEVANT_TECH_KEYWORDS = ['sap', 'protheus', 'sankhya', 'netsuite', 'totvs'];
 
+// Categorias de carga com maior índice de roubo no Brasil, segundo a Associação Nacional do
+// Transporte de Cargas e Logística (NTC) — citadas na Apresentação de Gerenciamento de Risco da
+// Atlas como as "cargas mais roubadas no Brasil". Empresas que transportam esse tipo de carga são
+// prioridade comercial real (maior exposição a sinistro = maior valor percebido do GR da Atlas).
+const HIGH_THEFT_RISK_CARGO_KEYWORDS = [
+    'aliment', 'bebida', 'eletroeletr', 'eletr', 'cigarro', 'tabaco', 'farmac', 'quimic', 'químic',
+    'têxtil', 'textil', 'confec', 'autope', 'agric', 'agro', 'combust', 'petrol', 'higiene', 'limpeza',
+];
+
 const BRASIL_API_BASE = 'https://brasilapi.com.br/api';
 
 // BrasilAPI está atrás de um CDN que retorna 403 para o User-Agent padrão do fetch/undici do Node.
@@ -223,6 +232,18 @@ export interface DomainGuess {
     emails: string[];
 }
 
+/**
+ * Números de celular brasileiros (DDD + 9 dígitos, começando com 9) normalmente têm WhatsApp —
+ * heurística padrão de SDR, não uma verificação real. Não inventamos um número novo: só
+ * reaproveitamos o mesmo telefone já coletado (Apollo/Hunter) quando o formato indica celular.
+ */
+function guessWhatsappFromPhone(phone: string | null | undefined): string | null {
+    if (!phone) return null;
+    const digits = phone.replace(/\D/g, '').replace(/^55(?=\d{11}$)/, '');
+    if (digits.length === 11 && digits[2] === '9') return phone;
+    return null;
+}
+
 /** Extrai o hostname (sem "www.") de uma URL de site já conhecida — usado para preferir um domínio real a uma heurística. */
 function extractDomainFromWebsite(website?: string | null): string | null {
     if (!website) return null;
@@ -282,6 +303,8 @@ export interface FitScoreInput {
     size?: string | null;
     cnaeDescription?: string | null;
     segmentKeywords?: string[];
+    /** Segmento/indústria (ex: Apollo `industry`, ou o segmento do ICP) — usado junto com o CNAE para o bônus de carga de risco. */
+    segment?: string | null;
     /** Cidade/UF real (pós-enriquecimento) — usado para o bônus de região de risco do playbook Atlas. */
     city?: string | null;
     state?: string | null;
@@ -359,6 +382,16 @@ export function computeFitScore(input: FitScoreInput): FitScoreResult {
         breakdown.push({ label: 'Região de risco (playbook Atlas)', points: 10, detail: `Atuação em ${riskRegion.trim()} — região com maior índice de roubo de carga` });
     }
 
+    // Categoria de carga de maior risco de roubo (fonte: NTC, citada na Apresentação de
+    // Gerenciamento de Risco da Atlas) — empresas nesses segmentos têm maior exposição a sinistro,
+    // logo maior valor percebido na venda de GR.
+    const cargoText = `${input.cnaeDescription || ''} ${input.segment || ''}`.toLowerCase();
+    const matchedCargoRisk = HIGH_THEFT_RISK_CARGO_KEYWORDS.find((k) => cargoText.includes(k));
+    if (matchedCargoRisk) {
+        score += 10;
+        breakdown.push({ label: 'Categoria de carga de risco (NTC)', points: 10, detail: `Atividade sugere transporte de carga com maior índice de roubo no Brasil` });
+    }
+
     const relevantTech = (input.technologies || []).find((t) =>
         LOGISTICS_RELEVANT_TECH_KEYWORDS.some((k) => t.toLowerCase().includes(k))
     );
@@ -404,6 +437,8 @@ interface CompanyUpdateData {
     businessHours?: any;
     observations?: string;
     linkedin?: string;
+    twitter?: string;
+    facebook?: string;
     technologies?: string[];
     keywords?: string[];
     logoUrl?: string;
@@ -433,6 +468,9 @@ async function runEnrichment(
     const cnpj = options.cnpj || company.cnpj;
     const updateData: CompanyUpdateData = {};
     let enrichmentSourceLabel = 'Heurística';
+    // Capturado durante o lookup de CNPJ (se houver) e usado no fit score — não é persistido no
+    // Company hoje (só o código CNAE é), mas precisa estar disponível aqui pro critério de aderência.
+    let cnaeDescription: string | undefined;
 
     if (cnpj && isValidCnpj(cnpj)) {
         const lookup = await fetchCnpjData(cnpj);
@@ -449,6 +487,7 @@ async function runEnrichment(
 
         if (lookup.found && lookup.data) {
             enrichmentSourceLabel = 'BrasilAPI/Receita Federal';
+            cnaeDescription = lookup.data.cnaeDescription;
             Object.assign(updateData, {
                 cnpj: lookup.cnpj,
                 legalName: lookup.data.legalName,
@@ -550,6 +589,8 @@ async function runEnrichment(
             if (org.logo_url) updateData.logoUrl = org.logo_url;
             if (org.id) updateData.apolloOrgId = org.id;
             if (org.linkedin_url && !company.linkedin) updateData.linkedin = org.linkedin_url;
+            if (org.twitter_url && !company.twitter) updateData.twitter = org.twitter_url;
+            if (org.facebook_url && !company.facebook) updateData.facebook = org.facebook_url;
             // A Receita Federal (CNPJ) é a fonte de verdade para porte/funcionários quando disponível;
             // a Apollo só complementa quando a Receita não trouxe nada.
             if (org.estimated_num_employees && !updateData.employeeCount && !company.employeeCount) {
@@ -590,6 +631,7 @@ async function runEnrichment(
                         role: c.title,
                         email: c.email,
                         phone: c.phone,
+                        whatsapp: guessWhatsappFromPhone(c.phone),
                         linkedin: c.linkedin_url,
                         source: contactsSource === 'hunter' ? 'Hunter' : 'Apollo',
                         emailStatus: c.email ? 'guessed' : null,
@@ -605,8 +647,9 @@ async function runEnrichment(
         situacaoCadastral: updateData.situacaoCadastral ?? company.situacaoCadastral,
         capitalSocial: updateData.capitalSocial ?? company.capitalSocial,
         employeeCountEstimate: updateData.employeeCount ?? company.employeeCount,
-        cnaeDescription: undefined,
+        cnaeDescription,
         segmentKeywords: options.segmentKeywords,
+        segment: company.segment,
         city: updateData.city ?? company.city,
         state: updateData.state ?? company.state,
         fleetSizeHint: options.fleetSizeHint,

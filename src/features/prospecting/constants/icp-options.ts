@@ -44,6 +44,25 @@ export const PORTE_OPTIONS = [
     { label: '1001+ funcionários', value: '1001,1000000' },
 ];
 
+// Personas-alvo da Atlas — extraídas da tabela "Contatos ideais" do Playbook de Pré-Vendas Atlas,
+// ordenadas por nível de decisão real observado em campo (Dono/CEO decide sozinho; TI/Compras são
+// gatekeepers que raramente decidem, mas travam o processo). Usado como atalho na busca de
+// decisores em vez de digitar cargo "no chute" — cada opção já vem com as variações de título em
+// português mais comuns para esse papel e a senioridade Apollo correspondente.
+export const ATLAS_PERSONA_OPTIONS = [
+    { label: 'Dono / CEO', nivel: 'Decisor final', titles: 'CEO,Dono,Diretor Presidente,Diretor Geral', seniorities: ['c_suite'] },
+    { label: 'Diretor de Operações / COO', nivel: 'Decisor final', titles: 'Diretor de Operações,COO,Diretor Operacional', seniorities: ['c_suite'] },
+    { label: 'Diretor de Logística / Supply', nivel: 'Decisor final', titles: 'Diretor de Logística,Diretor de Supply Chain,Diretor de Cadeia de Suprimentos', seniorities: ['c_suite'] },
+    { label: 'Head / Gerente de GR (Risco)', nivel: 'Influenciador forte', titles: 'Gerente de Risco,Head de Risco,Gerente de Gerenciamento de Risco,Gerente de Compliance', seniorities: ['director', 'manager'] },
+    { label: 'Gerente de Operações / Transportes', nivel: 'Influenciador-chave', titles: 'Gerente de Operações,Gerente de Transportes,Gerente de Logística', seniorities: ['manager'] },
+    { label: 'Coordenador de Monitoramento / Torre', nivel: 'Usuário influente', titles: 'Coordenador de Monitoramento,Coordenador de Torre de Controle,Coordenador de Rastreamento,Supervisor de Frota', seniorities: ['manager'] },
+    { label: 'Segurança Patrimonial / Corporativa', nivel: 'Influenciador', titles: 'Gerente de Segurança Patrimonial,Segurança Corporativa,Gerente de Segurança', seniorities: ['manager'] },
+    { label: 'Jurídico / Compliance', nivel: 'Influenciador', titles: 'Jurídico,Compliance,Gerente Jurídico', seniorities: ['manager'] },
+    { label: 'TI / Integrações / Dados', nivel: 'Gatekeeper', titles: 'TI,Tecnologia da Informação,Gerente de TI,Integrações', seniorities: ['manager'] },
+    { label: 'Compras / Suprimentos', nivel: 'Gatekeeper', titles: 'Compras,Suprimentos,Gerente de Compras', seniorities: ['manager'] },
+    { label: 'Financeiro / Controller', nivel: 'Co-decisor', titles: 'Financeiro,Controller,CFO,Gerente Financeiro', seniorities: ['director', 'manager'] },
+] as const;
+
 // Tecnologias como filtro de busca (Apollo `currently_using_any_of_technology_uids`).
 // A Apollo só filtra por "UID" (slug), não pelo nome de exibição — e não existe endpoint público
 // para listar todos os UIDs válidos. Esta lista foi validada uma a uma contra a API real (cada slug

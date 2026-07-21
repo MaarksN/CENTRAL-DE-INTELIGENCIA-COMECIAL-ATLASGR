@@ -98,6 +98,31 @@ function mapSegmentToKeyword(segmento: string): string {
 }
 
 /**
+ * A Atlas atende Transportadoras e Operadores Logísticos (3PL/4PL) como ICP primário — empresas
+ * cuja atividade É o transporte/logística (ver "ICP, Segmentos, Personas" no Playbook Comercial
+ * AtlasGR). A busca por palavra-chave da Apollo é ampla e retorna falsos positivos (ex: "Vale"
+ * mineradora, "Localiza" locadora, empresas de TI) que só citam logística tangencialmente.
+ * Este allowlist filtra pelo campo `industry` real da Apollo — só aplicado para Transportadora/3PL,
+ * porque Embarcadores (empresas que CONTRATAM transporte) legitimamente vêm de qualquer indústria
+ * (alimentício, farmacêutico, químico etc.) e não devem ser filtrados por este critério.
+ */
+const ICP_TRANSPORT_INDUSTRY_KEYWORDS = [
+    'logistics', 'trucking', 'transportation', 'railroad', 'warehousing',
+    'maritime', 'freight', 'supply chain', 'import', 'export', 'shipping', 'courier',
+];
+
+function isTransportOperatorSegment(segmento: string): boolean {
+    const s = segmento.toLowerCase();
+    return s.includes('transportadora') || s.includes('3pl') || s.includes('operador log');
+}
+
+function matchesIcpIndustry(industry: string | undefined): boolean {
+    if (!industry) return true; // Apollo nem sempre preenche `industry` — não descartamos por ausência de dado.
+    const i = industry.toLowerCase();
+    return ICP_TRANSPORT_INDUSTRY_KEYWORDS.some((k) => i.includes(k));
+}
+
+/**
  * Busca real de empresas via Apollo.io (Organization Search API).
  * Opcional: só executa se APOLLO_API_KEY estiver configurada no ambiente.
  * Suporta os filtros firmográficos que a Apollo de fato reconhece nesse endpoint — validados
@@ -123,9 +148,13 @@ export async function fetchApolloCandidates(
         : [];
 
     const needsFoundedYearFilter = criteria.anoFundacaoMin != null || criteria.anoFundacaoMax != null;
-    // Ano de fundação não é filtrável pela API — pedimos mais candidatos do que o necessário
-    // para sobrar o suficiente depois do pós-filtro local.
-    const requestSize = Math.min(needsFoundedYearFilter ? Math.max(count * 4, 50) : count, 100);
+    const needsIcpIndustryFilter = isTransportOperatorSegment(criteria.segmento);
+    // Ano de fundação e o allowlist de indústria do ICP não são filtráveis pela API — pedimos mais
+    // candidatos do que o necessário para sobrar o suficiente depois do pós-filtro local.
+    const requestSize = Math.min(
+        needsFoundedYearFilter || needsIcpIndustryFilter ? Math.max(count * 4, 50) : count,
+        100
+    );
 
     const body: Record<string, unknown> = {
         q_organization_keyword_tags: [mapSegmentToKeyword(criteria.segmento), ...extraKeywords],
@@ -189,6 +218,9 @@ export async function fetchApolloCandidates(
                 if (criteria.anoFundacaoMax != null && org.founded_year > criteria.anoFundacaoMax) return false;
                 return true;
             });
+        }
+        if (needsIcpIndustryFilter) {
+            organizations = organizations.filter((org) => matchesIcpIndustry(org.industry));
         }
         organizations = organizations.slice(0, count);
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Building2, MapPin, Users, FileText, Activity, Star, Clock, Sparkles, Loader2, Wrench, Tag } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Users, FileText, Activity, Star, Clock, Sparkles, Loader2, Wrench, Tag, Globe, Linkedin, Instagram, Twitter, Facebook, Phone } from 'lucide-react';
 import { Company } from '../../../types';
 import { api } from '../../../lib/api';
 
@@ -113,6 +113,24 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
                             )}
                             {company.segment && (
                                 <div className="flex items-center gap-1.5"><Activity className="w-4 h-4 text-gray-400" /> {company.segment}</div>
+                            )}
+                            {company.website && (
+                                <a href={company.website} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-blue-600 hover:underline"><Globe className="w-4 h-4" /> Site</a>
+                            )}
+                            {company.linkedin && (
+                                <a href={company.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-blue-600 hover:underline"><Linkedin className="w-4 h-4" /> LinkedIn</a>
+                            )}
+                            {company.instagram && (
+                                <a href={company.instagram} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-pink-600 hover:underline"><Instagram className="w-4 h-4" /> Instagram</a>
+                            )}
+                            {company.twitter && (
+                                <a href={company.twitter} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sky-600 hover:underline"><Twitter className="w-4 h-4" /> X/Twitter</a>
+                            )}
+                            {company.facebook && (
+                                <a href={company.facebook} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-blue-700 hover:underline"><Facebook className="w-4 h-4" /> Facebook</a>
+                            )}
+                            {company.phones?.length > 0 && (
+                                <div className="flex items-center gap-1.5"><Phone className="w-4 h-4 text-gray-400" /> {company.phones[0]}</div>
                             )}
                         </div>
                     </div>
