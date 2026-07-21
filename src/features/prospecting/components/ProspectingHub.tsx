@@ -432,6 +432,49 @@ export function ProspectingHub() {
                                             </div>
                                             <p className="text-[10px] text-gray-400 mt-1">Lista curada e validada contra a API — a Apollo só filtra por identificador interno, não por nome livre.</p>
                                         </div>
+                                        <div>
+                                            <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Excluir Tecnologias</label>
+                                            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-gray-50/50 rounded-xl border border-gray-200">
+                                                {TECNOLOGIA_OPTIONS.map((opt) => {
+                                                    const selected = (criteria.tecnologiasExcluir || '').split(',').filter(Boolean).includes(opt.value);
+                                                    return (
+                                                        <button
+                                                            key={opt.value}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const current = (criteria.tecnologiasExcluir || '').split(',').filter(Boolean);
+                                                                const next = selected ? current.filter((v) => v !== opt.value) : [...current, opt.value];
+                                                                setCriteria({ ...criteria, tecnologiasExcluir: next.length ? next.join(',') : undefined });
+                                                            }}
+                                                            className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors ${selected ? 'bg-red-500 border-red-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-red-300'}`}
+                                                        >
+                                                            {opt.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-[10px] text-gray-400 mt-1">Útil para descartar empresas que já usam a solução de um concorrente, por exemplo.</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] tracking-wider font-bold uppercase mb-1.5 text-gray-500">Excluir Localização</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Ex: São Paulo, Minas Gerais"
+                                                value={criteria.localizacaoExcluir || ''}
+                                                onChange={(e) => setCriteria({ ...criteria, localizacaoExcluir: e.target.value || undefined })}
+                                                className="w-full p-3 bg-gray-50/50 rounded-xl border border-gray-200 outline-none focus:border-atlas-orange focus:ring-1 focus:ring-atlas-orange transition-all text-sm font-medium text-atlas-dark"
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Cidades/estados a descartar, separados por vírgula.</p>
+                                        </div>
+                                        <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 pt-1">
+                                            <input
+                                                type="checkbox"
+                                                checked={!!criteria.apenasCapitalAberto}
+                                                onChange={(e) => setCriteria({ ...criteria, apenasCapitalAberto: e.target.checked || undefined })}
+                                                className="rounded border-gray-300 text-atlas-orange focus:ring-atlas-orange"
+                                            />
+                                            Somente empresas de capital aberto (B3/bolsa)
+                                        </label>
                                     </div>
                                 )}
                             </div>

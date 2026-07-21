@@ -61,6 +61,12 @@ export interface Company {
     googleReviewsCount?: number | null;
     businessHours?: { openNow?: boolean; weekdayDescriptions?: string[] } | null;
 
+    // Firmographics (Apollo Organization Enrich)
+    technologies?: string[];
+    keywords?: string[];
+    logoUrl?: string | null;
+    apolloOrgId?: string | null;
+
     contacts?: Contact[];
     leads?: Lead[];
 }
@@ -77,6 +83,9 @@ export interface Contact {
     birthDate?: string | null;
     observations?: string | null;
     status: import('../lib/zod').ContactStatus;
+    source?: string | null;
+    seniority?: string | null;
+    emailStatus?: string | null;
     companyId: string;
     company?: Company;
     organizationId?: string | null;

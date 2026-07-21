@@ -16,7 +16,28 @@ export type ContentTool =
     | 'voicemail'
     | 'roi_pitch';
 
-const SYSTEM_PREAMBLE = `Você é um consultor de vendas B2B sênior da Atlas, uma plataforma SaaS de inteligência logística focada em reduzir custos com gestão de exceções e sinistros (roubo de carga, avarias, atrasos) para transportadoras, embarcadores e operadores logísticos no Brasil. Responda sempre em português do Brasil, direto ao ponto, com tom consultivo e persuasivo — nunca genérico ou robótico. Nunca use placeholders óbvios como "[Nome]" quando o nome real estiver disponível no contexto abaixo; se algum dado não estiver disponível, contorne com uma pergunta aberta em vez de inventar um dado factual (nome de pessoa, número, data).`;
+const SYSTEM_PREAMBLE = `Você é um consultor de vendas B2B sênior da Atlas, uma plataforma SaaS de inteligência logística focada em reduzir custos com gestão de exceções e sinistros (roubo de carga, avarias, atrasos) para transportadoras, embarcadores e operadores logísticos no Brasil. Responda sempre em português do Brasil, direto ao ponto, com tom consultivo e persuasivo — nunca genérico ou robótico. Nunca use placeholders óbvios como "[Nome]" quando o nome real estiver disponível no contexto abaixo; se algum dado não estiver disponível, contorne com uma pergunta aberta em vez de inventar um dado factual (nome de pessoa, número, data). Evite jargão de vendas vazio ("solução completa", "sinergia", "ponta a ponta", "estado da arte") — prefira linguagem concreta sobre o problema real do lead. Responda apenas com o conteúdo pedido, pronto para copiar e usar — sem introduções como "Claro, aqui está" ou explicações sobre o que você vai fazer.`;
+
+/** Quando há contexto real do lead, força a IA a efetivamente USAR os dados em vez de ignorá-los. */
+const GROUNDING_INSTRUCTION = `\n\nIMPORTANTE: use pelo menos 2 dados concretos do contexto do lead acima (nome da empresa, cidade/região, segmento, tecnologia detectada, ou algo do resumo de enriquecimento) — o texto tem que ficar claramente sobre ESSA empresa, não algo genérico que serviria para qualquer lead.`;
+
+/** Modelo e temperatura por ferramenta: gemini-pro (mais raciocínio) para diagnóstico/estratégia,
+ * onde precisão importa mais que velocidade; gemini-flash para scripts/mensagens mais diretos. Temperaturas
+ * mais baixas em ferramentas analíticas (menos "criatividade", mais aderência aos dados reais); mais altas
+ * em ferramentas de copywriting social, onde variação de tom é desejável. */
+const TOOL_CONFIG: Record<ContentTool, { model: 'gemini-pro' | 'gemini-flash'; temperature: number }> = {
+    script_call: { model: 'gemini-flash', temperature: 0.7 },
+    script_whatsapp: { model: 'gemini-flash', temperature: 0.85 },
+    script_email: { model: 'gemini-flash', temperature: 0.65 },
+    prompt: { model: 'gemini-pro', temperature: 0.5 },
+    objections: { model: 'gemini-pro', temperature: 0.45 },
+    followup: { model: 'gemini-flash', temperature: 0.6 },
+    profile: { model: 'gemini-pro', temperature: 0.5 },
+    risk: { model: 'gemini-pro', temperature: 0.4 },
+    linkedin_invite: { model: 'gemini-flash', temperature: 0.8 },
+    voicemail: { model: 'gemini-flash', temperature: 0.65 },
+    roi_pitch: { model: 'gemini-pro', temperature: 0.4 },
+};
 
 /** Instruções específicas de cada ferramenta — o "molde" de cada tipo de conteúdo gerado. */
 const TOOL_PROMPTS: Record<ContentTool, string> = {
@@ -112,8 +133,12 @@ export class AIService {
 
         const context = await buildLeadContext(leadId);
         promptStr += context.text;
+        if (context.text) {
+            promptStr += GROUNDING_INSTRUCTION;
+        }
 
-        const model = getAiModel('gemini-flash', 0.7);
+        const { model: modelAlias, temperature } = TOOL_CONFIG[toolId];
+        const model = getAiModel(modelAlias, temperature);
         const startTime = Date.now();
         const response = await model.invoke([new HumanMessage(promptStr)]);
         const latencyMs = Date.now() - startTime;

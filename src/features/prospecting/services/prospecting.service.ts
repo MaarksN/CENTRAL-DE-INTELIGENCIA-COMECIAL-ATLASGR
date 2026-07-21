@@ -29,8 +29,14 @@ export interface ProspectCriteria {
     anoFundacaoMin?: number;
     /** Ano máximo de fundação. Opcional. */
     anoFundacaoMax?: number;
-    /** Tecnologias utilizadas (separadas por vírgula). Opcional. */
+    /** Tecnologias utilizadas (UIDs confirmados, separados por vírgula — ver TECNOLOGIA_OPTIONS). Opcional. */
     tecnologias?: string;
+    /** Tecnologias a EXCLUIR (mesmo formato de `tecnologias`). Opcional. */
+    tecnologiasExcluir?: string;
+    /** Cidades/estados a excluir da busca, separados por vírgula (ex: "São Paulo, Minas Gerais"). Opcional. */
+    localizacaoExcluir?: string;
+    /** Filtra só empresas de capital aberto (B3/bolsa). Opcional. */
+    apenasCapitalAberto?: boolean;
 }
 
 export type { DecisionMakerCriteria };
