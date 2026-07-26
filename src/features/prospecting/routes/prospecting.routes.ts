@@ -1,0 +1,70 @@
+import { Router, Request, Response, NextFunction } from 'express';
+
+import { discoverCandidates, promoteToCrm, discoverDecisionMakers } from '../services/prospecting.service.js';
+import { fetchCnpjData } from '../services/enrichment.service.js';
+import type { AuthRequest } from '../../../shared/middlewares/authenticateToken.js';
+
+const router = Router();
+
+// Descoberta de candidatos via IA a partir de um ICP (Perfil de Cliente Ideal).
+router.post('/discover', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const criteria = req.body as import("../services/prospecting.service.js").ProspectCriteria;
+        if (!criteria || typeof criteria !== 'object') {
+            res.status(400).json({ success: false, error: 'Critérios de busca inválidos' });
+            return;
+        }
+        const result = await discoverCandidates(criteria as any);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Consulta em tempo real (sem persistir) de um CNPJ na Receita Federal via BrasilAPI.
+router.post('/enrich-cnpj', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { cnpj } = req.body as { cnpj?: string };
+        if (!cnpj || typeof cnpj !== 'string') {
+            res.status(400).json({ success: false, error: 'CNPJ é obrigatório' });
+            return;
+        }
+        const result = await fetchCnpjData(cnpj);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Promove um candidato (IA ou CNPJ) para o CRM: cria Company + Contact + Lead e enriquece automaticamente.
+router.post('/promote', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const body = req.body as { tradeName?: string; source?: string };
+        if (!body.tradeName || !body.source) {
+            res.status(400).json({ success: false, error: 'tradeName e source são obrigatórios' });
+            return;
+        }
+        const { organizationId } = (req as AuthRequest).user;
+        const result = await promoteToCrm({ ...req.body, organizationId });
+        res.status(201).json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Busca de decisores para uma empresa específica
+router.post('/decision-makers', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { domain, criteria } = req.body as { domain?: string; criteria?: Record<string, unknown> };
+        if (!domain || typeof domain !== 'string') {
+            res.status(400).json({ success: false, error: 'O domínio da empresa é obrigatório' });
+            return;
+        }
+        const result = await discoverDecisionMakers(domain, criteria ?? {});
+        res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+});
+
+export const prospectingRoutes = router;
