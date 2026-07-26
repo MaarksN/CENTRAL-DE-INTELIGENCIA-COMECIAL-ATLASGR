@@ -1,0 +1,31 @@
+model_list:
+  - model_name: gemini-pro
+    litellm_params:
+      model: gemini/gemini-pro-latest
+      api_key: "os.environ/GEMINI_API_KEY"
+  - model_name: gemini-flash
+    litellm_params:
+      model: gemini/gemini-flash-latest
+      api_key: "os.environ/GEMINI_API_KEY"
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+  - model_name: claude-sonnet
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5-20250929
+  - model_name: ollama-llama3
+    litellm_params:
+      model: ollama/llama3
+  - model_name: openrouter-mixtral
+    litellm_params:
+      model: openrouter/mistralai/mixtral-8x7b-instruct
+
+litellm_settings:
+  drop_params: true
+  num_retries: 3
+  request_timeout: 60
+  fallbacks: [{"gemini-pro": ["gemini-flash"]}, {"gpt-4o": ["gemini-pro"]}, {"claude-sonnet": ["gemini-pro"]}]
+
+router_settings:
+  routing_strategy: usage-based-routing
+  enable_pre_call_checks: true

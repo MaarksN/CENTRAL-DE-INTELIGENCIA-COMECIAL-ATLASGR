@@ -1,0 +1,278 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import {
+  User, Building, Mail, Phone, Plus, Search, Edit, Trash2,
+  Sparkles, Loader2, AlertCircle, ChevronLeft, ChevronRight, Linkedin
+} from 'lucide-react';
+import { Contact } from '../../../types';
+import { ContactForm } from './ContactForm';
+import { useContacts } from '../../../hooks/useDatabase';
+import { contactsDB } from '../../../lib/db';
+
+const SENIORITY_COLORS: Record<string, string> = {
+  'C-Level': 'bg-purple-100 text-purple-700 border-purple-200',
+  'Director': 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  'VP': 'bg-blue-100 text-blue-700 border-blue-200',
+  'Manager': 'bg-sky-100 text-sky-700 border-sky-200',
+  'Analyst': 'bg-gray-100 text-gray-600 border-gray-200',
+};
+
+function SkeletonRow() {
+  return (
+    <tr className="border-b border-gray-100 animate-pulse">
+      <td className="p-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-gray-200" /><div className="space-y-2"><div className="h-3 bg-gray-200 rounded-full w-32" /><div className="h-2.5 bg-gray-100 rounded-full w-20" /></div></div></td>
+      <td className="p-4 hidden md:table-cell"><div className="h-3 bg-gray-200 rounded-full w-28" /></td>
+      <td className="p-4 hidden lg:table-cell"><div className="space-y-1.5"><div className="h-2.5 bg-gray-100 rounded-full w-36" /><div className="h-2.5 bg-gray-100 rounded-full w-24" /></div></td>
+      <td className="p-4 hidden xl:table-cell"><div className="h-5 bg-gray-100 rounded-full w-20" /></td>
+      <td className="p-4"><div className="flex justify-end gap-2"><div className="w-8 h-8 bg-gray-100 rounded-xl" /><div className="w-8 h-8 bg-gray-100 rounded-xl" /></div></td>
+    </tr>
+  );
+}
+
+export function ContactList() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [enrichingId, setEnrichingId] = useState<string | null>(null);
+
+  const { contacts, meta, loading, error, refetch, deleteContact } = useContacts({
+    page,
+    limit: 20,
+    search: searchTerm || undefined,
+  });
+
+  const totalPages = meta?.totalPages ?? 1;
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Excluir este contato?')) return;
+    await deleteContact(id);
+  };
+
+  const handleEnrich = async (id: string) => {
+    setEnrichingId(id);
+    try {
+      await contactsDB.validateEmail(contacts.find((c) => c.id === id)?.email ?? '');
+      await refetch();
+    } catch {
+      // silently fail — endpoint may not be implemented yet
+    } finally {
+      setEnrichingId(null);
+    }
+  };
+
+  const handleSave = () => {
+    setIsFormOpen(false);
+    setSelectedContact(null);
+    refetch();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex-1 overflow-y-auto bg-transparent p-6 md:p-8"
+    >
+      <div className="max-w-7xl mx-auto space-y-6">
+
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">👤 Contatos & Decisores</h1>
+            <p className="text-xs text-gray-500 mt-0.5 font-medium">
+              {loading ? 'Carregando...' : `${meta?.total ?? contacts.length} contato${(meta?.total ?? contacts.length) !== 1 ? 's' : ''} no banco de dados`}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+                placeholder="Buscar por nome, cargo, e-mail..."
+                className="bg-white/90 backdrop-blur-xl border border-white/80 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-gray-900 font-semibold focus:ring-2 focus:ring-atlas-orange focus:outline-none shadow-md w-56"
+              />
+            </div>
+            <button
+              onClick={() => { setSelectedContact(null); setIsFormOpen(true); }}
+              className="flex items-center gap-2 bg-gradient-to-r from-atlas-orange to-amber-500 text-white font-black text-xs px-5 py-2.5 rounded-2xl shadow-lg shadow-atlas-orange/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" /> Novo Contato
+            </button>
+          </div>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="p-4 rounded-2xl bg-red-50 border border-red-200 flex items-center gap-3 text-red-700 text-sm font-semibold">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span>{error}</span>
+            <button onClick={refetch} className="ml-auto text-xs underline cursor-pointer">Tentar novamente</button>
+          </div>
+        )}
+
+        {/* Table */}
+        <div className="bg-white/95 backdrop-blur-2xl rounded-[2rem] border border-white/90 shadow-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50/60">
+                  <th className="p-4 text-[11px] font-black text-gray-500 uppercase tracking-wider">Contato</th>
+                  <th className="p-4 text-[11px] font-black text-gray-500 uppercase tracking-wider hidden md:table-cell">Empresa</th>
+                  <th className="p-4 text-[11px] font-black text-gray-500 uppercase tracking-wider hidden lg:table-cell">Canais</th>
+                  <th className="p-4 text-[11px] font-black text-gray-500 uppercase tracking-wider hidden xl:table-cell">Seniority</th>
+                  <th className="p-4 text-[11px] font-black text-gray-500 uppercase tracking-wider text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {loading
+                  ? [...Array(6)].map((_, i) => <SkeletonRow key={i} />)
+                  : contacts.length === 0
+                  ? (
+                    <tr>
+                      <td colSpan={5} className="p-16 text-center">
+                        <div className="flex flex-col items-center gap-3 text-gray-400">
+                          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                            <User className="w-8 h-8 text-gray-300" />
+                          </div>
+                          <p className="font-bold text-gray-500">Nenhum contato encontrado</p>
+                          <button
+                            onClick={() => { setSelectedContact(null); setIsFormOpen(true); }}
+                            className="flex items-center gap-2 bg-atlas-orange text-white font-bold text-xs px-4 py-2 rounded-xl cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4" /> Adicionar Primeiro Contato
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                  : contacts.map((contact, idx) => (
+                    <motion.tr
+                      key={contact.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: idx * 0.02 }}
+                      className="hover:bg-orange-50/30 transition-colors group"
+                    >
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-600 font-black text-sm shrink-0 border border-indigo-100 shadow-sm">
+                            {contact.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-extrabold text-gray-900 text-sm">{contact.name}</p>
+                            <p className="text-xs text-gray-500 font-medium">{contact.role || contact.department || '—'}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4 hidden md:table-cell">
+                        <div className="flex items-center gap-1.5 text-xs text-gray-600 font-semibold">
+                          <Building className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          <span className="truncate max-w-[150px]">
+                            {contact.company?.tradeName || contact.company?.legalName || '—'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-4 hidden lg:table-cell">
+                        <div className="space-y-0.5">
+                          {contact.email && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-gray-600">
+                              <Mail className="w-3 h-3 text-atlas-orange shrink-0" />
+                              <span className="truncate max-w-[160px] font-medium">{contact.email}</span>
+                            </div>
+                          )}
+                          {contact.phone && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-gray-600">
+                              <Phone className="w-3 h-3 text-sky-500 shrink-0" />
+                              <span className="font-medium">{contact.phone}</span>
+                            </div>
+                          )}
+                          {contact.linkedin && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-gray-600">
+                              <Linkedin className="w-3 h-3 text-blue-600 shrink-0" />
+                              <span className="font-medium">LinkedIn</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4 hidden xl:table-cell">
+                        {contact.seniority && (
+                          <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${SENIORITY_COLORS[contact.seniority] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                            {contact.seniority}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                          <button
+                            onClick={() => handleEnrich(contact.id)}
+                            disabled={!!enrichingId}
+                            className="p-2 rounded-xl bg-orange-50 text-atlas-orange border border-orange-100 hover:bg-orange-100 transition-all cursor-pointer disabled:opacity-40"
+                            title="Validar e enriquecer contato"
+                          >
+                            {enrichingId === contact.id
+                              ? <Loader2 className="w-4 h-4 animate-spin" />
+                              : <Sparkles className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={() => { setSelectedContact(contact); setIsFormOpen(true); }}
+                            className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-all cursor-pointer"
+                            title="Editar contato"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(contact.id)}
+                            className="p-2 rounded-xl bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 transition-all cursor-pointer"
+                            title="Excluir contato"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))
+                }
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {!loading && totalPages > 1 && (
+            <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+              <span className="text-xs text-gray-500 font-semibold">
+                Página {page} de {totalPages} · {meta?.total ?? 0} contatos
+              </span>
+              <div className="flex gap-2">
+                <button
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="p-2 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-all cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  disabled={page === totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="p-2 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-all cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isFormOpen && (
+        <ContactForm
+          contact={selectedContact}
+          onClose={() => { setIsFormOpen(false); setSelectedContact(null); }}
+          onSave={handleSave}
+        />
+      )}
+    </motion.div>
+  );
+}

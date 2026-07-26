@@ -1,0 +1,487 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector]
+}
+
+model KnowledgeDocument {
+  id        String                      @id @default(uuid())
+  title     String
+  content   String                      @db.Text
+  embedding Unsupported("vector(768)")?
+  createdAt DateTime                    @default(now())
+  updatedAt DateTime                    @updatedAt
+}
+
+enum CompanyStatus {
+  Ativo
+  Inativo
+  Em_analise @map("Em análise")
+}
+
+enum ContactStatus {
+  Ativo
+  Inativo
+}
+
+enum LeadStatus {
+  Novo_Lead        @map("Novo Lead")
+  Qualificacao     @map("Qualificação")
+  Primeiro_Contato @map("Primeiro Contato")
+  Diagnostico      @map("Diagnóstico")
+  Proposta
+  Negociacao       @map("Negociação")
+  Fechado_Ganho    @map("Fechado Ganho")
+  Fechado_Perdido  @map("Fechado Perdido")
+}
+
+enum LeadTemperature {
+  Frio
+  Morno
+  Quente
+}
+
+enum ActivityType {
+  Ligacao   @map("Ligação")
+  WhatsApp
+  Email     @map("E-mail")
+  Reuniao   @map("Reunião")
+  Follow_up @map("Follow-up")
+  Visita
+  Tarefa
+}
+
+enum ActivityStatus {
+  Pendente
+  Em_andamento @map("Em andamento")
+  Concluida    @map("Concluída")
+  Cancelada
+}
+
+model Company {
+  id                String        @id @default(cuid())
+  legalName         String
+  tradeName         String
+  cnpj              String?
+  stateRegistration String?
+  segment           String?
+  cnae              String?
+  size              String?
+  employeeCount     Int?
+  estimatedRevenue  Float?
+  website           String?
+  linkedin          String?
+  instagram         String?
+  twitter           String?
+  facebook          String?
+  phones            String[]
+  emails            String[]
+  address           String?
+  city              String?
+  state             String?
+  zipCode           String?
+  owner             String?
+  status            CompanyStatus @default(Ativo)
+  tags              String[]
+  observations      String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Enrichment (Receita Federal / BrasilAPI + heurísticas)
+  situacaoCadastral String?
+  naturezaJuridica  String?
+  capitalSocial     Float?
+  dataAbertura      DateTime?
+  qsa               Json?
+  enrichmentStatus  String    @default("Pendente") // Pendente | Enriquecendo | Enriquecido | Falhou
+  enrichmentSource  String?
+  enrichedAt        DateTime?
+
+  // Google Maps / My Business Enrichment
+  googleRating       Float?
+  googleReviewsCount Int?
+  businessHours      Json?
+
+  // Apollo Organization Enrich — firmographics reais além do que a Receita Federal expõe
+  technologies String[]
+  keywords     String[]
+  logoUrl      String?
+  apolloOrgId  String?
+
+  contacts       Contact[]
+  leads          Lead[]
+  enrichmentLogs EnrichmentLog[]
+  organizationId String?
+  organization   Organization?   @relation(fields: [organizationId], references: [id])
+  deletedAt      DateTime?
+  deletedBy      String?
+  deleteReason   String?
+
+  @@index([organizationId])
+  @@index([cnpj])
+  @@index([legalName])
+}
+
+model EnrichmentLog {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  source    String // BrasilAPI-CNPJ | BrasilAPI-CEP | AI-Estimate | Domain-Heuristic
+  field     String // o que foi enriquecido (ex: "dados-cadastrais", "endereco", "contatos-sugeridos")
+  status    String // success | not_found | failed
+  rawData   Json?
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+}
+
+model Contact {
+  id           String        @id @default(cuid())
+  name         String
+  role         String?
+  department   String?
+  phone        String?
+  whatsapp     String?
+  email        String?
+  linkedin     String?
+  birthDate    DateTime?
+  observations String?
+  status       ContactStatus @default(Ativo)
+  source       String? // ex: "Apollo", "Hunter"
+  seniority    String? // ex: "c_suite", "vp", "director", "manager" — vindo da Apollo/Hunter
+  emailStatus  String? // ex: "verified", "guessed" — confiabilidade do e-mail encontrado
+
+  companyId      String
+  company        Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leads          Lead[]
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  deletedBy    String?
+  deleteReason String?
+
+  @@index([organizationId])
+}
+
+model Lead {
+  id String @id @default(cuid())
+
+  // New CRM fields
+  status          LeadStatus       @default(Novo_Lead)
+  source          String?
+  channel         String?
+  temperature     LeadTemperature?
+  score           Int?
+  owner           String?
+  lastInteraction DateTime?
+  nextAction      DateTime?
+  // PIC (Perfil de Cliente Ideal) do Playbook de Pré-Vendas Atlas — setado manualmente pelo SDR/AM
+  // após identificar o gatilho real na conversa (não é inferido automaticamente): "PIC1_Expansao"
+  // (transportadora em expansão operacional), "PIC2_Risco" (sob pressão de risco/sinistro), ou
+  // "PIC3_Transicao" (transição de liderança/reestruturação).
+  pic             String?
+  // Checklist de qualificação do SDR (Playbook Comercial AtlasGR, seção 4.2) — contexto
+  // operacional, estrutura atual, dor mapeada, interesse/autoridade e próximo passo. Estruturado
+  // como JSON (ver LeadQualification no frontend) em vez de ~20 colunas separadas.
+  qualification   Json?
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  activities     Activity[]
+  timeline       TimelineEvent[]
+  internalNotes  Note[]
+  organizationId String?
+  organization   Organization?   @relation(fields: [organizationId], references: [id])
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  deletedBy    String?
+  deleteReason String?
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model Activity {
+  id           String         @id @default(cuid())
+  type         ActivityType
+  owner        String
+  date         DateTime
+  time         String?
+  status       ActivityStatus @default(Pendente)
+  observations String?
+
+  leadId         String
+  lead           Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  deletedBy    String?
+  deleteReason String?
+
+  @@index([organizationId])
+}
+
+model TimelineEvent {
+  id          String @id @default(cuid())
+  type        String // creation, edition, movement, activity, comment, generic
+  description String
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model Note {
+  id      String @id @default(cuid())
+  content String // Rich text
+  author  String
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String?
+  actorId   String?
+  tenantId  String?
+  ipAddress String?
+  details   String?  @db.Text
+  timestamp DateTime @default(now())
+
+  @@index([tenantId, entity, action])
+  @@index([actorId, timestamp])
+}
+
+model User {
+  id             String       @id @default(cuid())
+  name           String
+  email          String       @unique
+  // Better Auth guarda a senha em Account.password (provider "credential"), não aqui — este
+  // campo é resquício de um fluxo de auth anterior e não é mais escrito por ninguém no app real.
+  // Precisa ser opcional para não quebrar `prisma.user.create()` do adapter do Better Auth.
+  passwordHash   String?
+  role           String       @default("VISUALIZADOR")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  emailVerified  Boolean      @default(false)
+  image          String?
+  sessions       Session[]
+  accounts       Account[]
+
+  @@map("user")
+}
+
+model Organization {
+  id         String     @id @default(cuid())
+  name       String     @unique
+  users      User[]
+  companies  Company[]
+  contacts   Contact[]
+  leads      Lead[]
+  prospects  Prospect[]
+  activities Activity[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model KnowledgeChunk {
+  id        String                      @id @default(cuid())
+  content   String                      @db.Text
+  // Metadados para filtrar por tenant, lead, etc.
+  metadata  Json?
+  // Embedding gerado pelo modelo text-embedding (ex: Gemini/OpenAI), com 768 dimensões.
+  embedding Unsupported("vector(768)")?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Prompt {
+  id        String   @id @default(cuid())
+  name      String
+  version   String
+  owner     String
+  category  String
+  tags      String[]
+  variables Json
+  history   Json
+  approved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id        String          @id @default(cuid())
+  title     String
+  metadata  Json?
+  content   String
+  chunks    DocumentChunk[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model DocumentChunk {
+  id         String                       @id @default(cuid())
+  documentId String
+  document   Document                     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content    String
+  vector     Unsupported("vector(1536)")?
+
+  @@index([documentId])
+}
+
+model AgentMemory {
+  id        String   @id @default(cuid())
+  sessionId String
+  agentType String
+  messages  Json
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+}
+
+model AILog {
+  id        String   @id @default(cuid())
+  tokens    Int
+  cost      Float
+  latencyMs Int
+  model     String
+  promptId  String?
+  createdAt DateTime @default(now())
+}
+
+model AIGovernancePolicy {
+  id       String @id @default(cuid())
+  name     String
+  rules    Json
+  tenantId String
+}
+
+model AIEvaluation {
+  id                 String @id @default(cuid())
+  logId              String
+  precisionScore     Float
+  hallucinationScore Float
+}
+
+model AIPendingAction {
+  id       String  @id @default(cuid())
+  entity   String
+  action   String
+  payload  Json
+  approved Boolean @default(false)
+}
+
+/// Modelo/provedor de IA escolhido para cada ferramenta (toolKey = chave em ContentTool, ex.
+/// "script_call", "risk"), editável pela tela AIConfigCenter. Quando não há registro para uma
+/// ferramenta, o serviço cai no TOOL_CONFIG hardcoded como padrão.
+model AiEngineSetting {
+  id          String   @id @default(cuid())
+  toolKey     String   @unique
+  provider    String
+  model       String
+  temperature Float
+  updatedAt   DateTime @updatedAt
+}
+
+// ==========================================
+// AtlasGR Prospect - Motor de Prospecção
+// ==========================================
+
+model Prospect {
+  id              String  @id @default(cuid())
+  cnpj            String? @unique
+  companyName     String
+  fantasyName     String?
+  confidenceScore Int     @default(0)
+
+  // Dados Brutos e Enriquecidos
+  enrichedData Json?
+  intelligence Json? // SWOT, BANT, Objeções
+  leadScore    Int?
+
+  status   String  @default("NEW") // NEW, ENRICHING, READY, EXPORTED
+  bitrixId String?
+
+  // Controle de Tenant
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+}
