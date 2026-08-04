@@ -22,7 +22,7 @@ Key transformations include:
 
 ## Backlog Prioritization (Top 3)
 1. Refactor Data Access: Move all Prisma queries to the Infrastructure layer (Repositories).
-2. Setup AI Gateway: Route all LLM calls through LiteLLM.
+2. Set up AI Gateway: Route all LLM calls through LiteLLM.
 3. Core Domain Isolation: Define strict Bounded Contexts for the CRM module.
 
 ## Technical Debt Status
