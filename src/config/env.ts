@@ -107,5 +107,15 @@ if (_env.success && _env.data.NODE_ENV === 'production' && _env.data.ALLOW_DEV_A
   process.exit(1);
 }
 
-// Cast agressivo como fallback para suites do vitest quando `success` é false
-export const env = _env.success ? _env.data : (process.env as unknown as z.infer<typeof envSchema>);
+const _testEnv = envSchema.partial().safeParse({
+  ...process.env,
+  NODE_ENV: process.env.NODE_ENV ?? 'test',
+});
+
+// Em ambiente de teste, aplica defaults/transforms quando o parse completo falha.
+export const env =
+  _env.success
+    ? _env.data
+    : (_testEnv.success
+        ? (_testEnv.data as z.infer<typeof envSchema>)
+        : (process.env as unknown as z.infer<typeof envSchema>));
