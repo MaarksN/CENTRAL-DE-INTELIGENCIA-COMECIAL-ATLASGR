@@ -9,6 +9,6 @@ This report was generated automatically by the Chief Reliability Orchestrator du
 - **Docker Issue:** The `docker compose up -d` command encountered a filesystem error attempting to pull/extract the `redis:7-alpine` container (`failed to convert whiteout file "etc/alternatives/.wh.pager.1.gz": operation not permitted`), likely due to sandbox limitations.
 
 ## Recommendations
-- **Local Testing:** Ensure the PostgreSQL container is properly bound to `localhost:5432`.
+- **Local Testing:** Ensure the PostgreSQL container is properly bound to `localhost:5434` (per `docker-compose.yml` port mapping `5434:5432`).
 - **Docker Environment:** Investigate the layer extraction error in the sandbox to enable local integration testing against the real database.
 - **Continuous Monitoring:** Add explicit readiness probes for the database in CI environments.
