@@ -17,6 +17,9 @@ vi.mock('@/lib/prisma', () => ({
       create: vi.fn(),
     },
     $transaction: vi.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+  },
+  automation: {
+    findMany: vi.fn().mockResolvedValue([]),
   }
 }));
 
