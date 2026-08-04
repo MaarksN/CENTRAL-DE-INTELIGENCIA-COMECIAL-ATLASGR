@@ -13,13 +13,19 @@ vi.mock('../../../../lib/logger.js', () => ({
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock('../../../../lib/queue/whatsappSignal.worker.js', () => ({
+    scheduleConversationAnalysis: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { prisma } from '../../../../lib/prisma.js';
+import { scheduleConversationAnalysis } from '../../../../lib/queue/whatsappSignal.worker.js';
 import { extractMessageText, persistWhatsAppMessage } from '../whatsappMessage.service.js';
 
 const messageMock = prisma.whatsAppMessage as unknown as { findUnique: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
 const leadMock = prisma.lead as unknown as { findFirst: ReturnType<typeof vi.fn> };
 const timelineMock = prisma.timelineEvent as unknown as { create: ReturnType<typeof vi.fn> };
 const queryRawMock = prisma.$queryRaw as unknown as ReturnType<typeof vi.fn>;
+const scheduleMock = scheduleConversationAnalysis as unknown as ReturnType<typeof vi.fn>;
 
 const ORG = 'org-1';
 

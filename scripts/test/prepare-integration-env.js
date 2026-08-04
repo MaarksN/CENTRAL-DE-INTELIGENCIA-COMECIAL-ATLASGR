@@ -5,9 +5,9 @@
 // Corrige problemas reais do setup anterior (ver TEST-003 em
 // docs/auditoria-divida-tecnica/07-PLANO-DE-TESTES.md):
 //
-// 1. `docker-compose up -d` incondicional quebrava no CI: o próprio ci.yml já sobe postgres/redis
-//    como service containers nas mesmas portas (5434/6379) que o docker-compose.yml local usa, e
-//    subir os dois ao mesmo tempo faz o docker-compose falhar tentando bindar uma porta ocupada.
+// 1. `docker compose up -d` incondicional quebrava no CI: o próprio ci.yml já sobe postgres/redis
+//    como service containers nas mesmas portas (5434/6379) que o docker compose.yml local usa, e
+//    subir os dois ao mesmo tempo faz o docker compose falhar tentando bindar uma porta ocupada.
 //    Local, continuamos subindo a stack normalmente.
 // 2. `.env.test` nunca era criado em lugar nenhum — dotenv -e .env.test falhava (ou rodava sem as
 //    variáveis certas) tanto localmente quanto no CI. No CI, o próprio workflow agora escreve
@@ -17,7 +17,7 @@
 //    integração fazem create/delete de linhas de verdade; sem um banco isolado, rodar
 //    `test:integration` localmente misturaria (ou destruiria) dado de dev de verdade. O banco
 //    isolado ("prospectordb_test", mesmo nome que o CI usa) não existe por padrão no Postgres do
-//    docker-compose.yml (que só cria "prospectordb" na inicialização) — este script garante que
+//    docker compose.yml (que só cria "prospectordb" na inicialização) — este script garante que
 //    ele exista, com a extensão vector e o papel `prospector_app` prontos, antes de qualquer coisa
 //    depender disso (mesmo script SQL que scripts/db/bootstrap-app-role.sh usa no CI).
 
@@ -37,9 +37,9 @@ const TEST_DB_NAME = 'prospectordb_test';
 const APP_ROLE_PASSWORD = 'prospector_app_pass';
 
 if (!isCI) {
-  const result = spawnSync('docker-compose', ['up', '-d'], { stdio: 'inherit', shell: true });
+  const result = spawnSync('docker compose', ['up', '-d'], { stdio: 'inherit', shell: true });
   if (result.status !== 0) {
-    console.error('Falha ao subir docker-compose (postgres/redis/meilisearch). Veja a saída acima.');
+    console.error('Falha ao subir docker compose (postgres/redis/meilisearch). Veja a saída acima.');
     process.exit(result.status || 1);
   }
 }

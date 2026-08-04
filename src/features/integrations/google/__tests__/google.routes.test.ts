@@ -27,30 +27,39 @@ import request from 'supertest';
 import express from 'express';
 import { errorHandler } from '@/shared/middlewares/errorHandler';
 
-const getGoogleAuthUrlMock = vi.fn();
-const processGoogleCallbackMock = vi.fn();
-const getGoogleStatusMock = vi.fn();
-const disconnectGoogleMock = vi.fn();
-const getUpcomingCalendarEventsMock = vi.fn();
-const verifyStateMock = vi.fn();
-
 vi.mock('../google.service.js', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../google.service.js')>();
     return {
         ...actual,
         // Mantém as classes de erro reais (GoogleNotConfiguredError/GoogleNotConnectedError) —
         // o router faz `instanceof` contra elas, então precisam ser a mesma referência de classe.
-        getGoogleAuthUrl: (...args: unknown[]) => getGoogleAuthUrlMock(...args),
-        processGoogleCallback: (...args: unknown[]) => processGoogleCallbackMock(...args),
-        getGoogleStatus: (...args: unknown[]) => getGoogleStatusMock(...args),
-        disconnectGoogle: (...args: unknown[]) => disconnectGoogleMock(...args),
-        getUpcomingCalendarEvents: (...args: unknown[]) => getUpcomingCalendarEventsMock(...args),
-        verifyState: (...args: unknown[]) => verifyStateMock(...args),
+        getGoogleAuthUrl: vi.fn(),
+        processGoogleCallback: vi.fn(),
+        getGoogleStatus: vi.fn(),
+        disconnectGoogle: vi.fn(),
+        getUpcomingCalendarEvents: vi.fn(),
+        verifyState: vi.fn(),
     };
 });
 
 import { googleRoutes } from '../google.routes.js';
-import { GoogleNotConfiguredError, GoogleNotConnectedError } from '../google.service.js';
+import {
+    GoogleNotConfiguredError,
+    GoogleNotConnectedError,
+    getGoogleAuthUrl,
+    processGoogleCallback,
+    getGoogleStatus,
+    disconnectGoogle,
+    getUpcomingCalendarEvents,
+    verifyState
+} from '../google.service.js';
+
+const getGoogleAuthUrlMock = vi.mocked(getGoogleAuthUrl);
+const processGoogleCallbackMock = vi.mocked(processGoogleCallback);
+const getGoogleStatusMock = vi.mocked(getGoogleStatus);
+const disconnectGoogleMock = vi.mocked(disconnectGoogle);
+const getUpcomingCalendarEventsMock = vi.mocked(getUpcomingCalendarEvents);
+const verifyStateMock = vi.mocked(verifyState);
 
 function buildApp(withUser = true) {
     const app = express();
