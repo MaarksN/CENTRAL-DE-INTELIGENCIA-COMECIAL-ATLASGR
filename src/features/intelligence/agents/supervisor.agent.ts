@@ -22,8 +22,9 @@ function getSupervisorLlm() {
     if (cachedSupervisorLlm) return cachedSupervisorLlm;
 
     cachedSupervisorLlm = new ChatOpenAI({
-        modelName: 'llama-3.1-8b-instant',
-        temperature: 0,
+        // Updated model to a highly capable one for much better reasoning and orchestration results
+        modelName: 'llama-3.3-70b-versatile',
+        temperature: 0.1, // slightly above 0 to allow some reasoning flexibility
         apiKey: process.env.GROQ_API_KEY || '',
         // 3, não 1: o tier gratuito do Groq tem TPM baixo (6000/min) e um enxame de 4 agentes
         // facilmente bate nele no meio de uma missão — o SDK do OpenAI já respeita o header
@@ -215,23 +216,30 @@ async function supervisorNode(state: SwarmStateType) {
         : `Nenhum Lead ID foi informado para esta missão — NÃO escolha 'sdr' enquanto isso não mudar, pois ele depende de um lead real do CRM e sempre falharia sem um ID.`;
 
     const systemPrompt = `Você é o Supervisor de um Enxame (Swarm) de Agentes de Inteligência Comercial da Atlas.
-Você coordena ${agentKeys.length} especialistas e decide, a cada rodada, qual deve atuar a seguir (ou se a missão está concluída):
+Sua missão é coordenar com maestria ${agentKeys.length} especialistas, decidindo estrategicamente a cada rodada quem deve atuar para cumprir a missão, ou se o objetivo já foi atingido.
+
+Especialistas disponíveis:
 ${(Object.entries(AGENT_INFO) as [SwarmAgentKey, { label: string; description: string; chooseWhen: string }][])
     .map(([key, info]) => `- '${key}' (${info.label}): ${info.description}\n  Escolha quando: ${info.chooseWhen}`)
     .join('\n')}
 
-Missão original do usuário:
+Missão original do usuário (o que precisa ser entregue):
 """${state.mission}"""
 
+Contexto Técnico:
 ${leadContextLine}
 
-Especialistas já acionados nesta missão: ${completedList}.
-Resultados produzidos até agora:
+Estado da Execução:
+- Especialistas já acionados: ${completedList}.
+- Resultados consolidados:
 ${resultsSummary}
 
-Decida o próximo passo usando a ferramenta de decisão de roteamento. Escolha o especialista cujo critério "Escolha quando" bate com a missão — se mais de um parecer plausível, prefira o mais específico. Não repita um especialista que já respondeu de forma satisfatória, a não ser que haja uma lacuna clara que só ele resolve.
-A instrução que você escrever para o especialista deve citar o dado concreto da missão que ele precisa usar — nunca escreva uma instrução genérica como "analise os dados disponíveis".
-Se a missão já foi suficientemente atendida pelos especialistas já acionados, escolha 'finish'.`;
+Suas Regras de Decisão:
+1. Analise cuidadosamente a missão e identifique exatamente quais ações e informações faltam.
+2. Escolha o especialista mais capaz de fornecer a próxima peça do quebra-cabeça. Não repita especialistas a não ser que uma lacuna evidente tenha sido deixada ou novas informações mudem o contexto.
+3. Elabore instruções precisas, diretas e acionáveis para o especialista escolhido. Refira-se a entidades concretas (nomes de empresa, números, dados do resultado anterior). Evite pedidos genéricos como "faça sua parte" ou "analise os dados".
+4. Se o objetivo principal da missão foi coberto de forma clara e suficiente, ou se nenhum especialista restante tem as habilidades para ajudar, escolha 'finish' IMEDIATAMENTE para poupar recursos.
+5. Sempre forneça um "reasoning" justificando logicamente por que esse caminho foi escolhido.`;
 
     let decision: SupervisorDecision;
     const startTime = Date.now();

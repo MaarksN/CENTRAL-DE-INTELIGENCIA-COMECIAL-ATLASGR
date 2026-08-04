@@ -79,13 +79,61 @@ export function OcrCapturePanel() {
         setError(null);
     };
 
+    const compressImage = (file: File): Promise<File> => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            img.onload = () => {
+                const MAX_WIDTH = 1200;
+                const MAX_HEIGHT = 1200;
+                let { width, height } = img;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return resolve(file);
+
+                // Fill with white background before drawing in case it's a transparent PNG (JPEG doesn't support transparency and turns it black)
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
+
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    URL.revokeObjectURL(img.src);
+                    if (blob) {
+                        resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                    } else {
+                        resolve(file);
+                    }
+                }, 'image/jpeg', 0.85);
+            };
+            img.onerror = () => reject(new Error('Falha ao carregar a imagem para compressão'));
+        });
+    };
+
     const handleFile = async (file: File) => {
         reset();
-        setPreviewUrl(URL.createObjectURL(file));
         setReading(true);
         try {
+            // Compress the image before uploading to speed up extraction and save bandwidth
+            const compressedFile = await compressImage(file);
+            setPreviewUrl(URL.createObjectURL(compressedFile));
+
             const form = new FormData();
-            form.append('image', file);
+            form.append('image', compressedFile);
             form.append('brandName', brandInfo.name);
             form.append('brandDescription', brandInfo.description);
             const response = await api.postForm<{ candidate: ProspectCandidate }>('/api/prospecting/ocr', form, { timeoutMs: 120_000 });

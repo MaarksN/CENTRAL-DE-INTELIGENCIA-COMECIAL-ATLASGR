@@ -11,6 +11,9 @@ import { server } from './server';
 // usam supertest para bater direto num servidor Express real via socket TCP local — não é HTTP
 // que devêssemos mockar. Com 'bypass' essas chamadas passam direto para a rede real/local em vez
 // de o MSW tentar (e falhar) interceptá-las.
+// Ensure DATABASE_URL is defined to satisfy src/config/env.ts Zod validations
+process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy';
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
