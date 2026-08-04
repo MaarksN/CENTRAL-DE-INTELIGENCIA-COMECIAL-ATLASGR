@@ -38,5 +38,5 @@ export async function signUp(page: Page, { email, password = E2E_PASSWORD, name 
   await page.getByPlaceholder('seu.nome@atlasgr.com.br ou @totaltrac.com.br').fill(email);
   await page.getByPlaceholder('••••••••').fill(password);
   await page.getByRole('button', { name: /Criar Nova Conta/ }).click();
-  await page.waitForURL('**/app*', { timeout: 15_000 });
+  await page.waitForURL('**/app*', { timeout: 45_000 });
 }

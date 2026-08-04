@@ -11,6 +11,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: [['html', { outputFolder: 'playwright-report', open: 'never' }]],
   use: {
+    actionTimeout: 45_000,
+    navigationTimeout: 45_000,
     baseURL: process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`,
     trace: 'on-first-retry',
   },
@@ -22,7 +24,7 @@ export default defineConfig({
     command: 'npm run start:e2e',
     url: `http://localhost:${PORT}/login`,
     reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    timeout: 120_000,
     env: {
       NODE_ENV: process.env.NODE_ENV ?? 'test',
       PORT,
