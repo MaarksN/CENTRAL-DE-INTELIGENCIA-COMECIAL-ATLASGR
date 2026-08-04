@@ -56,20 +56,24 @@ export const prisma = basePrisma.$extends({
         const isAuditable = auditableModels.includes(model as string);
 
         if (tenantId && tenantModels.includes(model as string)) {
-          const a = args as Record<string, unknown>;
-          if (operation === 'create' || operation === 'createMany') {
-             if (a.data) {
-                if (Array.isArray(a.data)) {
-                  a.data = (a.data as Record<string, unknown>[]).map(d => ({ ...d, organizationId: tenantId }));
-                } else {
-                  a.data = { ...(a.data as Record<string, unknown>), organizationId: tenantId };
-                }
-             }
-          }
-          if (operation === 'upsert') {
-             if (a.create) {
-                a.create = { ...(a.create as Record<string, unknown>), organizationId: tenantId };
-             }
+          // Organization belongs to the tenantModels for RLS wrapping,
+          // but we shouldn't inject organizationId into its own payload.
+          if (model !== 'Organization') {
+            const a = args as Record<string, unknown>;
+            if (operation === 'create' || operation === 'createMany') {
+               if (a.data) {
+                  if (Array.isArray(a.data)) {
+                    a.data = (a.data as Record<string, unknown>[]).map(d => ({ ...d, organizationId: tenantId }));
+                  } else {
+                    a.data = { ...(a.data as Record<string, unknown>), organizationId: tenantId };
+                  }
+               }
+            }
+            if (operation === 'upsert') {
+               if (a.create) {
+                  a.create = { ...(a.create as Record<string, unknown>), organizationId: tenantId };
+               }
+            }
           }
         }
 
