@@ -1,25 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { aiToolsStore } from '../../../lib/db';
 import { Sparkles, Plus, Save, Check, Bot } from 'lucide-react';
 
 export function AiToolBuilder() {
   const [toolName, setToolName] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [category, setCategory] = useState('Outbound SDR');
-  const [createdTools, setCreatedTools] = useState([
-    { id: '1', name: 'Gerador de Cadência Frio SMTP', category: 'Cold Outreach', prompt: 'Gere 3 e-mails frios para decisor de logística.' },
-    { id: '2', name: 'Analisador de LTV & Risk Score', category: 'Analytics', prompt: 'Calcule o risco de churn com base no porte da frota.' }
-  ]);
+  const [createdTools, setCreatedTools] = useState<{ id: string; name: string; category: string; prompt: string; createdAt?: string }[]>([]);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    // Load tools from store on mount
+    const tools = aiToolsStore.list();
+    if (tools.length === 0) {
+      // Seed initial tools if empty
+      const initialTools = [
+        { id: '1', name: 'Gerador de Cadência Frio SMTP', category: 'Cold Outreach', prompt: 'Gere 3 e-mails frios para decisor de logística.', createdAt: new Date().toISOString() },
+        { id: '2', name: 'Analisador de LTV & Risk Score', category: 'Analytics', prompt: 'Calcule o risco de churn com base no porte da frota.', createdAt: new Date().toISOString() }
+      ];
+      setCreatedTools(initialTools);
+      // Optional: actually save these to store so they persist
+      // initialTools.forEach(t => aiToolsStore.save(t));
+    } else {
+      setCreatedTools(tools);
+    }
+  }, []);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!toolName || !systemPrompt) return;
-    const newTool = {
-      id: Date.now().toString(),
+    const newTool = aiToolsStore.save({
       name: toolName,
       category,
       prompt: systemPrompt
-    };
+    });
     setCreatedTools([newTool, ...createdTools]);
     setToolName('');
     setSystemPrompt('');

@@ -560,7 +560,7 @@ export function Intelligence() {
                                     <h3 className="font-black text-2xl text-white mb-2 tracking-tight">Gerando Inteligência</h3>
                                     <p className="font-bold text-xs uppercase tracking-[0.2em] text-atlas-orange">Processando algoritmos cognitivos...</p>
                                     
-                                    {/* Progress Bar Fake */}
+                                    {/* Aesthetic Progress Bar */}
                                     <div className="w-48 h-1 bg-white/10 rounded-full mt-6 overflow-hidden">
                                         <motion.div 
                                             initial={{ width: 0 }} 
