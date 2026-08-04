@@ -1,3 +1,4 @@
+import { toast } from "../../../lib/toast";
 import { useState } from 'react';
 import { Search, Plus, Building2, MapPin, Building, Edit, Trash, Sparkles, Loader2, LayoutGrid, LayoutList, Wrench, ExternalLink, WifiOff } from 'lucide-react';
 import { Company } from '../../../types';
@@ -96,7 +97,7 @@ export function CompanyList() {
             const parts = [`${succeeded} enriquecida${succeeded === 1 ? '' : 's'}`];
             if (failed > 0) parts.push(`${failed} falhou/falharam`);
             if (skipped > 0) parts.push(`${skipped} sem CNPJ (ignorada${skipped === 1 ? '' : 's'})`);
-            alert(parts.join(', ') + '.');
+            toast.info(parts.join(', ') + '.');
         } finally {
             setIsBulkProcessing(false);
             setSelectedIds(new Set());
@@ -126,7 +127,7 @@ export function CompanyList() {
                     title="Prospecção Baseada em Tecnologias (Firmographics)"
                     description="Clique em qualquer logo de ferramenta nas empresas para ver detalhes do software ou filtrar todas as contas que utilizam a mesma tecnologia. Ideal para abordagens altamente personalizadas do SDR!"
                     actionLabel="Ver Dicas Avançadas"
-                    onAction={() => alert('Dica Atlas: Empresas que utilizam React + AWS costumam ter maior maturidade digital e budget elevado para conectividade e GR.')}
+                    onAction={() => toast.info('Dica Atlas: Empresas que utilizam React + AWS costumam ter maior maturidade digital e budget elevado para conectividade e GR.')}
                 />
 
                 {/* Top Header */}

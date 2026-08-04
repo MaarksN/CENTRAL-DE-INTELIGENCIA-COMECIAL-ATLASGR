@@ -1,3 +1,4 @@
+import { toast } from "../../lib/toast";
 import { useState, useEffect } from 'react';
 import { Mic, Sparkles, Volume2, Command, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -80,7 +81,7 @@ export function VoiceCommandWidget() {
 
   const toggleListening = () => {
     if (!recognition) {
-      alert('Seu navegador não suporta reconhecimento de voz. Experimente usar o Google Chrome.');
+      toast.error('Seu navegador não suporta reconhecimento de voz. Experimente usar o Google Chrome.');
       return;
     }
 

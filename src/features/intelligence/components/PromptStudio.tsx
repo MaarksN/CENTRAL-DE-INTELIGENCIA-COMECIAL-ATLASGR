@@ -1,3 +1,4 @@
+import { toast } from "../../../lib/toast";
 import { useState, useEffect } from 'react';
 import { Bot, Save, Loader2, Code2, Sliders } from 'lucide-react';
 import { api } from '../../../lib/api';
@@ -67,10 +68,10 @@ export function PromptStudio() {
                 });
             }
             await loadPrompts();
-            alert('Configurações do modelo atualizadas e em produção!');
+            toast.success('Configurações do modelo atualizadas e em produção!');
         } catch (error) {
             console.error('Failed to save', error);
-            alert('Erro ao salvar as regras do modelo.');
+            toast.error('Erro ao salvar as regras do modelo.');
         } finally {
             setSaving(false);
         }

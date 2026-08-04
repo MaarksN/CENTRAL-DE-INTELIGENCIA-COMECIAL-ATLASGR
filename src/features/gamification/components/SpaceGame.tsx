@@ -36,7 +36,7 @@ function Player({ position, onCollect: _onCollect }: { position: [number, number
 
 function Lead({ position, onHit }: { position: [number, number, number], onHit: (id: string) => void }) {
     const ref = useRef<THREE.Mesh>(null);
-    const id = useMemo(() => Math.random().toString(), []);
+    const id = useMemo(() => crypto.randomUUID(), []);
 
     useFrame((state, delta) => {
         if (!ref.current) return;
@@ -69,7 +69,7 @@ export function SpaceGame({ onScore, isPlaying }: { onScore: (points: number) =>
         setLeads(prev => [
             ...prev,
             {
-                id: Math.random().toString(),
+                id: crypto.randomUUID(),
                 pos: [(Math.random() - 0.5) * BOUNDS, (Math.random() - 0.5) * BOUNDS, -20]
             }
         ]);

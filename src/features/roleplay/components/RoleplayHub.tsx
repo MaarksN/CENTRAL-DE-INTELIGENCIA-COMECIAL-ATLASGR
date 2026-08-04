@@ -1,3 +1,4 @@
+import { toast } from "../../../lib/toast";
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { PhoneCall } from 'lucide-react';
@@ -78,7 +79,7 @@ export function RoleplayHub() {
 
     const toggleListening = () => {
         if (!recognitionRef.current) {
-            alert('Reconhecimento de voz não suportado neste navegador. Tente pelo Chrome desktop.');
+            toast.error('Reconhecimento de voz não suportado neste navegador. Tente pelo Chrome desktop.');
             return;
         }
         if (isListening) {

@@ -1,3 +1,4 @@
+import { toast } from "../../../lib/toast";
 import { useEffect, useState } from 'react';
 import { AlertCircle, Check, Copy, Loader2, Shield, Trash2, UserPlus, Users } from 'lucide-react';
 import { api } from '../../../lib/api';
@@ -80,7 +81,7 @@ export function Team() {
             await api.delete(`/api/team/${member.id}`);
             setMembers((prev) => prev.filter((m) => m.id !== member.id));
         } catch (error) {
-            alert(error instanceof Error ? error.message : 'Falha ao remover usuário.');
+            toast.error(error instanceof Error ? error.message : 'Falha ao remover usuário.');
         } finally {
             setDeletingId(null);
         }

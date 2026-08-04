@@ -42,7 +42,7 @@ export class SearchEngineService {
     const map = new Map<string, Partial<IEnrichedLead>>();
 
     for (const lead of leads) {
-      const key = lead.cnpj || lead.socialReason?.toLowerCase() || Math.random().toString();
+      const key = lead.cnpj || lead.socialReason?.toLowerCase() || crypto.randomUUID();
       
       if (map.has(key)) {
         const existing = map.get(key)!;
