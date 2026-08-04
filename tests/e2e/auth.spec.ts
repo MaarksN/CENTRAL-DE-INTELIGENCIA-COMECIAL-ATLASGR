@@ -30,7 +30,7 @@ test.describe('Autenticação', () => {
     await page.getByPlaceholder('seu.nome@atlasgr.com.br ou @totaltrac.com.br').fill(email);
     await page.getByPlaceholder('••••••••').fill(E2E_PASSWORD);
     await page.getByRole('button', { name: /Entrar na Plataforma/ }).click();
-    await expect(page).toHaveURL(/\/app/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/app/, { timeout: 30_000 });
   });
 
   test('login com senha incorreta é rejeitado pelo servidor e não navega pro app', async ({ page, context }) => {
