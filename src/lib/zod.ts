@@ -5,6 +5,27 @@ import { z } from 'zod';
 // Isso garante que o backend rejeite valores inválidos e o TS alerte em
 // tempo de compilação se um valor desconhecido for passado.
 
+
+export const LEAD_FUNNEL = ['Lead', 'Negocio'] as const;
+export type LeadFunnel = (typeof LEAD_FUNNEL)[number];
+
+export const LEAD_FUNNEL_STATUS = [
+    'Lead Recebido',
+    'Cadência Iniciada',
+    'Qualificação (SDR)',
+    'Reunião Agendada',
+    'Lead Desqualificado',
+    'Convertido em Oportunidade',
+];
+
+export const DEAL_FUNNEL_STATUS = [
+    'Nova Oportunidade',
+    'Proposta Enviada',
+    'Call/Visita Agendada',
+    'Negócios Perdidos',
+    'Negócios Ganhos',
+];
+
 export const COMPANY_STATUS = ['Ativo', 'Inativo', 'Em análise'] as const;
 export const LEAD_STATUS = [
     'Lead Recebido',

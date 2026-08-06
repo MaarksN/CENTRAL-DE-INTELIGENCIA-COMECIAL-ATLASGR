@@ -7,7 +7,7 @@ import { QUALIFICATION_CRITERIA, OBJECTIONS_DATA } from '../../chatbook/componen
 import { CallSetup } from './roleplay-hub/CallSetup';
 import { ActiveCallView } from './roleplay-hub/ActiveCallView';
 import { CallAnalysisReport } from './roleplay-hub/CallAnalysisReport';
-import type { CallAnalysisResult, CallMessage, SpeechRecognitionEventLike, SpeechRecognitionLike } from './roleplay-hub/types';
+import type { CallAnalysisResult, CallMessage } from './roleplay-hub/types';
 
 export function RoleplayHub() {
     const { activeBrand, brandInfo } = useBrand();
@@ -30,7 +30,7 @@ export function RoleplayHub() {
         feedback: string;
     }>>([]);
 
-    const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+    const recognitionRef = useRef<any>(null);
 
     const personasAtlas = [
         { id: 'diretor_logistica', label: 'Diretor de Logística & Supply', desc: 'Focado em ROI, eficiência de processos e redução de sinistros.' },
@@ -66,7 +66,7 @@ export function RoleplayHub() {
             recognitionRef.current = new SpeechRecognition();
             recognitionRef.current.continuous = false;
             recognitionRef.current.lang = 'pt-BR';
-            recognitionRef.current.onresult = (event: SpeechRecognitionEventLike) => {
+            recognitionRef.current.onresult = (event: any) => {
                 const transcript = event.results[0][0].transcript;
                 setInputMessage(transcript);
                 setIsListening(false);

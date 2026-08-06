@@ -20,12 +20,6 @@ export interface SpeechRecognitionConstructorLike {
     new(): SpeechRecognitionLike;
 }
 
-declare global {
-    interface Window {
-        webkitSpeechRecognition?: SpeechRecognitionConstructorLike;
-        SpeechRecognition?: SpeechRecognitionConstructorLike;
-    }
-}
 
 export interface CallMessage {
     id: string;
