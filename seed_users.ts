@@ -34,8 +34,13 @@ interface SeedUserDefinition {
     passwordEnvVar?: string;
 }
 
+// `role` precisa bater exatamente com as chaves de ROLE_HIERARCHY (src/lib/auth/authorization.ts:
+// 'ADMIN'|'GESTOR'|'VENDEDOR'|'VISUALIZADOR', tudo maiúsculo). `hasRequiredRole`/`isKnownRole`
+// fazem lookup case-sensitive nesse objeto — um valor como 'admin' (minúsculo) é gravado no banco
+// sem erro, mas nunca satisfaz nenhuma checagem de RBAC (cai no fallback `?? 0`, mais restrito que
+// VISUALIZADOR). Bug real encontrado aqui: este script gravava 'admin' minúsculo.
 const USERS: SeedUserDefinition[] = [
-    { name: 'Marcelo Nascimento', email: 'marcelo.nascimento@atlasgr.com.br', role: 'admin', passwordEnvVar: 'SEED_PASSWORD_MARCELO' },
+    { name: 'Marcelo Nascimento', email: 'marcelo.nascimento@atlasgr.com.br', role: 'ADMIN', passwordEnvVar: 'SEED_PASSWORD_MARCELO' },
 ];
 
 async function seed() {
