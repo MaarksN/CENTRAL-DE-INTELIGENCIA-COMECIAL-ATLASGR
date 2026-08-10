@@ -62,10 +62,19 @@ async function seed() {
             // Check if user exists
             const res = await client.query('SELECT id FROM "user" WHERE email = $1', [u.email]);
             if (res.rows.length > 0) {
-                console.log(`User ${u.email} already exists, updating password and role...`);
-                await client.query('UPDATE account SET password = $1 WHERE "userId" = $2 AND "providerId" = $3', [hashedPassword, res.rows[0].id, 'credential']);
+                // Só reseta a senha quando o operador forneceu uma explicitamente via
+                // `passwordEnvVar` — nunca por padrão. Um usuário que já existe (ex.: alguém
+                // promovendo o próprio papel para ADMIN) provavelmente não quer a senha que já usa
+                // trocada por uma gerada aleatoriamente sem aviso.
+                const explicitPassword = u.passwordEnvVar && process.env[u.passwordEnvVar];
+                if (explicitPassword) {
+                    console.log(`User ${u.email} already exists — updating password (from ${u.passwordEnvVar}) and role...`);
+                    await client.query('UPDATE account SET password = $1 WHERE "userId" = $2 AND "providerId" = $3', [hashedPassword, res.rows[0].id, 'credential']);
+                    generatedCredentials.push({ email: u.email, password });
+                } else {
+                    console.log(`User ${u.email} already exists — updating role only (current password preserved).`);
+                }
                 await client.query('UPDATE "user" SET role = $1 WHERE id = $2', [u.role, res.rows[0].id]);
-                generatedCredentials.push({ email: u.email, password });
                 continue;
             }
 
