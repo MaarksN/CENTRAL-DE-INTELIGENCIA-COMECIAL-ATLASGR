@@ -1,5 +1,4 @@
 import { Queue, Worker, QueueEvents, Job } from 'bullmq';
-import { Prisma } from '@prisma/client';
 import { connection, queuesEnabled } from './redis.js';
 import { logger } from '../logger.js';
 import { aiService } from '../../features/intelligence/services/ai.service.js';
@@ -49,7 +48,8 @@ export const createLeadsWorker = () => {
                 where: { id: leadId },
                 data: {
                     score: score ?? undefined,
-                    temperature: temperature as unknown as Prisma.LeadUpdateInput['temperature'],
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    temperature: temperature as any,
                     timeline: {
                         create: {
                             type: 'generic',

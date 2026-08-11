@@ -7,7 +7,6 @@ import { Company } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { companySchema, COMPANY_STATUS } from '../../../lib/zod';
 import { companiesDB } from '../../../lib/db';
-import { clientLogger } from '../../../lib/clientLogger';
 
 interface CompanyFormProps {
     company?: Company | null;
@@ -94,7 +93,7 @@ export function CompanyForm({ company, onClose, onSave }: CompanyFormProps) {
             }
             onSave();
         } catch (error) {
-            clientLogger.error({ err: error }, 'Error saving company');
+            console.error('Error saving company:', error);
         }
     };
 

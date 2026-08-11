@@ -43,7 +43,7 @@ describe('promoteToCrm', () => {
         mockEnrichCompany.mockResolvedValue(undefined as never);
         leadMock.create.mockResolvedValue({
             id: 'lead-1',
-            status: 'Novo_Lead',
+            status: 'Lead Recebido',
             company: { id: 'comp-1', status: 'Ativo' },
             contact: null,
         });
@@ -72,7 +72,7 @@ describe('promoteToCrm', () => {
         mockEnrichCompany.mockRejectedValue(new Error('Apollo indisponível'));
         leadMock.create.mockResolvedValue({
             id: 'lead-1',
-            status: 'Novo_Lead',
+            status: 'Lead Recebido',
             company: { id: 'comp-1', status: 'Ativo' },
             contact: null,
         });

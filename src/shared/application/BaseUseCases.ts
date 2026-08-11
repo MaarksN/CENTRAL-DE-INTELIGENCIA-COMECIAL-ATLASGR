@@ -49,11 +49,13 @@ export abstract class BaseUseCases<T, TRepository extends CrudRepository<T> = Cr
         return this.repository.findById!(organizationId, id);
     }
 
-    protected async create(organizationId: string, data: Partial<T> | Record<string, unknown>): Promise<T> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    protected async create(organizationId: string, data: any): Promise<T> {
         return this.repository.create!(organizationId, data);
     }
 
-    protected async update(organizationId: string, id: string, data: Partial<T> | Record<string, unknown>): Promise<T> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    protected async update(organizationId: string, id: string, data: any): Promise<T> {
         return this.repository.update!(organizationId, id, data);
     }
 

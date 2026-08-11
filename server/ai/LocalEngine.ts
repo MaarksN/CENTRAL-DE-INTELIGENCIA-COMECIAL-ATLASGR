@@ -1,29 +1,25 @@
 import { pipeline, env } from '@xenova/transformers';
-import { logger } from '../../src/lib/logger.js';
 
 // Optimization for Node.js
 env.allowLocalModels = true;
 
-type SentimentPipeline = Awaited<ReturnType<typeof pipeline<'sentiment-analysis'>>>;
-type ClassificationPipeline = Awaited<ReturnType<typeof pipeline<'zero-shot-classification'>>>;
-
 class LocalAIEngine {
-  private static sentimentPipeline: SentimentPipeline | null = null;
-  private static classificationPipeline: ClassificationPipeline | null = null;
+  private static sentimentPipeline: any = null;
+  private static classificationPipeline: any = null;
 
   /**
    * Initializes the models. Call this on server start to avoid cold starts.
    */
   static async warmup() {
     try {
-      logger.info('🤖 Warming up Local AI Engine...');
+      console.log('🤖 Warming up Local AI Engine...');
       // Load sentiment analysis (very lightweight)
       this.sentimentPipeline = await pipeline('sentiment-analysis', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english');
       // Zero-shot classification
       this.classificationPipeline = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
-      logger.info('✅ Local AI Engine ready');
+      console.log('✅ Local AI Engine ready');
     } catch (err) {
-      logger.error({ err }, '❌ Failed to load Local AI Engine');
+      console.error('❌ Failed to load Local AI Engine', err);
     }
   }
 

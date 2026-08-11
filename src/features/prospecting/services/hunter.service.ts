@@ -15,23 +15,6 @@ export interface HunterPersonContact {
     linkedin_url: string | null;
 }
 
-interface HunterEmailFinderResponse {
-    data?: { email?: string | null; score?: number };
-}
-
-interface HunterDomainSearchEmail {
-    first_name?: string | null;
-    last_name?: string | null;
-    position?: string | null;
-    value?: string | null;
-    phone_number?: string | null;
-    linkedin?: string | null;
-}
-
-interface HunterDomainSearchResponse {
-    data?: { emails?: HunterDomainSearchEmail[] };
-}
-
 /**
  * Encontra/verifica um e-mail real de uma pessoa num domínio via Hunter.io Email Finder (tier gratuito).
  * Usado como fallback quando a Apollo não retorna e-mail para um decisor encontrado.
@@ -53,7 +36,7 @@ export async function findEmailViaHunter(domain: string, fullName: string): Prom
         });
         const res = await fetchWithTimeout(`https://api.hunter.io/v2/email-finder?${params.toString()}`, {}, 12_000);
         if (!res.ok) return { email: null };
-        const data = await res.json() as HunterEmailFinderResponse;
+        const data = await res.json();
         return { email: data?.data?.email || null, score: data?.data?.score };
     } catch (error) {
         logger.error({ err: error, domain }, 'Error querying Hunter.io');
@@ -88,12 +71,14 @@ export async function findPeopleViaDomainSearch(
             const text = await res.text().catch(() => '');
             return { contacts: [], error: `Hunter Domain Search respondeu ${res.status}: ${text.slice(0, 150)}` };
         }
-        const data = await res.json() as HunterDomainSearchResponse;
+        const data = await res.json();
         const emails = data?.data?.emails || [];
 
         const contacts: HunterPersonContact[] = emails
-            .filter((e) => e.first_name || e.last_name)
-            .map((e) => ({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .filter((e: any) => e.first_name || e.last_name)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((e: any) => ({
                 name: `${e.first_name || ''} ${e.last_name || ''}`.trim() || 'Sem Nome',
                 title: e.position || null,
                 email: e.value || null,

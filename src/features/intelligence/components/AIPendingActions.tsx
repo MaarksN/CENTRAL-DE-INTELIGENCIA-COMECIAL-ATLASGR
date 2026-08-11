@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Bot, Check, X, Mail } from 'lucide-react';
 import { api } from '../../../lib/api';
-import { clientLogger } from '../../../lib/clientLogger';
 
 interface PendingAction {
     id: string;
@@ -25,7 +24,7 @@ export function AIPendingActions() {
             const response = await api.get<PendingAction[]>('/api/intelligence/pending');
             setActions(Array.isArray(response) ? response : []);
         } catch (error) {
-            clientLogger.error({ err: error }, 'Error fetching AI actions');
+            console.error('Error fetching AI actions', error);
         } finally {
             setLoading(false);
         }
@@ -56,7 +55,7 @@ export function AIPendingActions() {
 
             setActions(prev => prev.filter(a => a.id !== action.id));
         } catch (error) {
-            clientLogger.error({ err: error }, 'Error approving');
+            console.error('Error approving', error);
         }
     };
 
@@ -65,7 +64,7 @@ export function AIPendingActions() {
             await api.delete(`/api/intelligence/pending/${id}`);
             setActions(prev => prev.filter(a => a.id !== id));
         } catch (error) {
-            clientLogger.error({ err: error }, 'Error discarding');
+            console.error('Error discarding', error);
         }
     };
 
