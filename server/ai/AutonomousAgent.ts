@@ -1,7 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
 import { HumanMessage, BaseMessage, AIMessage } from "@langchain/core/messages";
-import { logger } from "../../src/lib/logger.js";
 
 // Define the state for the agent
 interface AgentState {
@@ -12,7 +11,7 @@ interface AgentState {
 
 export class AutonomousAgent {
   private llm: ChatOpenAI;
-  private graph!: ReturnType<StateGraph<AgentState>['compile']>;
+  private graph: any;
 
   constructor() {
     this.llm = new ChatOpenAI({
@@ -25,20 +24,20 @@ export class AutonomousAgent {
   private setupGraph() {
     // 1. Define nodes
     const planTask = async (state: AgentState) => {
-      logger.info({ objective: state.objective }, "Agent: Planning for objective");
+      console.log("Agent: Planning for objective:", state.objective);
       const msg = new AIMessage(`I have analyzed the objective: ${state.objective}. Starting research phase.`);
       return { messages: [msg], status: "researching" };
     };
 
     const executeResearch = async (state: AgentState) => {
-      logger.info("Agent: Executing research phase...");
+      console.log("Agent: Executing research phase...");
       // Mocking a tool call or external API fetch here
       const researchResult = new AIMessage("Research completed. Found relevant data points.");
       return { messages: [researchResult], status: "compiling" };
     };
 
     const compileReport = async (state: AgentState) => {
-      logger.info("Agent: Compiling final report...");
+      console.log("Agent: Compiling final report...");
       const finalReport = new AIMessage(`Final Report for ${state.objective}: Analysis indicates successful data extraction.`);
       return { messages: [finalReport], status: "completed" };
     };
@@ -80,7 +79,7 @@ export class AutonomousAgent {
   async startWorkflow(objective: string, threadId: string) {
     const config = { configurable: { thread_id: threadId } };
     
-    logger.info({ threadId }, "🚀 Starting Autonomous Agent");
+    console.log(`🚀 Starting Autonomous Agent for thread ${threadId}`);
     
     const stream = await this.graph.stream(
       { 
@@ -92,7 +91,7 @@ export class AutonomousAgent {
     );
 
     for await (const value of stream) {
-      logger.info({ value }, "Agent State Update");
+      console.log("Agent State Update:", value);
     }
     
     return await this.graph.getState(config);

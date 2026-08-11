@@ -14,12 +14,12 @@ test.describe('CRUD de lead', () => {
 
   test('cria, lê, atualiza e (tenta) excluir um lead', async ({ page }) => {
     const createRes = await page.request.post('/api/leads', {
-      data: { status: 'Novo Lead', source: 'e2e-test', channel: 'Teste automatizado' },
+      data: { status: 'Lead Recebido', source: 'e2e-test', channel: 'Teste automatizado' },
     });
     expect(createRes.status()).toBe(201);
     const created = (await createRes.json()).data;
     expect(created).toHaveProperty('id');
-    expect(created.status).toBe('Novo Lead');
+    expect(created.status).toBe('Lead Recebido');
 
     const leadId = created.id;
 
@@ -61,7 +61,7 @@ test.describe('CRUD de lead', () => {
 
   test('lead recém-criado aparece na listagem paginada de leads', async ({ page }) => {
     const createRes = await page.request.post('/api/leads', {
-      data: { status: 'Novo Lead', source: 'e2e-listagem' },
+      data: { status: 'Lead Recebido', source: 'e2e-listagem' },
     });
     const created = (await createRes.json()).data;
 

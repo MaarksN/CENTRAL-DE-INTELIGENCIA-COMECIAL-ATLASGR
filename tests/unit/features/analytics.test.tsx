@@ -22,7 +22,7 @@ const dashboardCheio = {
         conversionRate: 21.5, averageScore: 62, pipelineValue: null,
     },
     funnel: [
-        { label: 'Novo Lead', count: 30, conversionFromPrevious: null },
+        { label: 'Lead Recebido', count: 30, conversionFromPrevious: null },
         { label: 'Qualificação', count: 21, conversionFromPrevious: 70 },
     ],
     byTemperature: [{ label: 'Quente', count: 8 }],

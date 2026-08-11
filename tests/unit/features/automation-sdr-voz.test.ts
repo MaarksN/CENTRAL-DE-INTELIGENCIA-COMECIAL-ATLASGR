@@ -42,7 +42,7 @@ const eventoLeadCriado: AutomationEvent = {
     trigger: 'Lead criado',
     entity: 'Lead',
     entityId: 'lead-9',
-    data: { status: 'Novo Lead', owner: 'Marcelo' },
+    data: { status: 'Lead Recebido', owner: 'Marcelo' },
 };
 
 function regraLigar(over: Record<string, unknown> = {}) {

@@ -5,7 +5,6 @@ import { api } from '../../../lib/api';
 import { TechToolLogo, TechToolInfo } from '../../../components/ui/TechToolLogo';
 import { ToolTechPopover } from '../../../components/ui/ToolTechPopover';
 import { ContextualTip } from '../../../components/ui/ContextualTip';
-import { clientLogger } from '../../../lib/clientLogger';
 
 interface CompanyDetailProps {
     companyId: string;
@@ -23,7 +22,7 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
             const data = await api.get<Company>(`/api/companies/${companyId}`);
             setCompany(data);
         } catch (error) {
-            clientLogger.error({ err: error }, 'Error fetching company details');
+            console.error('Error fetching company details:', error);
         } finally {
             setLoading(false);
         }
@@ -41,7 +40,7 @@ export function CompanyDetail({ companyId, onBack }: CompanyDetailProps) {
             await api.post(`/api/companies/${companyId}/enrich`, undefined, { timeoutMs: 60_000 });
             await fetchCompany();
         } catch (error) {
-            clientLogger.error({ err: error }, 'Error enriching company');
+            console.error('Error enriching company:', error);
         } finally {
             setEnriching(false);
         }

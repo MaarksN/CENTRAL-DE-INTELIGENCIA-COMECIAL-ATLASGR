@@ -1,7 +1,6 @@
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { prisma } from '../../../lib/prisma.js';
-import { Prisma } from '@prisma/client';
 import { toPrismaLeadStatus, fromPrismaLeadStatus } from '../../../lib/enumMap';
 import { LEAD_STATUS, type LeadStatus } from '../../../lib/zod.js';
 import { getTenantId } from '../../../lib/async-context.js';
@@ -145,7 +144,8 @@ export const updateLeadQualificationTool = tool(
                 where: { id: leadId, organizationId },
                 data: {
                     score,
-                    status: toPrismaLeadStatus(status as LeadStatus) as unknown as Prisma.LeadUpdateManyMutationInput['status'],
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    status: toPrismaLeadStatus(status as import('../../../lib/zod').LeadStatus) as any,
                     qualification: {
                         score,
                         summary,

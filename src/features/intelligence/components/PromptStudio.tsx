@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Bot, Save, Loader2, Code2, Sliders } from 'lucide-react';
 import { api } from '../../../lib/api';
 import { RobustScriptGenerator } from './RobustScriptGenerator';
-import { clientLogger } from '../../../lib/clientLogger';
 
 interface Prompt {
     id: string;
@@ -33,13 +32,14 @@ export function PromptStudio() {
 
     const loadPrompts = async () => {
         try {
-            const data = await api.get<Prompt[]>('/api/prompts');
-            setPrompts(data);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const res: any = await api.get('/api/prompts');
+            setPrompts(res.data.data);
 
-            const current = data.find((p) => p.category === selectedCategory);
+            const current = res.data.data.find((p: Prompt) => p.category === selectedCategory);
             if (current?.variables?.tone) setTone(current.variables.tone as string);
         } catch (error) {
-            clientLogger.error({ err: error }, 'Failed to load prompts');
+            console.error('Failed to load prompts', error);
         } finally {
             setLoading(false);
         }
@@ -69,7 +69,7 @@ export function PromptStudio() {
             await loadPrompts();
             alert('Configurações do modelo atualizadas e em produção!');
         } catch (error) {
-            clientLogger.error({ err: error }, 'Failed to save');
+            console.error('Failed to save', error);
             alert('Erro ao salvar as regras do modelo.');
         } finally {
             setSaving(false);

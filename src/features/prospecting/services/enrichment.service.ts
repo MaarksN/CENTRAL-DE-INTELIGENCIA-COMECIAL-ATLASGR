@@ -704,24 +704,21 @@ async function runEnrichment(
             }
         });
 
-        const validContacts = apolloContacts.filter((c) => c.name && c.name !== 'Sem Nome');
-        const contactsWithStatus = await Promise.all(validContacts.map(async (c) => {
-            return { ...c, emailStatus: await resolveEmailStatus(c.email) };
-        }));
-        if (contactsWithStatus.length > 0) {
-            await prisma.contact.createMany({
-                data: contactsWithStatus.map((c) => ({
-                    name: c.name!,
+        for (const c of apolloContacts) {
+            if (!c.name || c.name === 'Sem Nome') continue;
+            await prisma.contact.create({
+                data: {
+                    name: c.name,
                     role: c.title,
                     email: c.email,
                     phone: c.phone,
                     whatsapp: guessWhatsappFromPhone(c.phone),
                     linkedin: c.linkedin_url,
                     source: 'Apollo',
-                    emailStatus: c.emailStatus,
+                    emailStatus: await resolveEmailStatus(c.email),
                     companyId,
-                    organizationId: company.organizationId!
-                }))
+                    organizationId: company.organizationId
+                }
             });
         }
     } else if (domainGuess.verified && domainGuess.domain) {
@@ -743,24 +740,21 @@ async function runEnrichment(
             });
 
             // Save contacts to CRM
-            const validContacts = apolloContacts.filter((c) => c.name && c.name !== 'Sem Nome');
-            const contactsWithStatus = await Promise.all(validContacts.map(async (c) => {
-                return { ...c, emailStatus: await resolveEmailStatus(c.email) };
-            }));
-            if (contactsWithStatus.length > 0) {
-                await prisma.contact.createMany({
-                    data: contactsWithStatus.map((c) => ({
-                        name: c.name!,
+            for (const c of apolloContacts) {
+                if (!c.name || c.name === 'Sem Nome') continue;
+                await prisma.contact.create({
+                    data: {
+                        name: c.name,
                         role: c.title,
                         email: c.email,
                         phone: c.phone,
                         whatsapp: guessWhatsappFromPhone(c.phone),
                         linkedin: c.linkedin_url,
                         source: contactsSource === 'hunter' ? 'Hunter' : 'Apollo',
-                        emailStatus: c.emailStatus,
+                        emailStatus: await resolveEmailStatus(c.email),
                         companyId,
-                        organizationId: company.organizationId!
-                    }))
+                        organizationId: company.organizationId
+                    }
                 });
             }
         }
