@@ -1,14 +1,16 @@
 -- Onda 2.5 - Agente 01 (Plataforma, Segurança e Dados)
 --
 -- Chamadas de IA internas (scripts, workers e verificadores) podem não possuir tenant no
--- AsyncLocalStorage e, portanto, precisam registrar AILog com organizationId = NULL.
+-- AsyncLocalStorage e precisam registrar AILog com organizationId = NULL.
 --
--- Esse corredor NÃO usa app.bypass_rls. O gravador interno abre uma transação curta, ativa
--- app.allow_unattributed_ailog='on' com SET LOCAL e executa INSERT parametrizado SEM RETURNING.
--- A flag morre no COMMIT/ROLLBACK e só é reconhecida pela policy de INSERT desta tabela.
+-- Esse corredor NÃO usa app.bypass_rls e NÃO depende de estado temporário de sessão. O gravador
+-- interno executa INSERT parametrizado SEM RETURNING. A policy aceita NULL somente quando:
+--   1) a conexão é exatamente o papel backend NOSUPERUSER `prospector_app`; e
+--   2) não existe app.current_tenant_id ativo.
 --
--- A policy de SELECT permanece estrita: logs NULL nunca ficam legíveis para um tenant comum nem
--- para a própria transação interna. Isso evita transformar telemetria não atribuída em bypass.
+-- Requisições tenant-scoped continuam bloqueadas para NULL, e SELECT de logs NULL permanece
+-- fechado. O `prisma.aILog.create({ organizationId: null })` comum também continua falhando porque
+-- o Prisma usa RETURNING, e a policy de SELECT não concede leitura da linha sem organização.
 
 DROP POLICY IF EXISTS tenant_isolation_policy ON "AILog";
 DROP POLICY IF EXISTS ailog_tenant_select_policy ON "AILog";
@@ -30,8 +32,8 @@ WITH CHECK (
     OR current_setting('app.bypass_rls', TRUE) = 'on'
     OR (
         "organizationId" IS NULL
-        AND current_setting('app.allow_unattributed_ailog', TRUE) = 'on'
-        AND current_user NOT IN ('anon', 'authenticated')
+        AND current_user = 'prospector_app'
+        AND COALESCE(current_setting('app.current_tenant_id', TRUE), '') = ''
     )
 );
 
