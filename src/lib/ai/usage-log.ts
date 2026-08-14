@@ -7,13 +7,12 @@ import { estimateCostUsd, type AiUsageLogInput } from './gateway-core.js';
 /**
  * Persiste consumo de IA respeitando RLS.
  *
- * Chamadas com tenant usam o fluxo normal. Telemetria interna sem tenant recebe uma autorização
- * específica, local à transação e válida somente para AILog pela policy do banco. Não reutiliza
- * app.bypass_rls e, portanto, não abre acesso às demais tabelas.
+ * Chamadas com tenant usam o fluxo normal. Telemetria interna sem tenant usa INSERT parametrizado
+ * sem RETURNING. A policy do banco só aceita esse caso quando a conexão é o papel backend
+ * `prospector_app` e não existe app.current_tenant_id ativo.
  *
- * O INSERT interno é SQL parametrizado e deliberadamente não usa RETURNING. Assim a policy de
- * SELECT continua fechada para organizationId=NULL; a aplicação não precisa ganhar permissão de
- * leitura só para o Prisma devolver a linha que acabou de inserir.
+ * Não usamos app.bypass_rls nem GUC temporário: além de reduzir superfície de privilégio, isso
+ * evita depender da afinidade de conexão de transações interativas do Prisma/adapter-pg.
  */
 export const logAiUsage = async (input: AiUsageLogInput): Promise<void> => {
     const organizationId = requestContext.getStore()?.tenantId ?? null;
@@ -33,16 +32,12 @@ export const logAiUsage = async (input: AiUsageLogInput): Promise<void> => {
         }
 
         const id = randomUUID();
-        await prisma.$transaction(async (tx) => {
-            // SQL constante, sem entrada do usuário. O SET LOCAL morre junto com esta transação.
-            await tx.$executeRawUnsafe("SET LOCAL app.allow_unattributed_ailog = 'on'");
-            await tx.$executeRaw`
-                INSERT INTO "AILog"
-                    ("id", "tokens", "cost", "latencyMs", "model", "promptId", "organizationId", "createdAt")
-                VALUES
-                    (${id}, ${data.tokens}, ${data.cost}, ${data.latencyMs}, ${data.model}, ${data.promptId ?? null}, NULL, CURRENT_TIMESTAMP)
-            `;
-        });
+        await prisma.$executeRaw`
+            INSERT INTO "AILog"
+                ("id", "tokens", "cost", "latencyMs", "model", "promptId", "organizationId", "createdAt")
+            VALUES
+                (${id}, ${data.tokens}, ${data.cost}, ${data.latencyMs}, ${data.model}, ${data.promptId ?? null}, NULL, CURRENT_TIMESTAMP)
+        `;
     } catch (error) {
         // Telemetria nunca deve derrubar a resposta útil ao usuário.
         logger.warn({ err: error, model: input.model }, 'Unable to persist AI usage log');
