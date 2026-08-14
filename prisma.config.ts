@@ -44,7 +44,7 @@ function resolvePrismaCliUrl(): string {
 }
 
 /**
- * One-shot recovery hook for the Render production database.
+ * Temporary one-shot recovery hook for the Render production database.
  *
  * The RLS migration reached CREATE POLICY in production before failing because that
  * policy was already present. Prisma correctly records P3018 and then blocks every
@@ -52,22 +52,16 @@ function resolvePrismaCliUrl(): string {
  * migration is now idempotent, so the safe recovery is to mark only that exact failed
  * attempt as rolled back and let the parent `migrate deploy` apply it again.
  *
- * This hook is deliberately triple-gated:
- *   1) Render itself (`RENDER=true`),
- *   2) an explicit temporary env flag managed in the Render service, and
- *   3) only the parent `prisma migrate deploy` command.
- *
- * The child receives PRISMA_RENDER_RECOVERY_CHILD=1 to prevent recursion. If there is
- * no failed migration to resolve, Prisma exits non-zero and the parent continues; it
- * will then report the real migration state normally.
+ * This runs only on Render and only while the parent command is `prisma migrate deploy`.
+ * The child receives PRISMA_RENDER_RECOVERY_CHILD=1 to prevent recursion. After the
+ * production migration succeeds, this hook is removed in a cleanup commit.
  */
 function recoverFailedRenderRlsMigrationOnce(): void {
   const isRender = process.env.RENDER === 'true';
-  const recoveryEnabled = process.env.PRISMA_REPAIR_RLS_20260807 === 'true';
   const isChild = process.env.PRISMA_RENDER_RECOVERY_CHILD === '1';
   const isMigrateDeploy = process.argv.includes('migrate') && process.argv.includes('deploy');
 
-  if (!isRender || !recoveryEnabled || isChild || !isMigrateDeploy) return;
+  if (!isRender || isChild || !isMigrateDeploy) return;
 
   console.warn(
     `[prisma.config] Attempting one-time recovery of failed migration ${RENDER_RLS_RECOVERY_MIGRATION}.`,
