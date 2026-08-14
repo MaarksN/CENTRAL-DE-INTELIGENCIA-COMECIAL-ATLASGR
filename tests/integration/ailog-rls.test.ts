@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '../../src/lib/prisma';
 import { requestContext } from '../../src/lib/async-context';
@@ -18,20 +19,18 @@ function createLog(organizationId: string | null, promptId: string) {
     });
 }
 
-function createInternalUnattributedLog(promptId: string) {
-    return prisma.$transaction(async (tx) => {
+async function createInternalUnattributedLog(promptId: string) {
+    const id = randomUUID();
+    await prisma.$transaction(async (tx) => {
         await tx.$executeRawUnsafe("SET LOCAL app.allow_unattributed_ailog = 'on'");
-        return tx.aILog.create({
-            data: {
-                organizationId: null,
-                tokens: 123,
-                cost: 0.001,
-                latencyMs: 42,
-                model: 'test-model',
-                promptId,
-            },
-        });
+        await tx.$executeRaw`
+            INSERT INTO "AILog"
+                ("id", "tokens", "cost", "latencyMs", "model", "promptId", "organizationId", "createdAt")
+            VALUES
+                (${id}, ${123}, ${0.001}, ${42}, ${'test-model'}, ${promptId}, NULL, CURRENT_TIMESTAMP)
+        `;
     });
+    return id;
 }
 
 describe('AILog: contrato RLS da Onda 2.5', () => {
@@ -89,8 +88,12 @@ describe('AILog: contrato RLS da Onda 2.5', () => {
     });
 
     it('permite telemetria interna não atribuída somente dentro da transação marcada', async () => {
-        const unattributed = await createInternalUnattributedLog('onda-2.5-ailog-internal-unattributed');
-        expect(unattributed.organizationId).toBeNull();
+        const id = await createInternalUnattributedLog('onda-2.5-ailog-internal-unattributed');
+
+        const persisted = await requestContext.run({ bypassRls: true }, () =>
+            prisma.aILog.findUnique({ where: { id } }),
+        );
+        expect(persisted?.organizationId).toBeNull();
 
         const visibleToTenant = await requestContext.run({ tenantId: ORG_A }, () =>
             prisma.aILog.findMany({
