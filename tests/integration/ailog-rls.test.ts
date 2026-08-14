@@ -18,6 +18,22 @@ function createLog(organizationId: string | null, promptId: string) {
     });
 }
 
+function createInternalUnattributedLog(promptId: string) {
+    return prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe("SET LOCAL app.allow_unattributed_ailog = 'on'");
+        return tx.aILog.create({
+            data: {
+                organizationId: null,
+                tokens: 123,
+                cost: 0.001,
+                latencyMs: 42,
+                model: 'test-model',
+                promptId,
+            },
+        });
+    });
+}
+
 describe('AILog: contrato RLS da Onda 2.5', () => {
     beforeEach(async () => {
         await requestContext.run({ bypassRls: true }, async () => {
@@ -66,8 +82,14 @@ describe('AILog: contrato RLS da Onda 2.5', () => {
         ).rejects.toThrow();
     });
 
-    it('permite telemetria interna não atribuída sem transformar NULL em bypass de leitura', async () => {
-        const unattributed = await createLog(null, 'onda-2.5-ailog-internal-unattributed');
+    it('bloqueia escrita NULL sem a autorização interna explícita', async () => {
+        await expect(
+            createLog(null, 'onda-2.5-ailog-null-without-internal-flag'),
+        ).rejects.toThrow();
+    });
+
+    it('permite telemetria interna não atribuída somente dentro da transação marcada', async () => {
+        const unattributed = await createInternalUnattributedLog('onda-2.5-ailog-internal-unattributed');
         expect(unattributed.organizationId).toBeNull();
 
         const visibleToTenant = await requestContext.run({ tenantId: ORG_A }, () =>
@@ -85,6 +107,7 @@ describe('AILog: contrato RLS da Onda 2.5', () => {
         await requestContext.run({ tenantId: ORG_B }, () =>
             createLog(ORG_B, 'onda-2.5-ailog-hidden-b'),
         );
+        await createInternalUnattributedLog('onda-2.5-ailog-hidden-null');
 
         const rows = await requestContext.run({ tenantId: ORG_A }, () =>
             prisma.aILog.findMany({
@@ -94,6 +117,7 @@ describe('AILog: contrato RLS da Onda 2.5', () => {
         );
 
         expect(rows.some((row) => row.organizationId === ORG_B)).toBe(false);
+        expect(rows.some((row) => row.organizationId === null)).toBe(false);
         expect(rows.some((row) => row.promptId === 'onda-2.5-ailog-visible-a')).toBe(true);
         expect(rows.some((row) => row.promptId === 'onda-2.5-ailog-hidden-b')).toBe(false);
     });

@@ -2,15 +2,15 @@
 --
 -- Corrige a falha observada em `npm run verify:ai`: chamadas de IA executadas fora de uma
 -- request HTTP (scripts, workers e verificadores) chegam a `logAiUsage()` sem tenant no
--- AsyncLocalStorage. Nesses casos o gateway grava `organizationId = NULL`.
+-- AsyncLocalStorage e precisam gravar `organizationId = NULL`.
 --
--- Prisma usa INSERT ... RETURNING. Portanto a linha recém-inserida também precisa satisfazer
--- uma policy de SELECT no mesmo contexto; permitir NULL apenas no WITH CHECK de INSERT não basta.
+-- A autorização desse caso NÃO usa app.bypass_rls. O gateway abre uma transação curta e seta
+-- `app.allow_unattributed_ailog = 'on'` com SET LOCAL. A variável morre no COMMIT/ROLLBACK e a
+-- policy abaixo só a reconhece para linhas AILog sem organização. Isso evita um bypass genérico.
 --
--- Segurança: NULL não é bypass de tenant. Uma linha não atribuída só pode ser criada/retornada
--- quando NÃO existe tenant ativo na sessão e a conexão é interna do banco. Se houver
--- app.current_tenant_id, mesmo uma conexão interna não pode fabricar nem enxergar AILog NULL.
--- Roles expostas pelo PostgREST (anon/authenticated) nunca entram nesse corredor interno.
+-- Prisma usa INSERT ... RETURNING, portanto a mesma autorização precisa existir em SELECT para
+-- a linha recém-inserida poder ser devolvida dentro da transação. Fora dessa transação, AILog NULL
+-- continua invisível aos tenants.
 
 DROP POLICY IF EXISTS tenant_isolation_policy ON "AILog";
 DROP POLICY IF EXISTS ailog_tenant_select_policy ON "AILog";
@@ -25,7 +25,7 @@ USING (
     OR current_setting('app.bypass_rls', TRUE) = 'on'
     OR (
         "organizationId" IS NULL
-        AND COALESCE(current_setting('app.current_tenant_id', TRUE), '') = ''
+        AND current_setting('app.allow_unattributed_ailog', TRUE) = 'on'
         AND current_user NOT IN ('anon', 'authenticated')
     )
 );
@@ -37,7 +37,7 @@ WITH CHECK (
     OR current_setting('app.bypass_rls', TRUE) = 'on'
     OR (
         "organizationId" IS NULL
-        AND COALESCE(current_setting('app.current_tenant_id', TRUE), '') = ''
+        AND current_setting('app.allow_unattributed_ailog', TRUE) = 'on'
         AND current_user NOT IN ('anon', 'authenticated')
     )
 );
