@@ -1,16 +1,14 @@
 -- Onda 2.5 - Agente 01 (Plataforma, Segurança e Dados)
 --
--- Corrige a falha observada em `npm run verify:ai`: chamadas de IA executadas fora de uma
--- request HTTP (scripts, workers e verificadores) chegam a `logAiUsage()` sem tenant no
--- AsyncLocalStorage e precisam gravar `organizationId = NULL`.
+-- Chamadas de IA internas (scripts, workers e verificadores) podem não possuir tenant no
+-- AsyncLocalStorage e, portanto, precisam registrar AILog com organizationId = NULL.
 --
--- A autorização desse caso NÃO usa app.bypass_rls. O gateway abre uma transação curta e seta
--- `app.allow_unattributed_ailog = 'on'` com SET LOCAL. A variável morre no COMMIT/ROLLBACK e a
--- policy abaixo só a reconhece para linhas AILog sem organização. Isso evita um bypass genérico.
+-- Esse corredor NÃO usa app.bypass_rls. O gravador interno abre uma transação curta, ativa
+-- app.allow_unattributed_ailog='on' com SET LOCAL e executa INSERT parametrizado SEM RETURNING.
+-- A flag morre no COMMIT/ROLLBACK e só é reconhecida pela policy de INSERT desta tabela.
 --
--- Prisma usa INSERT ... RETURNING, portanto a mesma autorização precisa existir em SELECT para
--- a linha recém-inserida poder ser devolvida dentro da transação. Fora dessa transação, AILog NULL
--- continua invisível aos tenants.
+-- A policy de SELECT permanece estrita: logs NULL nunca ficam legíveis para um tenant comum nem
+-- para a própria transação interna. Isso evita transformar telemetria não atribuída em bypass.
 
 DROP POLICY IF EXISTS tenant_isolation_policy ON "AILog";
 DROP POLICY IF EXISTS ailog_tenant_select_policy ON "AILog";
@@ -23,11 +21,6 @@ FOR SELECT
 USING (
     current_setting('app.current_tenant_id', TRUE) = "organizationId"
     OR current_setting('app.bypass_rls', TRUE) = 'on'
-    OR (
-        "organizationId" IS NULL
-        AND current_setting('app.allow_unattributed_ailog', TRUE) = 'on'
-        AND current_user NOT IN ('anon', 'authenticated')
-    )
 );
 
 CREATE POLICY ailog_tenant_insert_policy ON "AILog"
