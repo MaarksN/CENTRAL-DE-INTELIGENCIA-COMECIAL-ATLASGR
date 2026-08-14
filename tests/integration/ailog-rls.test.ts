@@ -21,15 +21,12 @@ function createLog(organizationId: string | null, promptId: string) {
 
 async function createInternalUnattributedLog(promptId: string) {
     const id = randomUUID();
-    await prisma.$transaction(async (tx) => {
-        await tx.$executeRawUnsafe("SET LOCAL app.allow_unattributed_ailog = 'on'");
-        await tx.$executeRaw`
-            INSERT INTO "AILog"
-                ("id", "tokens", "cost", "latencyMs", "model", "promptId", "organizationId", "createdAt")
-            VALUES
-                (${id}, ${123}, ${0.001}, ${42}, ${'test-model'}, ${promptId}, NULL, CURRENT_TIMESTAMP)
-        `;
-    });
+    await prisma.$executeRaw`
+        INSERT INTO "AILog"
+            ("id", "tokens", "cost", "latencyMs", "model", "promptId", "organizationId", "createdAt")
+        VALUES
+            (${id}, ${123}, ${0.001}, ${42}, ${'test-model'}, ${promptId}, NULL, CURRENT_TIMESTAMP)
+    `;
     return id;
 }
 
@@ -81,18 +78,19 @@ describe('AILog: contrato RLS da Onda 2.5', () => {
         ).rejects.toThrow();
     });
 
-    it('bloqueia escrita NULL sem a autorização interna explícita', async () => {
+    it('bloqueia Prisma create NULL sem o corredor interno sem RETURNING', async () => {
         await expect(
-            createLog(null, 'onda-2.5-ailog-null-without-internal-flag'),
+            createLog(null, 'onda-2.5-ailog-null-without-internal-path'),
         ).rejects.toThrow();
     });
 
-    it('permite telemetria interna não atribuída somente dentro da transação marcada', async () => {
+    it('permite telemetria interna não atribuída pelo papel backend sem tenant ativo', async () => {
         const id = await createInternalUnattributedLog('onda-2.5-ailog-internal-unattributed');
 
         const persisted = await requestContext.run({ bypassRls: true }, () =>
             prisma.aILog.findUnique({ where: { id } }),
         );
+        expect(persisted).not.toBeNull();
         expect(persisted?.organizationId).toBeNull();
 
         const visibleToTenant = await requestContext.run({ tenantId: ORG_A }, () =>
@@ -103,7 +101,7 @@ describe('AILog: contrato RLS da Onda 2.5', () => {
         expect(visibleToTenant).toHaveLength(0);
     });
 
-    it('SELECT continua isolado por tenant e não expõe logs de outra organização', async () => {
+    it('SELECT continua isolado por tenant e não expõe logs de outra organização nem NULL', async () => {
         await requestContext.run({ tenantId: ORG_A }, () =>
             createLog(ORG_A, 'onda-2.5-ailog-visible-a'),
         );
