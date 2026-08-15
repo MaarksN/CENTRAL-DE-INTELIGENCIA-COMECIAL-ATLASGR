@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
 import { logger } from '../../lib/logger.js';
-import { requestContext } from '../../lib/async-context.js';
+import { requestContext, runInContext } from '../../lib/async-context.js';
 import { notificationService, type NotificationKind } from '../notifications/notification.service.js';
 import { toPrismaAutomationTrigger, fromPrismaAutomationAction } from '../../lib/enumMap.js';
 import { automationHistoryService } from './automation-history.service.js';
@@ -154,7 +154,7 @@ export class AutomationEngine {
         // Workers e consumidores de fila podem disparar o motor sem AsyncLocalStorage prévio.
         // Nesse caso o próprio evento carrega o tenant e passa a ser o contexto RLS desta execução.
         if (!store?.tenantId) {
-            return requestContext.run(
+            return runInContext(
                 {
                     tenantId: event.organizationId,
                     userId: store?.userId,

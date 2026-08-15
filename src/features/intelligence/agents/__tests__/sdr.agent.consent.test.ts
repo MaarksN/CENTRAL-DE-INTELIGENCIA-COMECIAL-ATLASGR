@@ -12,7 +12,7 @@ vi.mock('../../../../lib/logger.js', () => ({
     logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
-const { requestContext } = await import('../../../../lib/async-context');
+const { runInContext } = await import('../../../../lib/async-context');
 const { SDRQualificationAgent } = await import('../sdr.agent');
 const { PiiConsentRequiredError } = await import('../../services/guardrails.service');
 
@@ -24,7 +24,7 @@ describe('SDRQualificationAgent.run — trava de consentimento LGPD', () => {
     it('bloqueia a qualificação sem base legal registrada para a organização, sem tocar em Prisma/LLM', async () => {
         const agent = new SDRQualificationAgent();
 
-        const result = await requestContext.run({ tenantId: 'org-sem-consentimento' }, () => agent.run('lead-1'));
+        const result = await runInContext({ tenantId: 'org-sem-consentimento' }, () => agent.run('lead-1'));
 
         expect(result.success).toBe(false);
         expect(result.error).toContain('org-sem-consentimento');

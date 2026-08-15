@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest';
 import { prisma } from '../../src/lib/prisma';
-import { requestContext } from '../../src/lib/async-context';
+import { runInContext } from '../../src/lib/async-context';
 
 // DB-001 / DB-002 (auditoria de dívida técnica, Fase 0, ciclo C0.2): confirma que consultas a
 // KnowledgeChunk, Prompt, AgentMemory e AIPendingAction filtradas por organizationId nunca
@@ -15,7 +15,7 @@ import { requestContext } from '../../src/lib/async-context';
 // o teste verifica: o que está sob teste é o filtro explícito de organizationId nas queries acima,
 // não a própria RLS.
 const withRlsBypass = <T>(fn: () => Promise<T>): Promise<T> =>
-  requestContext.run({ bypassRls: true }, fn);
+  runInContext({ bypassRls: true }, fn);
 
 const ORG_A = 'test-org-id'; // já seedado por tests/helpers/integration-setup.ts
 const ORG_B = 'test-org-id-b';

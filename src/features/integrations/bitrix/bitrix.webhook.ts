@@ -3,7 +3,7 @@ import express, { Router, Request, Response } from 'express';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../../lib/prisma.js';
 import { logger } from '../../../lib/logger.js';
-import { requestContext } from '../../../lib/async-context.js';
+import { requestContext, runInContext } from '../../../lib/async-context.js';
 import { callBitrix } from './service/client.js';
 import { resolveEnumMaps, applyInboundCustomFields } from './service/customFields.js';
 import { bitrixSyncFailuresTotal } from './service/metrics.js';
@@ -134,7 +134,7 @@ async function handleWebhook(req: Request, res: Response): Promise<void> {
     // bypassRls só cobre ESTE lookup por id (ver allowlist em src/lib/prisma.ts) — não há tenant
     // conhecido ainda nesta linha, só o connectionId da URL. Toda leitura/escrita seguinte roda
     // dentro de requestContext.run({ tenantId: connection.organizationId }) com RLS normal.
-    const connection = await requestContext.run({ bypassRls: true }, () =>
+    const connection = await runInContext({ bypassRls: true }, () =>
         prisma.bitrixConnection.findUnique({ where: { id: connectionId } }));
 
     if (!connection || !connection.inboundEventsEnabled || !connection.webhookSecret) {

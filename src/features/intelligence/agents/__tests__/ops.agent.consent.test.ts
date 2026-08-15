@@ -31,7 +31,7 @@ vi.mock('../../../../lib/prisma.js', () => ({
     },
 }));
 
-const { requestContext } = await import('../../../../lib/async-context');
+const { runInContext } = await import('../../../../lib/async-context');
 const { OpsAgent } = await import('../ops.agent');
 
 afterEach(() => {
@@ -42,7 +42,7 @@ describe('OpsAgent.run — trava de consentimento LGPD', () => {
     it('bloqueia quando um leadId real é informado sem base legal registrada', async () => {
         const agent = new OpsAgent();
 
-        const result = await requestContext.run(
+        const result = await runInContext(
             { tenantId: 'org-sem-consentimento' },
             () => agent.run('Agende um follow-up para o lead.', undefined, 'lead-1'),
         );
@@ -58,7 +58,7 @@ describe('OpsAgent.run — trava de consentimento LGPD', () => {
         // comportamento do LLM em si.
         const agent = new OpsAgent();
 
-        const result = await requestContext.run(
+        const result = await runInContext(
             { tenantId: 'org-sem-consentimento' },
             () => agent.run('Notifique a equipe sobre um risco geral.', 'session-x'),
         );

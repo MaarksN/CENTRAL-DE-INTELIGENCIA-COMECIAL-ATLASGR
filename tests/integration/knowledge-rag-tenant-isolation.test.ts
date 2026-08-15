@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { prisma } from '../../src/lib/prisma';
-import { requestContext } from '../../src/lib/async-context';
+import { requestContext, runInContext } from '../../src/lib/async-context';
 
 // RAG-001: `vector.service.ts`/`vector-search.service.ts` (usados pelo agente de SDR outbound e
 // por `GET /api/intelligence/search`) foram corrigidos para delegar ao mesmo pipeline real da Base
@@ -34,7 +34,7 @@ describe('RAG (Base de Conhecimento): isolamento de tenant na busca híbrida', (
             if (!exists) await prisma.organization.create({ data: { id: ORG_B, name: 'Test Org RAG B' } });
         });
 
-        const docA = await requestContext.run({ tenantId: ORG_A }, () =>
+        const docA = await runInContext({ tenantId: ORG_A }, () =>
             ingestionService.ingestText({
                 organizationId: ORG_A,
                 title: 'Playbook exclusivo do tenant A',
@@ -42,7 +42,7 @@ describe('RAG (Base de Conhecimento): isolamento de tenant na busca híbrida', (
             }));
         docAId = docA.id;
 
-        const docB = await requestContext.run({ tenantId: ORG_B }, () =>
+        const docB = await runInContext({ tenantId: ORG_B }, () =>
             ingestionService.ingestText({
                 organizationId: ORG_B,
                 title: 'Playbook exclusivo do tenant B',
@@ -59,7 +59,7 @@ describe('RAG (Base de Conhecimento): isolamento de tenant na busca híbrida', (
     });
 
     it('busca do tenant A nunca retorna trecho do documento do tenant B, mesmo com termos quase idênticos', async () => {
-        const result = await requestContext.run({ tenantId: ORG_A }, () =>
+        const result = await runInContext({ tenantId: ORG_A }, () =>
             searchService.hybridSearch(ORG_A, 'estratégia confidencial de precificação logística pesada'));
 
         expect(result.hits.length).toBeGreaterThan(0);
@@ -68,7 +68,7 @@ describe('RAG (Base de Conhecimento): isolamento de tenant na busca híbrida', (
     });
 
     it('busca do tenant B nunca retorna trecho do documento do tenant A', async () => {
-        const result = await requestContext.run({ tenantId: ORG_B }, () =>
+        const result = await runInContext({ tenantId: ORG_B }, () =>
             searchService.hybridSearch(ORG_B, 'estratégia confidencial de precificação logística pesada'));
 
         expect(result.hits.length).toBeGreaterThan(0);
@@ -77,7 +77,7 @@ describe('RAG (Base de Conhecimento): isolamento de tenant na busca híbrida', (
     });
 
     it('RAG-001: VectorSearchService (usado pelo agente de SDR outbound) delega ao pipeline real com tenant isolado', async () => {
-        const results = await requestContext.run({ tenantId: ORG_A }, () =>
+        const results = await runInContext({ tenantId: ORG_A }, () =>
             VectorSearchService.searchChunks('estratégia confidencial de precificação logística pesada', ORG_A, 5));
 
         expect(results.length).toBeGreaterThan(0);
@@ -89,7 +89,7 @@ describe('RAG (Base de Conhecimento): isolamento de tenant na busca híbrida', (
     // devolve `documentTitle`, exigido para toda resposta de RAG citar a fonte real (nunca afirmar
     // ter encontrado algo que não existe).
     it('vectorStore.similaritySearch (playbook do enxame de IA) isola por tenant e cita a fonte real', async () => {
-        const results = await requestContext.run({ tenantId: ORG_A }, () =>
+        const results = await runInContext({ tenantId: ORG_A }, () =>
             vectorStore.similaritySearch('estratégia confidencial de precificação logística pesada', 5));
 
         expect(results.length).toBeGreaterThan(0);

@@ -4,7 +4,7 @@ import { logger } from '../../lib/logger.js';
 import { fromNodeHeaders } from 'better-auth/node';
 import { isAuthorizedLoginEmail } from '../../config/access-policy.js';
 import type { getTenantPrisma } from '../../lib/tenant-prisma.js';
-import { requestContext } from '../../lib/async-context.js';
+import { runInContext } from '../../lib/async-context.js';
 import { UNVERIFIED_ROLE } from '../../lib/auth/authorization.js';
 
 export interface AuthUser {
@@ -25,7 +25,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
         // sabermos o tenant do usuário — getSession() precisa localizar Session/User por conta
         // própria, e essas tabelas têm FORCE ROW LEVEL SECURITY. Sem o bypass aqui, toda requisição
         // com sessão seria rejeitada como sessão inválida sob RLS.
-        const session = await requestContext.run({ bypassRls: true }, () =>
+        const session = await runInContext({ bypassRls: true }, () =>
             auth.api.getSession({
                 headers: fromNodeHeaders(req.headers)
             })
@@ -60,7 +60,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
             organizationId: user.organizationId,
         };
 
-        requestContext.run({ tenantId: user.organizationId, userId: user.id, role: user.role }, () => {
+        runInContext({ tenantId: user.organizationId, userId: user.id, role: user.role }, () => {
             next();
         });
     } catch (err) {

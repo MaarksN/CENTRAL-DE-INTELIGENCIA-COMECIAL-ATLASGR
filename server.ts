@@ -22,7 +22,7 @@ import { auth } from './src/lib/auth.js';
 import { intelligenceRoutes } from './src/features/intelligence/routes/intelligence.routes.js';
 import { promptRoutes } from './src/features/intelligence/routes/prompt.routes.js';
 import { authenticateToken, type AuthRequest } from './src/shared/middlewares/authenticateToken.js';
-import { requestContext } from './src/lib/async-context.js';
+import { runInContext } from './src/lib/async-context.js';
 import { requireTenant } from './src/shared/middlewares/authorization.js';
 import { requireRole } from './src/shared/middlewares/requireRole.js';
 import { COMMERCIAL_INTELLIGENCE_ROLES } from './src/lib/auth/authorization.js';
@@ -343,7 +343,7 @@ async function startServer() {
     // CORREÇÃO: app.all captura todos os métodos HTTP, incluindo CONNECT e TRACE.
     // app.use é mais correto aqui: deixa o Better Auth decidir quais métodos aceita.
     app.use('/api/auth', (req, res) => {
-        requestContext.run({ bypassRls: true }, () => authHandler(req, res));
+        runInContext({ bypassRls: true }, () => authHandler(req, res));
     });
 
     // ── BullBoard (UI de Monitoramento de Filas) ──────────────────────────

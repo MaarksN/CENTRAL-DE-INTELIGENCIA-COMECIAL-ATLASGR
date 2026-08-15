@@ -51,7 +51,7 @@ vi.mock('@/lib/ai/gateway', async () => {
 });
 
 const { prisma } = await import('@/lib/prisma');
-const { requestContext } = await import('@/lib/async-context');
+const { runInContext } = await import('@/lib/async-context');
 const { runSwarmScheduler, getSwarmSloSnapshot } = await import(
     '@/features/intelligence/services/swarmScheduler.service'
 );
@@ -59,7 +59,7 @@ const { runSwarmScheduler, getSwarmSloSnapshot } = await import(
 const ORG_ID = 'swarm-e2e-org';
 const NOW = new Date('2026-08-15T12:00:00Z'); // segunda-feira, 09:00 em São Paulo
 
-const withRlsBypass = <T>(fn: () => Promise<T>): Promise<T> => requestContext.run({ bypassRls: true }, fn);
+const withRlsBypass = <T>(fn: () => Promise<T>): Promise<T> => runInContext({ bypassRls: true }, fn);
 
 let leadId: string;
 

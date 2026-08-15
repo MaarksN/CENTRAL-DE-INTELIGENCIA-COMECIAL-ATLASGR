@@ -15,6 +15,10 @@ vi.mock('@/lib/async-context', () => ({
             return fn();
         },
     },
+    runInContext: async (store: { tenantId?: string; bypassRls?: boolean }, fn: () => unknown) => {
+        contextStore.push(store);
+        return fn();
+    },
 }));
 
 const prismaMock = {

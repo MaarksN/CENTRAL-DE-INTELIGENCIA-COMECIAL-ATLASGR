@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { prisma } from '../../src/lib/prisma';
-import { requestContext } from '../../src/lib/async-context';
+import { runInContext } from '../../src/lib/async-context';
 import { eraseDataSubject, ANONYMIZED_CONTACT_NAME } from '../../src/shared/services/dataSubjectErasure.service';
 
 // Handoff: .agents/handoffs/onda-6/01A-para-14-lgpd-erasure-cross-tenant-test.md
@@ -27,14 +27,13 @@ import { eraseDataSubject, ANONYMIZED_CONTACT_NAME } from '../../src/shared/serv
 // 7 (`client-engine-runtime`) processa a chamada fora da janela em que o AsyncLocalStorage
 // considera o contexto "ativo", e `getStore()` volta `undefined` — sem tenantId nem bypassRls, a
 // policy de RLS nega o INSERT/UPDATE com "new row violates row-level security policy", mesmo
-// tendo passado tenantId/bypassRls corretos para `run()`. Envolver o callback em `async () => {...}`
-// (o padrão já usado em todo o resto de `tests/integration/`) resolve — por isso todo `withTenant`/
-// `withBypass` abaixo usa `async`, mesmo quando não há `await` explícito no corpo.
+// tendo passado tenantId/bypassRls corretos para `run()`. `runInContext()` (src/lib/async-context.ts)
+// resolve isso de forma centralizada — nunca precisa lembrar de escrever `async` à mão de novo.
 const withBypass = <T>(fn: () => Promise<T>): Promise<T> =>
-  requestContext.run({ bypassRls: true }, fn);
+  runInContext({ bypassRls: true }, fn);
 
 const withTenant = <T>(tenantId: string, fn: () => Promise<T>): Promise<T> =>
-  requestContext.run({ tenantId }, fn);
+  runInContext({ tenantId }, fn);
 
 const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 const ORG_A = `test-lgpd-org-a-${suffix}`;

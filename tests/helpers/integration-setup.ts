@@ -36,13 +36,13 @@ vi.mock('../../src/lib/search/index.js', () => ({
 }));
 
 import { prisma } from '../../src/lib/prisma';
-import { requestContext } from '../../src/lib/async-context';
+import { requestContext, runInContext } from '../../src/lib/async-context';
 
 // Roda fora de qualquer request HTTP, então não há tenantId nem sessão do Better Auth por trás
 // dessas queries — sem bypassRls elas seriam bloqueadas pelas mesmas policies de FORCE ROW LEVEL
 // SECURITY que protegem Organization/User em produção (ver src/lib/async-context.ts).
 const withRlsBypass = <T>(fn: () => Promise<T>): Promise<T> =>
-  requestContext.run({ bypassRls: true }, fn);
+  runInContext({ bypassRls: true }, fn);
 
 // Real database cleanup for integration tests
 const cleanDatabase = async () => withRlsBypass(async () => {
