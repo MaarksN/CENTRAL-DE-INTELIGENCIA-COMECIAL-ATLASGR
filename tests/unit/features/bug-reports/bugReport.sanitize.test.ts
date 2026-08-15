@@ -15,7 +15,8 @@ describe('bugReport.sanitize', () => {
         });
 
         it('redige um JWT (três segmentos base64url separados por ponto)', () => {
-            const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+            // JWT sintético (payload {"sub":"1234567890"}), fixture de teste — não é um segredo real.
+            const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U'; // gitleaks:allow
             const input = `token expirado: ${jwt}`;
             expect(redactText(input)).toBe('token expirado: [REDACTED_JWT]');
         });
