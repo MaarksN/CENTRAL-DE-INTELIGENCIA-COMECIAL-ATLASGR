@@ -138,9 +138,13 @@ describe('RBAC ponta-a-ponta — Bug Reports', () => {
 
     describe('PATCH /api/bug-reports/:id/status', () => {
         it('ADMIN triaga um relato da própria organização (200)', async () => {
+            // Cada signUpRealUser cria uma organização própria (mesmo padrão de
+            // rbac-e2e-commercial-intelligence.test.ts) — viewerA e adminA NÃO compartilham
+            // tenant, então "própria organização" aqui precisa ser testado com o relato criado
+            // pelo próprio adminA (POST não tem restrição de papel, ADMIN também pode relatar).
             const created = await request(app)
                 .post('/api/bug-reports')
-                .set('Cookie', viewerA.cookie)
+                .set('Cookie', adminA.cookie)
                 .send({ title: 'Para triagem', description: 'Descrição qualquer.' });
 
             const res = await request(app)

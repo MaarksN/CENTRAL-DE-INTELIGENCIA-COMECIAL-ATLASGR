@@ -39,8 +39,10 @@ describe('RBAC ponta-a-ponta — Feature Flags', () => {
     beforeAll(async () => {
         app = buildApp();
         // Mesma sincronização que server.ts roda no boot — sem isto, a chave usada pelos testes
-        // não existiria em FeatureFlag e todo PUT/GET voltaria vazio/404.
-        await featureFlagsService.syncRegistry();
+        // não existiria em FeatureFlag e todo PUT/GET voltaria vazio/404. Precisa do mesmo
+        // bypassRls que server.ts usa no boot: sem tenant conhecido, a policy de RLS de
+        // FeatureFlag bloqueia o upsert (ver BYPASS_RLS_ALLOWED_MODELS em src/lib/prisma.ts).
+        await withRlsBypass(() => featureFlagsService.syncRegistry());
 
         adminA = await signUpRealUser('flags-admin-a', 'ADMIN');
         vendedorA = await signUpRealUser('flags-vendedor-a', 'VENDEDOR');
