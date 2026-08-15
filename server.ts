@@ -447,7 +447,7 @@ async function startServer() {
     // agendamento abaixo (scheduleColdCallCampaigns/scheduleSwarmScheduler). `bypassRls: true` é
     // necessário aqui: roda antes de qualquer request HTTP existir, sem tenant conhecido — ver
     // FeatureFlag em BYPASS_RLS_ALLOWED_MODELS (src/lib/prisma.ts) para o porquê de ser seguro.
-    requestContext.run({ bypassRls: true }, () =>
+    runInContext({ bypassRls: true }, () =>
         featureFlagsService.syncRegistry().catch((err) =>
             logger.error({ err }, 'Falha ao sincronizar catálogo de feature flags no boot')
         )
