@@ -1,8 +1,9 @@
 - De: Agente 12 (Voz e Telefonia)
 - Para: Agente 00 (Coordenador) / Agente 08 (QA e Release)
 - Onda: 7
-- Status: aberto — diagnóstico original corrigido pelo Coordenador (ver "## Correção do
-  Coordenador" abaixo)
+- Status: resolvido (Onda 9, 2026-08-15 — ver `.agents/runs/onda-9.md` e
+  `src/lib/async-context.ts::runInContext`; diagnóstico original corrigido pelo Coordenador,
+  ver "## Correção do Coordenador" abaixo)
 - Prioridade: crítico (não é só contenção entre agentes — reproduzido de forma determinística em
   processo único, sem nenhuma concorrência; risco real de correção de "ler o que acabou de
   escrever" em produção, não só nos testes)

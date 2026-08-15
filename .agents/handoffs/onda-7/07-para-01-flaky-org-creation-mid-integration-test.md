@@ -1,8 +1,16 @@
 - De: Agente 07 (IA, RAG, Filas e Automações)
 - Para: Agente 01 (Plataforma, Segurança e Dados) — dono de `src/lib/prisma.ts`/RLS/conexão Postgres
 - Onda: 7
-- Status: aberto
+- Status: resolvido (Onda 9, 2026-08-15 — ver `.agents/runs/onda-9.md` e `src/lib/async-context.ts::runInContext`)
 - Prioridade: alto (não bloqueia esta onda — descrito abaixo — mas limita a confiabilidade de testes de integração futuros em qualquer domínio)
+
+## Resolução (Coordenador, Onda 9)
+
+Causa raiz confirmada por reprodução isolada: callback não-`async` passado a
+`requestContext.run()` perde o contexto do `AsyncLocalStorage` sob o client-engine-runtime do
+Prisma 7 — exatamente o padrão suspeitado aqui. Corrigido de forma centralizada com
+`runInContext()` em `src/lib/async-context.ts`, aplicado em todos os call sites reais (produção e
+teste). Detalhes completos em `.agents/runs/onda-9.md`.
 
 ## Problema
 
