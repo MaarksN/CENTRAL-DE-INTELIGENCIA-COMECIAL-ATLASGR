@@ -351,17 +351,44 @@ Processo já existente, não recriado:
 | 6 | Sem segredo no código | ✅ Já implementado; gap de Vault conhecido e aceito | `src/config/env.ts` |
 | 7 | Feature Flags | ✅ **Novo nesta mudança** | `src/features/feature-flags/` |
 | 8 | Reportar Problemas | ✅ **Novo nesta mudança** | `src/features/bug-reports/` |
-| 9 | Testes automáticos | ✅ Unit executado e verde; integração escrita, não executada neste ambiente | `tests/unit/`, `tests/integration/` |
-| 10 | Auditoria de segurança/pentest | ✅ Processo já existe; gap de frescor documental identificado | `.github/workflows/ci.yml`, `docs/reports/` |
+| 9 | Testes automáticos | ✅ Unit + integração + e2e/acessibilidade verdes no CI (PR #127) | `tests/unit/`, `tests/integration/`, `.github/workflows/ci.yml` |
+| 10 | Auditoria de segurança/pentest | ✅ Processo já existe; docs de segurança corrigidos nesta mudança | `.github/workflows/ci.yml`, `docs/security/` |
 | 11 | WAF / Rate limiting | ✅ Já implementado + limiter dedicado novo | `server.ts` |
 | 12 | HTTPS / Criptografia | ✅ Já implementado; `BugReport.context` sanitizado | `docs/deploy/producao.md` |
 
-## Follow-ups recomendados (fora do escopo desta mudança)
+## Follow-ups — status
 
-1. Rodar `npm run test:integration` num ambiente com Postgres real (CI já faz isso) para
-   confirmar `rbac-e2e-feature-flags.test.ts`/`rbac-e2e-bug-reports.test.ts` em execução real —
-   escritos e com typecheck limpo, mas não executados nesta sessão por falta de Postgres local.
-2. Atualizar `docs/security/SECURITY_GUIDE.md` e `docs/security/THREAT_MODEL.md` para refletir a
-   stack real de auth (Better Auth), como item de documentação separado.
-3. Avaliar um Secrets Manager dedicado (Vault ou equivalente) se o número de segredos geridos só
-   por env var crescer — hoje é um risco aceito e documentado, não um bloqueador.
+1. ✅ **Resolvido.** `npm run test:integration` rodou no CI (`build-and-test`, PR #127) com
+   Postgres real — `rbac-e2e-feature-flags.test.ts` e `rbac-e2e-bug-reports.test.ts` passaram.
+   O próprio CI encontrou e permitiu corrigir dois bugs reais que só apareciam com banco real:
+   `featureFlagsService.syncRegistry()` rodando sem `bypassRls` no boot (RLS bloqueava o
+   catálogo de flags de ser semeado — ver seção 4) e um teste que assumia incorretamente que
+   dois usuários de `signUpRealUser` compartilhavam organização.
+2. ✅ **Resolvido.** `docs/security/SECURITY_GUIDE.md` e `docs/security/THREAT_MODEL.md`
+   atualizados para refletir a stack real: sessão via Better Auth (cookie `HttpOnly`, não par de
+   JWT access/refresh), RBAC canônico de 4 papéis (`src/lib/auth/authorization.ts`), e a seção
+   "Replay Attacks" do threat model — que descrevia um cache de nonce que nunca existiu neste
+   código — corrigida para registrar isso como gap real e não mitigado, em vez de uma proteção
+   fictícia.
+3. **Avaliação de Secrets Manager dedicado** (não implementado nesta mudança — decisão de
+   infraestrutura, não um bug de código):
+   - **Estado atual**: segredos vivem em env vars por provedor (Render, `sync: false`) + Zod
+     fail-fast (`src/config/env.ts`) + criptografia de campo AES-256-GCM para credenciais de
+     integração persistidas no banco (`src/lib/crypto/secretFields.ts`). Cobre rotação manual e
+     não-commit (gitleaks no CI), mas não cobre: rotação automática, auditoria de acesso a
+     segredo individual, nem short-lived credentials.
+   - **Opções avaliadas**:
+     - *HashiCorp Vault* — mais completo (dynamic secrets, leasing), mas exige operar um
+       serviço adicional com HA própria; desproporcional ao tamanho atual da equipe/infra
+       (Render + Supabase, sem Kubernetes).
+     - *AWS Secrets Manager / GCP Secret Manager* — só faz sentido se a infra migrar para esse
+       provedor de nuvem; hoje o deploy é Render, que não integra nativamente com nenhum dos
+       dois sem trabalho extra de rede/IAM.
+     - *Doppler / Infisical* — SaaS gerenciado, menor custo operacional, integra com Render via
+       env var sync ou CLI no build; mais próximo do modelo atual (env var), com rotação e
+       auditoria de acesso como cima.
+   - **Recomendação**: se este gap virar prioridade, começar por Doppler/Infisical (menor custo
+     de adoção sobre a infra atual) em vez de Vault — reavaliar Vault só se a equipe já operar
+     Kubernetes/infra própria por outro motivo. Continua sendo um risco aceito e documentado, não
+     um bloqueador de produção: nenhum segredo real está commitado (gitleaks confirma isso a
+     cada PR) e a superfície de segredo real é pequena (poucas integrações por organização).
