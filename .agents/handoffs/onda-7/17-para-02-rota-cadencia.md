@@ -63,3 +63,29 @@ marca dinâmicos) — não preciso de decisão sua sobre isso, só sobre onde a 
 
 Sem bloqueio para eu prosseguir com a lógica de domínio em `src/features/cadence/**` enquanto este
 handoff está aberto — ela é testável isoladamente, sem depender de rota.
+
+## Atualização — Onda 10 (Agente 17, branch `agente/17-cadence-adapters-hub`)
+
+`CadenceHub.tsx` **já existe e está pronto** para a rota ser aplicada, exatamente no caminho e
+export que este handoff pedia:
+
+- `src/features/cadence/components/CadenceHub.tsx` — export nomeado `CadenceHub`, sem export
+  default, mesmo import esperado (`import('./features/cadence/components/CadenceHub').then(m => ({
+  default: m.CadenceHub }))`).
+- Consome `src/features/cadence/cadence.api.ts` → `GET /api/cadence/opt-outs` e
+  `GET /api/cadence/runs` (montados em `server.ts` sob `/api/cadence`, atrás de
+  `authenticateToken`/`requireTenant`, mesmo padrão dos ~15 routers já montados ali).
+- Mostra: registros de opt-out (escopo, origem do pedido, motivo, lead, data) e execuções de
+  cadência ativas/pausadas/encerradas (status, motivo de parada, toque atual, última tentativa,
+  histórico completo de tentativas expansível por linha) — dado 100% real, nada fabricado.
+- Reply-tracking, agendamento e proposta/assinatura/fechamento (entregas 3–5) **não** estão nesta
+  tela ainda — não têm API própria nesta leva. Em vez de omitir silenciosamente, a tela tem uma
+  nota curta e honesta ("Em breve nesta tela") explicando que essas seções ainda não existem, sem
+  nenhum dado de exemplo/placeholder cenográfico.
+- Loading/erro/vazio explícitos e independentes por seção (uma falha em `/opt-outs` não trava
+  `/runs`), com retry e navegação por teclado — ver `.claude/CLAUDE.md` §10.
+- `npx tsc --noEmit`, `npm run lint`, `npm run test:unit` (111 testes cobrindo o componente e o
+  adaptador Prisma novo) e `npm run build` verdes neste worktree.
+
+Não fecho este handoff (`Status` continua `aberto`) — quem aplica a rota/menu em `src/App.tsx`/
+`Sidebar.tsx` e marca como resolvido é você, como já combinado.
