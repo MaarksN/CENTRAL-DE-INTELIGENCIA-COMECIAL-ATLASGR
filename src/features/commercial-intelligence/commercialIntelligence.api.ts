@@ -18,6 +18,37 @@ export interface CoverageSnapshot {
     remainingGoal: number;
 }
 
+export type CoverageProtectionStatus = 'saudavel' | 'atencao' | 'critico' | 'sem_dados';
+
+export interface CoverageProtectionEntry {
+    period: string;
+    label: string;
+    goalAmount: number | null;
+    pipelineEligible: number;
+    remainingGoal: number | null;
+    coverage: number | null;
+    coverageRecommended: number | null;
+    status: CoverageProtectionStatus;
+}
+
+export interface PreviousPeriodComparison {
+    period: string;
+    closedAmount: number;
+    closedCount: number;
+    winRate: number | null;
+}
+
+export type ForecastConfidenceClassification = 'saudavel' | 'atencao' | 'critico';
+
+export interface ForecastConfidence {
+    score: number | null;
+    classification: ForecastConfidenceClassification | null;
+    sampleSize: number;
+    fieldCompletenessScore: number | null;
+    stageHistoryCoverage: number | null;
+    sampleSizePenaltyApplied: boolean;
+}
+
 export interface ExecutiveOverview {
     period: string;
     goal: CommercialGoalDTO | null;
@@ -41,6 +72,9 @@ export interface ExecutiveOverview {
     coverage30: CoverageSnapshot;
     coverage60: CoverageSnapshot;
     coverage90: CoverageSnapshot;
+    coverageProtection: CoverageProtectionEntry[];
+    previousPeriod: PreviousPeriodComparison | null;
+    forecastConfidence: ForecastConfidence;
     isEmpty: boolean;
     dataAsOf: string;
 }
@@ -60,6 +94,11 @@ export interface PipelineCreation {
     byOwner: PipelineCreationBreakdown[];
     pipelineNeeded: number | null;
     creationCoverage: number | null;
+    elapsedBusinessDays: number;
+    totalBusinessDays: number;
+    paceExpectedAmount: number | null;
+    pacePercent: number | null;
+    paceGapAmount: number | null;
 }
 
 export interface FunnelStageConversion {
@@ -107,10 +146,18 @@ export interface LeadingIndicatorsReport {
     weekStart: string; weekEnd: string; indicators: LeadingIndicatorPoint[]; trackingSince: string | null;
 }
 
-export type AlertSeverity = 'critical' | 'warning' | 'info';
+export type AlertSeverity = 'critical' | 'warning' | 'info' | 'positive';
 export interface ExecutiveAlert { id: string; severity: AlertSeverity; title: string; description: string; metricValue: number | null }
 
 export interface CrmQualityField { field: string; label: string; filled: number; total: number; completeness: number | null }
+
+export interface DataReadinessField {
+    field: string; label: string; filled: number; total: number; completeness: number | null;
+    weight: number; forecastImpact: 'alto' | 'medio' | 'baixo'; classification: 'saudavel' | 'atencao' | 'critico' | null;
+}
+export interface DataReadinessScore {
+    overallScore: number | null; classification: 'saudavel' | 'atencao' | 'critico' | null; fields: DataReadinessField[];
+}
 
 export interface BitrixSyncFailure { leadId: string; title: string | null; companyName: string | null; error: string | null; lastAttemptAt: string | null }
 export interface BitrixSyncHealth {
@@ -119,7 +166,8 @@ export interface BitrixSyncHealth {
 }
 
 export interface CrmQualityIndex {
-    period: string; overallScore: number | null; fields: CrmQualityField[]; suspectedDuplicateGroups: number; evaluatedCount: number;
+    period: string; overallScore: number | null; fields: CrmQualityField[]; dataReadiness: DataReadinessScore;
+    suspectedDuplicateGroups: number; evaluatedCount: number;
     bitrixSync: BitrixSyncHealth;
 }
 

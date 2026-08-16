@@ -11,7 +11,48 @@ import { useBitrixIntegration } from '../../../hooks/useBitrixIntegration';
 import { toast } from '../../../lib/toast';
 import { api } from '../../../lib/api';
 import { KpiTile } from './KpiTile';
-import { commercialIntelligenceApi, formatPercent, type CommercialFilter, type CrmQualityIndex } from '../commercialIntelligence.api';
+import { commercialIntelligenceApi, formatPercent, type CommercialFilter, type CrmQualityIndex, type DataReadinessScore } from '../commercialIntelligence.api';
+
+const IMPACT_LABEL: Record<'alto' | 'medio' | 'baixo', string> = { alto: 'Alto impacto', medio: 'Impacto médio', baixo: 'Baixo impacto' };
+const CLASSIFICATION_STYLE: Record<'saudavel' | 'atencao' | 'critico', string> = {
+    saudavel: 'text-[#0ca30c] bg-[#0ca30c]/70',
+    atencao: 'text-[#b8860b] bg-[#b8860b]/70',
+    critico: 'text-[#d03b3b] bg-[#d03b3b]/70',
+};
+
+/** "Confiabilidade dos Dados" (seção 5) — completude PONDERADA por impacto no forecast, distinta da completude bruta por campo abaixo. */
+function DataReadinessCard({ data }: { data: DataReadinessScore }) {
+    return (
+        <Card padding="sm">
+            <div className="flex items-center justify-between mb-1">
+                <h3 className="text-sm font-bold text-ink">Confiabilidade dos Dados</h3>
+                <span className={`text-lg font-black [font-variant-numeric:tabular-nums] ${data.classification === 'saudavel' ? 'text-[#0ca30c]' : data.classification === 'critico' ? 'text-[#d03b3b]' : data.classification === 'atencao' ? 'text-[#b8860b]' : 'text-ink'}`}>
+                    {formatPercent(data.overallScore)}
+                </span>
+            </div>
+            <p className="text-[11px] text-ink-2 mb-3">Média ponderada por impacto real no Forecast — não é uma média simples de preenchimento (ver dicionário de métricas).</p>
+            <div className="space-y-2">
+                {data.fields.map((field) => (
+                    <div key={field.field} className="flex items-center gap-3">
+                        <div className="w-40 shrink-0">
+                            <p className="text-xs font-semibold text-ink">{field.label}</p>
+                            <p className="text-[10px] text-ink-2">{IMPACT_LABEL[field.forecastImpact]}</p>
+                        </div>
+                        <div className="flex-1 h-5 rounded-md bg-surface-2 overflow-hidden">
+                            <div
+                                className={`h-full rounded-md ${field.classification ? CLASSIFICATION_STYLE[field.classification] : 'bg-line'}`}
+                                style={{ width: `${field.completeness ?? 0}%` }}
+                            />
+                        </div>
+                        <div className="w-28 shrink-0 text-right text-[11px] text-ink-2 [font-variant-numeric:tabular-nums]">
+                            {formatPercent(field.completeness)} ({field.filled}/{field.total})
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </Card>
+    );
+}
 
 /** Card de saúde da sincronização Bitrix24 — separado da completude de campos porque mede uma coisa diferente: vínculo/integração, não preenchimento de dado local. */
 function BitrixSyncCard({ data }: { data: CrmQualityIndex['bitrixSync'] }) {
@@ -106,6 +147,8 @@ export function CrmQualityTab({ filter }: { filter: CommercialFilter }) {
                 <EmptyState title="Nenhum negócio aberto para avaliar" description="A qualidade do CRM é medida sobre os negócios abertos do funil Negócio." />
             ) : (
                 <>
+                    <DataReadinessCard data={data.dataReadiness} />
+
                     <div className="grid grid-cols-2 gap-3">
                         <KpiTile label="Índice geral de completude" value={formatPercent(data.overallScore)} tone={data.overallScore != null && data.overallScore >= 80 ? 'good' : data.overallScore != null && data.overallScore < 50 ? 'critical' : undefined} metricKey="qualidade_crm" />
                         <KpiTile label="Grupos com duplicidade suspeita" value={String(data.suspectedDuplicateGroups)} tone={data.suspectedDuplicateGroups > 0 ? 'critical' : 'good'} />

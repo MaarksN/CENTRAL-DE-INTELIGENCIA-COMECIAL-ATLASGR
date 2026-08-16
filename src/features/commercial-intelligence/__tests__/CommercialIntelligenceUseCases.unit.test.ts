@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CommercialIntelligenceUseCases } from '../application/CommercialIntelligenceUseCases';
+import { CommercialIntelligenceUseCases, classifyCoverageProtection } from '../application/CommercialIntelligenceUseCases';
 import type {
     CommercialIntelligenceRepository, DealRow, StageDefinition, CommercialGoalDTO, GoalMetric,
 } from '../domain/CommercialIntelligence';
@@ -303,5 +303,215 @@ describe('CommercialIntelligenceUseCases', () => {
         const byId = Object.fromEntries(result.rows.map((r) => [r.id, r]));
         expect(byId['l-1'].bitrixLinked).toBe(true);
         expect(byId['nl-1'].bitrixLinked).toBe(false);
+    });
+
+    // ─── Proteção 90 dias (seção 11) ───────────────────────────────────────────
+
+    it('classifyCoverageProtection: sem_dados sem meta cadastrada, mesmo com coverage calculável', () => {
+        expect(classifyCoverageProtection(false, 5, 2)).toBe('sem_dados');
+    });
+
+    it('classifyCoverageProtection: usa o coverage recomendado (Win Rate) quando disponível', () => {
+        expect(classifyCoverageProtection(true, 2, 2)).toBe('saudavel');
+        expect(classifyCoverageProtection(true, 1.3, 2)).toBe('atencao'); // >= 60% de 2 = 1.2
+        expect(classifyCoverageProtection(true, 1, 2)).toBe('critico');
+    });
+
+    it('classifyCoverageProtection: cai no limiar-padrão documentado sem Win Rate histórico', () => {
+        expect(classifyCoverageProtection(true, 3, null)).toBe('saudavel');
+        expect(classifyCoverageProtection(true, 2, null)).toBe('atencao');
+        expect(classifyCoverageProtection(true, 1, null)).toBe('critico');
+    });
+
+    it('Proteção 90 dias: 4 entradas em meses de calendário sequenciais, sem meta = sem_dados', async () => {
+        const repo = new FakeRepository([deal({ id: 'd1', amount: 10_000 })]);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const overview = await useCases.executiveOverview(ORG, { month: PERIOD }, NOW);
+        expect(overview.coverageProtection).toHaveLength(4);
+        expect(overview.coverageProtection.map((e) => e.period)).toEqual(['2026-08', '2026-09', '2026-10', '2026-11']);
+        expect(overview.coverageProtection.map((e) => e.label)).toEqual(['AGO/2026', 'SET/2026', 'OUT/2026', 'NOV/2026']);
+        expect(overview.coverageProtection.every((e) => e.status === 'sem_dados')).toBe(true);
+    });
+
+    it('Proteção 90 dias: classifica cada mês com base na meta e no pipeline elegível daquele mês', async () => {
+        const won = deal({ id: 'w1', amount: 10_000, stageIsWon: true, pipelineStageId: 'stage-ganho', closedAt: new Date('2026-08-05T00:00:00Z') });
+        const lost = deal({ id: 'l1', amount: 5_000, stageIsLost: true, pipelineStageId: 'stage-perdido', closedAt: new Date('2026-08-06T00:00:00Z') });
+        // Win Rate = 1/(1+1) = 50% -> coverageRecommended = 2x
+        const eligibleAug = deal({ id: 'e-aug', amount: 20_000, expectedCloseAt: new Date('2026-08-20T00:00:00Z') });
+        const eligibleSep = deal({ id: 'e-sep', amount: 200_000, expectedCloseAt: new Date('2026-09-10T00:00:00Z') });
+        const repo = new FakeRepository([won, lost, eligibleAug, eligibleSep]);
+        await repo.upsertGoal(ORG, '2026-08', 'NEW_MRR', 50_000, 'BRL', 'user-1'); // remainingGoal = 50000-10000 = 40000; coverage = 20000/40000 = 0.5x -> critico (< 60% de 2x)
+        await repo.upsertGoal(ORG, '2026-09', 'NEW_MRR', 20_000, 'BRL', 'user-1'); // remainingGoal = 20000; coverage = 200000/20000 = 10x -> saudavel
+        const useCases = new CommercialIntelligenceUseCases(repo);
+
+        const overview = await useCases.executiveOverview(ORG, { month: PERIOD }, NOW);
+        const [m0, m1, m2, m3] = overview.coverageProtection;
+        expect(m0.coverage).toBe(0.5);
+        expect(m0.status).toBe('critico');
+        expect(m1.coverage).toBe(10);
+        expect(m1.status).toBe('saudavel');
+        expect(m2.status).toBe('sem_dados');
+        expect(m3.status).toBe('sem_dados');
+    });
+
+    it('Proteção 90 dias: meta batida no mês (remainingGoal = 0) é "saudavel", nunca "sem_dados"', async () => {
+        const won = deal({ id: 'w1', amount: 50_000, stageIsWon: true, pipelineStageId: 'stage-ganho', closedAt: new Date('2026-08-05T00:00:00Z') });
+        const repo = new FakeRepository([won]);
+        await repo.upsertGoal(ORG, '2026-08', 'NEW_MRR', 50_000, 'BRL', 'user-1');
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const overview = await useCases.executiveOverview(ORG, { month: PERIOD }, NOW);
+        expect(overview.coverageProtection[0].remainingGoal).toBe(0);
+        expect(overview.coverageProtection[0].coverage).toBeNull();
+        expect(overview.coverageProtection[0].status).toBe('saudavel');
+    });
+
+    // ─── Comparação com o mês anterior (seção 7/23) ────────────────────────────
+
+    it('Comparação com o mês anterior: null sem nenhum negócio fechado no mês anterior', async () => {
+        const repo = new FakeRepository([deal({ id: 'd1', amount: 10_000 })]);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const overview = await useCases.executiveOverview(ORG, { month: PERIOD }, NOW);
+        expect(overview.previousPeriod).toBeNull();
+    });
+
+    it('Comparação com o mês anterior: Fechado e Win Rate do mês anterior quando há negócios fechados', async () => {
+        const wonPrev = deal({ id: 'wp', amount: 40_000, stageIsWon: true, pipelineStageId: 'stage-ganho', closedAt: new Date('2026-07-10T00:00:00Z') });
+        const lostPrev = deal({ id: 'lp', amount: 10_000, stageIsLost: true, pipelineStageId: 'stage-perdido', closedAt: new Date('2026-07-12T00:00:00Z') });
+        const repo = new FakeRepository([wonPrev, lostPrev]);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const overview = await useCases.executiveOverview(ORG, { month: PERIOD }, NOW);
+        expect(overview.previousPeriod).toEqual({ period: '2026-07', closedAmount: 40_000, closedCount: 1, winRate: 50 });
+    });
+
+    // ─── Forecast Confidence (seção 22) ────────────────────────────────────────
+
+    it('Forecast Confidence: null sem nenhum negócio aberto', async () => {
+        const useCases = new CommercialIntelligenceUseCases(new FakeRepository([]));
+        const overview = await useCases.executiveOverview(ORG, { month: PERIOD }, NOW);
+        expect(overview.forecastConfidence.score).toBeNull();
+        expect(overview.forecastConfidence.classification).toBeNull();
+        expect(overview.forecastConfidence.sampleSize).toBe(0);
+    });
+
+    it('Forecast Confidence: reduz proporcionalmente quando a amostra tem menos de 5 negócios abertos', async () => {
+        // 2 negócios abertos, campos-chave completos (default de deal()), sem histórico de etapa.
+        const deals = [deal({ id: 'a', amount: 10_000 }), deal({ id: 'b', amount: 20_000 })];
+        const repo = new FakeRepository(deals);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const overview = await useCases.executiveOverview(ORG, { month: PERIOD }, NOW);
+        // fieldCompletenessScore=100, stageHistoryCoverage=0 -> combinado=70; amostra 2/5 -> 28
+        expect(overview.forecastConfidence.fieldCompletenessScore).toBe(100);
+        expect(overview.forecastConfidence.stageHistoryCoverage).toBe(0);
+        expect(overview.forecastConfidence.sampleSizePenaltyApplied).toBe(true);
+        expect(overview.forecastConfidence.score).toBe(28);
+        expect(overview.forecastConfidence.classification).toBe('critico');
+    });
+
+    it('Forecast Confidence: sem redutor a partir de 5 negócios abertos', async () => {
+        const deals = ['a', 'b', 'c', 'd', 'e'].map((id) => deal({ id, amount: 10_000 }));
+        const repo = new FakeRepository(deals);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const overview = await useCases.executiveOverview(ORG, { month: PERIOD }, NOW);
+        expect(overview.forecastConfidence.sampleSizePenaltyApplied).toBe(false);
+        expect(overview.forecastConfidence.score).toBe(70); // 100*0.7 + 0*0.3
+        expect(overview.forecastConfidence.classification).toBe('atencao');
+    });
+
+    it('Forecast Confidence: cobertura de histórico de etapa eleva o score quando os negócios têm LeadStageHistory', async () => {
+        const deals = ['a', 'b', 'c', 'd', 'e'].map((id) => deal({ id, amount: 10_000 }));
+        const history = deals.map((d) => ({ leadId: d.id, stageId: d.pipelineStageId, stageName: d.stageName ?? '', enteredAt: new Date('2026-08-01T00:00:00Z'), exitedAt: null }));
+        const repo = new FakeRepository(deals, STAGES, history);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const overview = await useCases.executiveOverview(ORG, { month: PERIOD }, NOW);
+        expect(overview.forecastConfidence.stageHistoryCoverage).toBe(100);
+        expect(overview.forecastConfidence.score).toBe(100);
+        expect(overview.forecastConfidence.classification).toBe('saudavel');
+    });
+
+    // ─── Confiabilidade dos Dados (seção 5) ────────────────────────────────────
+
+    it('Confiabilidade dos Dados: pondera por impacto no forecast, não é a média simples de completude', async () => {
+        const complete = deal({ id: 'complete-1', amount: 10_000 });
+        const missingKeyFields = deal({ id: 'missing-1', amount: 0, owner: null, expectedCloseAt: null, nextAction: null });
+        const repo = new FakeRepository([complete, missingKeyFields]);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const quality = await useCases.crmQuality(ORG, { month: PERIOD }, NOW);
+        expect(quality.dataReadiness.overallScore).not.toBeNull();
+        const valorField = quality.dataReadiness.fields.find((f) => f.field === 'amount');
+        expect(valorField?.completeness).toBe(50);
+        expect(valorField?.classification).toBe('atencao');
+    });
+
+    it('Confiabilidade dos Dados: "Motivo da perda" é avaliado sobre negócios perdidos, não abertos', async () => {
+        const open = deal({ id: 'open-1', amount: 10_000 });
+        const lostWithReason = deal({ id: 'lost-1', amount: 5_000, stageIsLost: true, closedAt: new Date('2026-08-05'), lossReason: 'Preço alto' });
+        const lostNoReason = deal({ id: 'lost-2', amount: 5_000, stageIsLost: true, closedAt: new Date('2026-08-06'), lossReason: null });
+        const repo = new FakeRepository([open, lostWithReason, lostNoReason]);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const quality = await useCases.crmQuality(ORG, { month: PERIOD }, NOW);
+        const lossField = quality.dataReadiness.fields.find((f) => f.field === 'lossReason');
+        expect(lossField?.total).toBe(2);
+        expect(lossField?.filled).toBe(1);
+        expect(lossField?.completeness).toBe(50);
+    });
+
+    it('Confiabilidade dos Dados: "Não disponível" (null) quando não há nenhum negócio perdido, nunca 0% fabricado', async () => {
+        const open = deal({ id: 'open-1', amount: 10_000 });
+        const repo = new FakeRepository([open]);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const quality = await useCases.crmQuality(ORG, { month: PERIOD }, NOW);
+        const lossField = quality.dataReadiness.fields.find((f) => f.field === 'lossReason');
+        expect(lossField?.total).toBe(0);
+        expect(lossField?.completeness).toBeNull();
+        expect(lossField?.classification).toBeNull();
+    });
+
+    // ─── Pipeline Creation Pace (seção 21) ──────────────────────────────────────
+
+    it('Pipeline Creation Pace: ritmo esperado proporcional a dias úteis decorridos no mês', async () => {
+        const won = deal({ id: 'w1', amount: 25_000, stageIsWon: true, pipelineStageId: 'stage-ganho', closedAt: new Date('2026-08-05T00:00:00Z') });
+        const lost = deal({ id: 'l1', amount: 25_000, stageIsLost: true, pipelineStageId: 'stage-perdido', closedAt: new Date('2026-08-06T00:00:00Z') });
+        // Win Rate = 50%
+        const createdThisMonth = deal({ id: 'novo-1', amount: 25_000, createdAt: new Date('2026-08-03T00:00:00Z') });
+        const repo = new FakeRepository([won, lost, createdThisMonth]);
+        await repo.upsertGoal(ORG, PERIOD, 'NEW_MRR', 100_000, 'BRL', 'user-1'); // pipelineNeeded = 100000/0.5 = 200000
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const result = await useCases.pipelineCreation(ORG, { month: PERIOD }, NOW); // NOW = 2026-08-15
+        expect(result.pipelineNeeded).toBe(200_000);
+        expect(result.totalBusinessDays).toBe(21); // agosto/2026 inteiro
+        expect(result.elapsedBusinessDays).toBeGreaterThan(0);
+        expect(result.elapsedBusinessDays).toBeLessThan(result.totalBusinessDays);
+        expect(result.paceExpectedAmount).toBeCloseTo(200_000 * (result.elapsedBusinessDays / result.totalBusinessDays), 2);
+        expect(result.pacePercent).toBeCloseTo((result.amount / (result.paceExpectedAmount as number)) * 100, 2);
+    });
+
+    it('Pipeline Creation Pace: sem Pipeline Necessário calculável, todos os campos de ritmo ficam "Não disponível" (null)', async () => {
+        const createdThisMonth = deal({ id: 'novo-1', amount: 25_000, createdAt: new Date('2026-08-03T00:00:00Z') });
+        const repo = new FakeRepository([createdThisMonth]);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const result = await useCases.pipelineCreation(ORG, { month: PERIOD }, NOW);
+        expect(result.pipelineNeeded).toBeNull();
+        expect(result.paceExpectedAmount).toBeNull();
+        expect(result.pacePercent).toBeNull();
+        expect(result.paceGapAmount).toBeNull();
+    });
+
+    // ─── Alertas positivos e adicionais (seção 19) ──────────────────────────────
+
+    it('Alertas: "Forecast acima da meta" (positivo) quando o forecast já cobre a meta', async () => {
+        const won = deal({ id: 'w1', amount: 100_000, stageIsWon: true, pipelineStageId: 'stage-ganho', closedAt: new Date('2026-08-05T00:00:00Z') });
+        const repo = new FakeRepository([won]);
+        await repo.upsertGoal(ORG, PERIOD, 'NEW_MRR', 50_000, 'BRL', 'user-1');
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const alerts = await useCases.alerts(ORG, { month: PERIOD }, NOW);
+        expect(alerts.some((a) => a.id === 'forecast-acima-meta' && a.severity === 'positive')).toBe(true);
+    });
+
+    it('Alertas: crítico quando a confiabilidade do forecast está baixa', async () => {
+        const missingFields = deal({ id: 'm1', amount: 0, owner: null, expectedCloseAt: null, nextAction: null, lastInteraction: null });
+        const repo = new FakeRepository([missingFields]);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const alerts = await useCases.alerts(ORG, { month: PERIOD }, NOW);
+        expect(alerts.some((a) => a.id === 'forecast-confidence-critica' && a.severity === 'critical')).toBe(true);
     });
 });

@@ -46,6 +46,60 @@ export interface CoverageSnapshot {
     remainingGoal: number;
 }
 
+export type CoverageProtectionStatus = 'saudavel' | 'atencao' | 'critico' | 'sem_dados';
+
+/**
+ * Uma linha da tabela "Proteção 90 dias" (seção 11 do prompt de produto) — mês atual + M+1 + M+2 +
+ * M+3, sempre em MESES DE CALENDÁRIO reais (distinto das janelas móveis de 30/60/90 dias corridos
+ * de `coverage30/60/90`, que continuam existindo separadamente).
+ */
+export interface CoverageProtectionEntry {
+    period: PeriodMonth;
+    /** Rótulo curto pt-BR, ex.: "AGO/2026". */
+    label: string;
+    /** `null` quando não há meta cadastrada para este mês futuro específico. */
+    goalAmount: number | null;
+    pipelineEligible: number;
+    /** Meta restante do mês (meta − já fechado, só se aplica ao mês corrente; meses futuros usam a meta cheia). Nunca negativa. */
+    remainingGoal: number | null;
+    coverage: number | null;
+    coverageRecommended: number | null;
+    /**
+     * `'sem_dados'` sem meta ou sem coverage calculável. Quando há Win Rate histórico, os limiares
+     * saudável/atenção/crítico derivam de `coverageRecommended` (1 / Win Rate). Sem Win Rate
+     * calculável ainda, cai no limiar-padrão documentado (3x saudável / 1,5x atenção) — política
+     * inicial, não medição — ver `CommercialIntelligenceUseCases.classifyCoverageProtection`.
+     */
+    status: CoverageProtectionStatus;
+}
+
+/** Comparação com o mês anterior (seção 7/23) — só populada quando o período anterior tem negócios fechados avaliáveis. */
+export interface PreviousPeriodComparison {
+    period: PeriodMonth;
+    closedAmount: number;
+    closedCount: number;
+    winRate: number | null;
+}
+
+export type ForecastConfidenceClassification = 'saudavel' | 'atencao' | 'critico';
+
+/**
+ * Forecast Confidence (seção 22) — NÃO é uma probabilidade inventada. Deriva de fatores
+ * mensuráveis (completude dos campos que o forecast engine usa como sinal, cobertura de histórico
+ * de etapa, tamanho da amostra de negócios abertos). Fórmula documentada em
+ * `application/dataReadiness.ts` e `metricsDictionary.ts`. `score: null` quando não há negócio
+ * aberto para avaliar — nunca um número fabricado.
+ */
+export interface ForecastConfidence {
+    score: number | null;
+    classification: ForecastConfidenceClassification | null;
+    sampleSize: number;
+    fieldCompletenessScore: number | null;
+    stageHistoryCoverage: number | null;
+    /** `true` quando o tamanho da amostra (negócios abertos) é pequeno o bastante para reduzir a confiança proporcionalmente (ver fórmula). */
+    sampleSizePenaltyApplied: boolean;
+}
+
 export interface ExecutiveOverview {
     period: PeriodMonth;
     goal: CommercialGoalDTO | null;
@@ -73,6 +127,11 @@ export interface ExecutiveOverview {
     coverage30: CoverageSnapshot;
     coverage60: CoverageSnapshot;
     coverage90: CoverageSnapshot;
+    /** "Proteção 90 dias" (seção 11) — sempre 4 entradas: mês do filtro, M+1, M+2, M+3, em meses de calendário. */
+    coverageProtection: CoverageProtectionEntry[];
+    /** `null` sem base histórica suficiente (mês anterior sem nenhum negócio avaliável). */
+    previousPeriod: PreviousPeriodComparison | null;
+    forecastConfidence: ForecastConfidence;
     /** `true` quando a organização não tem nenhum negócio no funil "Negócio" — a UI mostra o estado vazio em vez de zeros. */
     isEmpty: boolean;
     dataAsOf: string;
@@ -96,6 +155,16 @@ export interface PipelineCreation {
     /** Pipeline necessário (meta futura / win rate esperado) e cobertura de criação — seção 15. */
     pipelineNeeded: number | null;
     creationCoverage: number | null;
+    // ─── Pipeline Creation Pace (seção 21) ──────────────────────────────────
+    /** Dias úteis já decorridos no período até `now` (ou o total, se o período já terminou). */
+    elapsedBusinessDays: number;
+    totalBusinessDays: number;
+    /** Quanto de `pipelineNeeded` já deveria ter sido criado até hoje, proporcional a dias úteis. `null` sem `pipelineNeeded`. */
+    paceExpectedAmount: number | null;
+    /** `amount` / `paceExpectedAmount` × 100. `null` sem `paceExpectedAmount` calculável. */
+    pacePercent: number | null;
+    /** `paceExpectedAmount` − `amount`. Positivo = atrás do ritmo; negativo = à frente. `null` sem `paceExpectedAmount`. */
+    paceGapAmount: number | null;
 }
 
 // ─── Eficiência (Fase 4) ─────────────────────────────────────────────────────
@@ -214,7 +283,8 @@ export interface LeadingIndicatorsReport {
 
 // ─── Alertas executivos (Fase 6) ────────────────────────────────────────────
 
-export type AlertSeverity = 'critical' | 'warning' | 'info';
+/** `'positive'` (seção 19) é um alerta favorável derivado de métrica real (ex.: Forecast acima da meta) — nunca um texto de incentivo genérico. */
+export type AlertSeverity = 'critical' | 'warning' | 'info' | 'positive';
 
 export interface ExecutiveAlert {
     id: string;
@@ -281,11 +351,36 @@ export interface BitrixSyncHealth {
     failures: BitrixSyncFailure[];
 }
 
+/** Campo da "Confiabilidade dos Dados" (seção 5) — mesma completude de `CrmQualityField`, mas com peso e classificação por impacto no Forecast. */
+export interface DataReadinessField {
+    field: string;
+    label: string;
+    filled: number;
+    total: number;
+    completeness: number | null;
+    weight: number;
+    forecastImpact: 'alto' | 'medio' | 'baixo';
+    classification: 'saudavel' | 'atencao' | 'critico' | null;
+}
+
+/**
+ * "Confiabilidade dos Dados" (seção 5) — score PONDERADO por impacto no forecast, distinto do
+ * `overallScore` simples de `CrmQualityIndex` (média não-ponderada de completude bruta). Fórmula
+ * documentada em `application/dataReadiness.ts` e `metricsDictionary.ts`.
+ */
+export interface DataReadinessScore {
+    /** Média ponderada de completude por campo, em %. `null` sem nenhum campo avaliável. */
+    overallScore: number | null;
+    classification: 'saudavel' | 'atencao' | 'critico' | null;
+    fields: DataReadinessField[];
+}
+
 export interface CrmQualityIndex {
     period: PeriodMonth;
     /** Média das completudes por campo, em %. `null` sem negócios abertos no funil. */
     overallScore: number | null;
     fields: CrmQualityField[];
+    dataReadiness: DataReadinessScore;
     suspectedDuplicateGroups: number;
     evaluatedCount: number;
     bitrixSync: BitrixSyncHealth;
