@@ -83,4 +83,14 @@ final.
 
 ## Status
 
-Leva 1 disparada — 5 especialistas em paralelo.
+Leva 1 concluída — 5 especialistas mesclados em `integracao/onda-10` sem nenhum conflito (matriz de
+propriedade se provou correta na prática). Gate final na branch de integração: `tsc`/`prisma
+validate`/`prisma generate` limpos, `lint` 0 erros (68 warnings, baseline), `test:unit` 150/150
+arquivos (1124/1124 testes), `build` ok. `test:integration`/`test:e2e` não executáveis neste
+ambiente (sem Docker/Postgres) — delegados ao CI do PR.
+
+PR aberto como draft: #132.
+
+Leva 2 (Agente 17 — adaptadores Prisma reais + `CadenceHub.tsx`; Agente 02 — rota `/app/cadence`)
+ainda não disparada — depende do schema da Leva 1 estar mergeado em `main` e do CI confirmar a
+migration real contra Postgres.
