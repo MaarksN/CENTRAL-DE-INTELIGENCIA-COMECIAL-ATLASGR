@@ -28,6 +28,9 @@ import type {
     DealDrillDownRow,
     ForecastTier,
     GoalMetric,
+    FilterOptions,
+    HistoricalTrendsReport,
+    HistoricalTrendPoint,
 } from '../domain/CommercialIntelligence';
 import { scoreOpportunity, type ForecastResult } from './forecastEngine';
 import { checkEligibility, isDealOpen, agingInStageDays, STAGE_AGING_CRITICAL_DAYS } from './pipelineEligibility';
@@ -470,6 +473,8 @@ export class CommercialIntelligenceUseCases {
             countByStage.set(s.deal.pipelineStageId, entry);
         }
 
+        const historicalReach = this.computeHistoricalStageReach(inScope, history, openStages);
+
         const cumulative: FunnelStageConversion[] = openStages.map((stage, index) => {
             const downstream = openStages.slice(index).reduce(
                 (sum, s2) => {
@@ -478,6 +483,7 @@ export class CommercialIntelligenceUseCases {
                 },
                 { count: 0, amount: 0 }
             );
+            const reach = historicalReach.get(stage.id) ?? { count: 0, amount: 0 };
             return {
                 stageId: stage.id,
                 label: stage.name,
@@ -486,11 +492,21 @@ export class CommercialIntelligenceUseCases {
                 amount: roundMoney(downstream.amount + wonAmount),
                 conversionFromPrevious: null,
                 averageDaysInStage: durationStats.get(stage.id) != null ? roundMoney(durationStats.get(stage.id) as number) : null,
+                historicalReachedCount: reach.count,
+                historicalReachedAmount: reach.amount,
+                historicalConversionFromPrevious: null,
             };
         });
         for (let i = 1; i < cumulative.length; i++) {
             cumulative[i].conversionFromPrevious = cumulative[i - 1].count > 0 ? roundMoney((cumulative[i].count / cumulative[i - 1].count) * 100) : null;
+            cumulative[i].historicalConversionFromPrevious = cumulative[i - 1].historicalReachedCount > 0
+                ? roundMoney((cumulative[i].historicalReachedCount / cumulative[i - 1].historicalReachedCount) * 100)
+                : null;
         }
+
+        const funnelHistoricalTrackingSince = history.length > 0
+            ? history.reduce((min, h) => (h.enteredAt < min ? h.enteredAt : min), history[0].enteredAt).toISOString()
+            : null;
 
         return {
             period: filter.month,
@@ -521,7 +537,57 @@ export class CommercialIntelligenceUseCases {
                 sampleSize: cycleDays.length,
             },
             funnel: cumulative,
+            funnelHistoricalTrackingSince,
         };
+    }
+
+    /**
+     * Quantos negócios (abertos, ganhos OU perdidos, no escopo do filtro) REALMENTE chegaram a
+     * cada etapa ABERTA em algum momento — seção 12: não inferir conversão só pelo snapshot atual
+     * quando há histórico disponível.
+     *
+     * Só recebe as etapas ABERTAS (`openStages`, sem Ganho/Perdido) de propósito: a etapa terminal
+     * NUNCA entra no cálculo de "alcançou", nem via histórico nem via etapa atual — se entrasse,
+     * um negócio perdido logo na 1ª etapa pareceria ter "alcançado" todas as etapas intermediárias
+     * só porque a etapa "Perdido" tem `sortOrder` mais alto que elas (bug real testado em
+     * `__tests__/CommercialIntelligenceUseCases.unit.test.ts`). Um negócio GANHO só conta como
+     * tendo alcançado uma etapa aberta se o histórico tiver uma linha própria para aquela etapa
+     * aberta (o que acontece naturalmente se ele passou por ali antes de fechar). Para negócios
+     * ABERTOS, a etapa atual sempre conta como alcançada, mesmo sem linha de histórico (registro
+     * legado). Sem nenhuma linha de histórico para um negócio fechado, ele não é contado em
+     * nenhuma etapa — nunca um progresso fabricado a partir do status final.
+     */
+    private computeHistoricalStageReach(
+        inScope: ScoredDeal[],
+        history: StageHistoryRow[],
+        openStages: Array<{ id: string; sortOrder: number }>
+    ): Map<string, { count: number; amount: number }> {
+        const sortOrderByOpenStageId = new Map(openStages.map((s) => [s.id, s.sortOrder]));
+        const historyByLead = new Map<string, StageHistoryRow[]>();
+        for (const row of history) {
+            if (!historyByLead.has(row.leadId)) historyByLead.set(row.leadId, []);
+            historyByLead.get(row.leadId)!.push(row);
+        }
+
+        const reachedByDeal = inScope.map((s) => {
+            const reached = new Set<number>();
+            for (const row of historyByLead.get(s.deal.id) ?? []) {
+                const so = row.stageId ? sortOrderByOpenStageId.get(row.stageId) : undefined;
+                if (so != null) reached.add(so);
+            }
+            if (isDealOpen(s.deal) && s.deal.stageSortOrder != null) reached.add(s.deal.stageSortOrder);
+            return { deal: s.deal, reached };
+        });
+
+        const result = new Map<string, { count: number; amount: number }>();
+        for (const stage of openStages) {
+            const dealsThatReached = reachedByDeal.filter(({ reached }) => [...reached].some((so) => so >= stage.sortOrder));
+            result.set(stage.id, {
+                count: dealsThatReached.length,
+                amount: roundMoney(dealsThatReached.reduce((sum, r) => sum + r.deal.amount, 0)),
+            });
+        }
+        return result;
     }
 
     private countAdvancedTransitions(history: StageHistoryRow[], start: Date, end: Date): number {
@@ -756,6 +822,27 @@ export class CommercialIntelligenceUseCases {
             });
         }
 
+        // ─── Propostas sem interação (seção 19, atenção) ─────────────────────────────
+        // Não usa o nome literal de uma etapa (ex.: "Proposta Enviada") porque pipelines
+        // customizados não padronizam nomes — usa o tier do Forecast Ponderado Explicável (Commit/
+        // BestCase = oportunidade já avançada, com proposta em curso) combinado com o próprio sinal
+        // de "sem interação"/"interação vencida" que o forecastEngine já calcula por negócio.
+        const proposalsWithoutInteraction = openScope.filter(
+            (s) =>
+                isDealOpen(s.deal) &&
+                (s.forecast.tier === 'Commit' || s.forecast.tier === 'BestCase') &&
+                s.forecast.negativeFactors.some((f) => f.toLowerCase().includes('interação'))
+        );
+        if (proposalsWithoutInteraction.length > 0) {
+            alerts.push({
+                id: 'propostas-sem-interacao',
+                severity: 'warning',
+                title: 'Propostas sem interação recente',
+                description: `${proposalsWithoutInteraction.length} negócio(s) já avançado(s) (Commit/Best Case) estão sem interação recente registrada — risco de esfriar antes do fechamento.`,
+                metricValue: proposalsWithoutInteraction.length,
+            });
+        }
+
         // ─── Confiabilidade do forecast (seção 19, crítico) ──────────────────────────
         if (overview.forecastConfidence.classification === 'critico') {
             alerts.push({
@@ -896,10 +983,9 @@ export class CommercialIntelligenceUseCases {
         const overallScore = withCompleteness.length > 0 ? roundMoney(withCompleteness.reduce((sum, f) => sum + (f.completeness as number), 0) / withCompleteness.length) : null;
 
         const suspectedDuplicateGroups = await this.repository.countDuplicateCompanyGroupsAmongOpenDeals(organizationId);
-        const bitrixSync = await this.bitrixSyncHealth(organizationId, open);
+        const bitrixSync = await this.bitrixSyncHealth(organizationId, open, now);
         const dataReadiness = this.computeDataReadiness(open, lost, historyLeadIds);
 
-        void now;
         return {
             period: filter.month,
             overallScore,
@@ -951,10 +1037,16 @@ export class CommercialIntelligenceUseCases {
      * marcada como `failed` em `Lead.bitrixSyncStatus`. Não faz nenhuma chamada de rede ao Bitrix
      * — lê só o que já foi gravado localmente pelo `outboundSync`/webhook de entrada.
      */
-    private async bitrixSyncHealth(organizationId: string, open: DealRow[]): Promise<BitrixSyncHealth> {
+    private async bitrixSyncHealth(organizationId: string, open: DealRow[], now: Date): Promise<BitrixSyncHealth> {
         const connected = await this.repository.hasBitrixConnection(organizationId);
         const linkedDeals = open.filter((d) => d.bitrixLeadId || d.bitrixDealId);
         const failedDeals = open.filter((d) => d.bitrixSyncStatus === 'failed');
+        // Janela fixa de 30 dias (seção 28) — atividade de sincronização é operacional, não segue
+        // o período do filtro comercial escolhido na tela.
+        const since = new Date(now.getTime() - 30 * DAY_MS);
+        const activity = connected
+            ? await this.repository.getBitrixSyncActivity(organizationId, since)
+            : { lastSyncAt: null, syncedCount: 0, failedCount: 0 };
 
         return {
             connected,
@@ -970,6 +1062,9 @@ export class CommercialIntelligenceUseCases {
                 error: d.bitrixSyncError,
                 lastAttemptAt: d.bitrixSyncedAt ? d.bitrixSyncedAt.toISOString() : null,
             })),
+            lastSyncAt: activity.lastSyncAt ? activity.lastSyncAt.toISOString() : null,
+            syncedCount30d: activity.syncedCount,
+            failedCount30d: activity.failedCount,
         };
     }
 
@@ -1029,5 +1124,42 @@ export class CommercialIntelligenceUseCases {
             negativeFactors: found.forecast.negativeFactors,
             lastUpdatedAt: found.deal.updatedAt.toISOString(),
         };
+    }
+
+    // ─── Opções de filtro reais (seção 18) ───────────────────────────────────
+
+    async filterOptions(organizationId: string): Promise<FilterOptions> {
+        return this.repository.getFilterOptions(organizationId);
+    }
+
+    // ─── Tendências históricas — 6 meses (seção 23) ───────────────────────────
+
+    /**
+     * Mês do filtro + 5 meses anteriores, mais antigo → mais recente. Reaproveita `performance`/
+     * `pipelineCreation` (já testados) em vez de recalcular — o custo extra de repetir
+     * `loadScoredDeals` por mês é aceitável para um relatório executivo de baixo tráfego. Cada
+     * ponto retorna `null` nos campos sem amostra suficiente daquele mês (nunca interpolado).
+     */
+    async historicalTrends(organizationId: string, filter: CommercialIntelligenceFilter, now = new Date()): Promise<HistoricalTrendsReport> {
+        const months = Array.from({ length: 6 }, (_, i) => shiftMonth(filter.month, i - 5));
+        const points: HistoricalTrendPoint[] = await Promise.all(
+            months.map(async (period) => {
+                const monthFilter: CommercialIntelligenceFilter = { ...filter, month: period };
+                const [perf, creation] = await Promise.all([
+                    this.performance(organizationId, monthFilter, now),
+                    this.pipelineCreation(organizationId, monthFilter, now),
+                ]);
+                return {
+                    period,
+                    label: monthLabelPt(period),
+                    winRate: perf.winRate,
+                    salesCycleMeanDays: perf.salesCycle.meanDays,
+                    averageTicketWon: perf.averageTicket.won,
+                    pipelineCreatedAmount: creation.amount,
+                    closedSampleSize: perf.wonCount + perf.lostCount,
+                };
+            })
+        );
+        return { points };
     }
 }

@@ -86,10 +86,13 @@ function BitrixSyncCard({ data }: { data: CrmQualityIndex['bitrixSync'] }) {
     return (
         <Card padding="sm">
             <h3 className="text-sm font-bold text-ink mb-3">Sincronização com Bitrix24 ({data.totalOpen} negócio(s) abertos)</h3>
-            <div className="grid grid-cols-3 gap-3 mb-4">
-                <KpiTile label="Vinculados ao Bitrix" value={formatPercent(data.linkedRate)} tone={data.linkedRate != null && data.linkedRate >= 80 ? 'good' : data.linkedRate != null && data.linkedRate < 50 ? 'critical' : undefined} />
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                <KpiTile label="Vinculados ao Bitrix" value={formatPercent(data.linkedRate)} tone={data.linkedRate != null && data.linkedRate >= 80 ? 'good' : data.linkedRate != null && data.linkedRate < 50 ? 'critical' : undefined} metricKey="bitrix_sincronizacao" />
                 <KpiTile label="Sem vínculo" value={String(data.notLinked)} tone={data.notLinked > 0 ? undefined : 'good'} />
                 <KpiTile label="Falha na última sincronização" value={String(data.failed)} tone={data.failed > 0 ? 'critical' : 'good'} />
+                <KpiTile label="Última sincronização" value={data.lastSyncAt ? new Date(data.lastSyncAt).toLocaleString('pt-BR') : 'Nunca sincronizado'} />
+                <KpiTile label="Sincronizados (30 dias)" value={String(data.syncedCount30d)} tone="good" />
+                <KpiTile label="Falhas (30 dias)" value={String(data.failedCount30d)} tone={data.failedCount30d > 0 ? 'critical' : 'good'} />
             </div>
 
             {data.failures.length > 0 && (

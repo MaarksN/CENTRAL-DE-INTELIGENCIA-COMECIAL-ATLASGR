@@ -71,6 +71,16 @@ class FakeRepository implements CommercialIntelligenceRepository {
     async countDuplicateCompanyGroupsAmongOpenDeals(): Promise<number> { return this.duplicateGroups; }
     async hasBitrixConnection(): Promise<boolean> { return this.bitrixConnected; }
 
+    syncActivity: { lastSyncAt: Date | null; syncedCount: number; failedCount: number } = { lastSyncAt: null, syncedCount: 0, failedCount: 0 };
+    async getBitrixSyncActivity(): Promise<{ lastSyncAt: Date | null; syncedCount: number; failedCount: number }> {
+        return this.syncActivity;
+    }
+
+    filterOptionsResult: { owners: string[]; products: string[]; sources: string[]; icps: string[] } = { owners: [], products: [], sources: [], icps: [] };
+    async getFilterOptions(): Promise<{ owners: string[]; products: string[]; sources: string[]; icps: string[] }> {
+        return this.filterOptionsResult;
+    }
+
     async getGoal(organizationId: string, period: string, metric: GoalMetric): Promise<CommercialGoalDTO | null> {
         return this.goals.get(`${organizationId}:${period}:${metric}`) ?? null;
     }
@@ -513,5 +523,127 @@ describe('CommercialIntelligenceUseCases', () => {
         const useCases = new CommercialIntelligenceUseCases(repo);
         const alerts = await useCases.alerts(ORG, { month: PERIOD }, NOW);
         expect(alerts.some((a) => a.id === 'forecast-confidence-critica' && a.severity === 'critical')).toBe(true);
+    });
+
+    it('Alertas: "Propostas sem interação" quando um negócio Commit/Best Case está sem interação recente', async () => {
+        const staleProposal = deal({ id: 'stale-1', amount: 40_000, stageProbability: 60, pipelineStageId: 'stage-proposta', lastInteraction: null });
+        const repo = new FakeRepository([staleProposal]);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const alerts = await useCases.alerts(ORG, { month: PERIOD }, NOW);
+        expect(alerts.some((a) => a.id === 'propostas-sem-interacao' && a.severity === 'warning')).toBe(true);
+    });
+
+    // ─── Funil histórico (seção 12) ─────────────────────────────────────────────
+
+    it('Funil histórico: negócio perdido cedo não conta como tendo alcançado uma etapa posterior — a etapa terminal nunca vira proxy de progresso', async () => {
+        const lostEarly = deal({ id: 'lost-early', amount: 10_000, stageIsLost: true, pipelineStageId: 'stage-perdido', closedAt: new Date('2026-08-05T00:00:00Z') });
+        const history = [
+            { leadId: 'lost-early', stageId: 'stage-nova', stageName: 'Nova Oportunidade', enteredAt: new Date('2026-08-01T00:00:00Z'), exitedAt: new Date('2026-08-03T00:00:00Z') },
+            { leadId: 'lost-early', stageId: 'stage-perdido', stageName: 'Negócios Perdidos', enteredAt: new Date('2026-08-03T00:00:00Z'), exitedAt: null },
+        ];
+        const repo = new FakeRepository([lostEarly], STAGES, history);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const performance = await useCases.performance(ORG, { month: PERIOD }, NOW);
+        expect(performance.funnel.find((f) => f.stageId === 'stage-nova')?.historicalReachedCount).toBe(1);
+        expect(performance.funnel.find((f) => f.stageId === 'stage-proposta')?.historicalReachedCount).toBe(0);
+    });
+
+    it('Funil histórico: negócio ganho conta em todas as etapas abertas que passou, segundo o histórico', async () => {
+        const won = deal({ id: 'won-1', amount: 50_000, stageIsWon: true, pipelineStageId: 'stage-ganho', closedAt: new Date('2026-08-10T00:00:00Z') });
+        const history = [
+            { leadId: 'won-1', stageId: 'stage-nova', stageName: 'Nova Oportunidade', enteredAt: new Date('2026-08-01T00:00:00Z'), exitedAt: new Date('2026-08-02T00:00:00Z') },
+            { leadId: 'won-1', stageId: 'stage-proposta', stageName: 'Proposta Enviada', enteredAt: new Date('2026-08-02T00:00:00Z'), exitedAt: new Date('2026-08-09T00:00:00Z') },
+            { leadId: 'won-1', stageId: 'stage-ganho', stageName: 'Negócios Ganhos', enteredAt: new Date('2026-08-09T00:00:00Z'), exitedAt: null },
+        ];
+        const repo = new FakeRepository([won], STAGES, history);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const performance = await useCases.performance(ORG, { month: PERIOD }, NOW);
+        expect(performance.funnel.find((f) => f.stageId === 'stage-nova')?.historicalReachedCount).toBe(1);
+        const proposta = performance.funnel.find((f) => f.stageId === 'stage-proposta');
+        expect(proposta?.historicalReachedCount).toBe(1);
+        expect(proposta?.historicalConversionFromPrevious).toBe(100);
+    });
+
+    it('Funil histórico: negócio aberto sem nenhum histórico usa a etapa atual como alcançada (registro legado)', async () => {
+        const openLegacy = deal({ id: 'open-legacy', amount: 20_000, pipelineStageId: 'stage-proposta', stageName: 'Proposta Enviada', stageSortOrder: 1 });
+        const repo = new FakeRepository([openLegacy], STAGES, []);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const performance = await useCases.performance(ORG, { month: PERIOD }, NOW);
+        expect(performance.funnel.find((f) => f.stageId === 'stage-nova')?.historicalReachedCount).toBe(1);
+        expect(performance.funnel.find((f) => f.stageId === 'stage-proposta')?.historicalReachedCount).toBe(1);
+    });
+
+    it('Funil histórico: negócio fechado sem nenhuma linha de histórico não é contado em nenhuma etapa (nunca progresso fabricado)', async () => {
+        const lostNoHistory = deal({ id: 'lost-no-history', amount: 15_000, stageIsLost: true, pipelineStageId: 'stage-perdido', closedAt: new Date('2026-08-05T00:00:00Z') });
+        const repo = new FakeRepository([lostNoHistory], STAGES, []);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const performance = await useCases.performance(ORG, { month: PERIOD }, NOW);
+        expect(performance.funnel.every((f) => f.historicalReachedCount === 0)).toBe(true);
+    });
+
+    it('Funil histórico: funnelHistoricalTrackingSince é null sem nenhum histórico e a data mais antiga quando há histórico', async () => {
+        const repoSemHistorico = new FakeRepository([deal({ id: 'd1', amount: 1_000 })], STAGES, []);
+        const perfSemHistorico = await new CommercialIntelligenceUseCases(repoSemHistorico).performance(ORG, { month: PERIOD }, NOW);
+        expect(perfSemHistorico.funnelHistoricalTrackingSince).toBeNull();
+
+        const history = [{ leadId: 'd2', stageId: 'stage-nova', stageName: 'Nova Oportunidade', enteredAt: new Date('2026-07-15T00:00:00Z'), exitedAt: null }];
+        const repoComHistorico = new FakeRepository([deal({ id: 'd2', amount: 1_000 })], STAGES, history);
+        const perfComHistorico = await new CommercialIntelligenceUseCases(repoComHistorico).performance(ORG, { month: PERIOD }, NOW);
+        expect(perfComHistorico.funnelHistoricalTrackingSince).toBe('2026-07-15T00:00:00.000Z');
+    });
+
+    // ─── Opções de filtro reais (seção 18) ──────────────────────────────────────
+
+    it('filterOptions: delega ao repositório os valores reais já usados por negócios do funil Negócio', async () => {
+        const repo = new FakeRepository([]);
+        repo.filterOptionsResult = { owners: ['ana@atlasgr.com.br'], products: ['SKU-1'], sources: ['Indicação'], icps: ['Enterprise'] };
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const result = await useCases.filterOptions(ORG);
+        expect(result).toEqual(repo.filterOptionsResult);
+    });
+
+    // ─── Tendências históricas — 6 meses (seção 23) ─────────────────────────────
+
+    it('historicalTrends: 6 meses do mais antigo ao mais recente, terminando no mês do filtro', async () => {
+        const useCases = new CommercialIntelligenceUseCases(new FakeRepository([]));
+        const result = await useCases.historicalTrends(ORG, { month: PERIOD }, NOW);
+        expect(result.points.map((p) => p.period)).toEqual(['2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08']);
+    });
+
+    it('historicalTrends: mês sem amostra retorna "Não disponível" (null) em vez de interpolar', async () => {
+        const useCases = new CommercialIntelligenceUseCases(new FakeRepository([]));
+        const result = await useCases.historicalTrends(ORG, { month: PERIOD }, NOW);
+        expect(result.points.every((p) => p.winRate === null && p.closedSampleSize === 0)).toBe(true);
+    });
+
+    it('historicalTrends: mês com negócio fechado retorna Win Rate e Ticket Médio reais daquele mês', async () => {
+        const won = deal({ id: 'w1', amount: 30_000, stageIsWon: true, pipelineStageId: 'stage-ganho', closedAt: new Date('2026-06-10T00:00:00Z') });
+        const useCases = new CommercialIntelligenceUseCases(new FakeRepository([won]));
+        const result = await useCases.historicalTrends(ORG, { month: PERIOD }, NOW);
+        const june = result.points.find((p) => p.period === '2026-06');
+        expect(june?.winRate).toBe(100);
+        expect(june?.averageTicketWon).toBe(30_000);
+        expect(june?.closedSampleSize).toBe(1);
+    });
+
+    // ─── Bitrix24: última sincronização e atividade de 30 dias (seção 28) ──────
+
+    it('Qualidade do CRM: expõe última sincronização e volume de sucesso/falha dos últimos 30 dias', async () => {
+        const repo = new FakeRepository([deal({ id: 'd1', amount: 1_000 })], STAGES, [], 0, 0, 0, true);
+        repo.syncActivity = { lastSyncAt: new Date('2026-08-14T10:00:00Z'), syncedCount: 12, failedCount: 3 };
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const quality = await useCases.crmQuality(ORG, { month: PERIOD }, NOW);
+        expect(quality.bitrixSync.lastSyncAt).toBe('2026-08-14T10:00:00.000Z');
+        expect(quality.bitrixSync.syncedCount30d).toBe(12);
+        expect(quality.bitrixSync.failedCount30d).toBe(3);
+    });
+
+    it('Qualidade do CRM: sem conexão Bitrix, atividade de sincronização fica explicitamente zerada', async () => {
+        const repo = new FakeRepository([deal({ id: 'd1', amount: 1_000 })], STAGES, [], 0, 0, 0, false);
+        const useCases = new CommercialIntelligenceUseCases(repo);
+        const quality = await useCases.crmQuality(ORG, { month: PERIOD }, NOW);
+        expect(quality.bitrixSync.lastSyncAt).toBeNull();
+        expect(quality.bitrixSync.syncedCount30d).toBe(0);
+        expect(quality.bitrixSync.failedCount30d).toBe(0);
     });
 });

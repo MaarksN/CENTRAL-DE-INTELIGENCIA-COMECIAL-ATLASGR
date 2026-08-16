@@ -109,6 +109,9 @@ export interface FunnelStageConversion {
     amount: number;
     conversionFromPrevious: number | null;
     averageDaysInStage: number | null;
+    historicalReachedCount: number;
+    historicalReachedAmount: number;
+    historicalConversionFromPrevious: number | null;
 }
 
 export interface PerformanceMetrics {
@@ -123,6 +126,7 @@ export interface PerformanceMetrics {
     averageTicket: { created: number | null; open: number | null; won: number | null; lost: number | null };
     salesCycle: { meanDays: number | null; medianDays: number | null; sampleSize: number };
     funnel: FunnelStageConversion[];
+    funnelHistoricalTrackingSince: string | null;
 }
 
 export interface AgingBucket { label: string; minDays: number; maxDays: number | null; count: number; amount: number }
@@ -163,6 +167,7 @@ export interface BitrixSyncFailure { leadId: string; title: string | null; compa
 export interface BitrixSyncHealth {
     connected: boolean; totalOpen: number; linked: number; notLinked: number; failed: number;
     linkedRate: number | null; failures: BitrixSyncFailure[];
+    lastSyncAt: string | null; syncedCount30d: number; failedCount30d: number;
 }
 
 export interface CrmQualityIndex {
@@ -191,6 +196,14 @@ export interface CommercialFilter {
     source?: string;
     icp?: string;
 }
+
+export interface FilterOptions { owners: string[]; products: string[]; sources: string[]; icps: string[] }
+
+export interface HistoricalTrendPoint {
+    period: string; label: string; winRate: number | null; salesCycleMeanDays: number | null;
+    averageTicketWon: number | null; pipelineCreatedAmount: number | null; closedSampleSize: number;
+}
+export interface HistoricalTrendsReport { points: HistoricalTrendPoint[] }
 
 export interface ExecutiveSummaryResult { summary: string; generatedAt: string }
 export interface BitrixNoteDraftResult { draft: string }
@@ -224,6 +237,8 @@ export const commercialIntelligenceApi = {
     deals: (filter: CommercialFilter, extra?: { tier?: ForecastTier; stageId?: string; agingCritical?: boolean; missingNextAction?: boolean; limit?: number; offset?: number }) =>
         api.get<DealDrillDownResult>(`${BASE}/deals?${qs(filter, extra)}`),
     metricsDictionary: () => api.get<MetricDefinition[]>(`${BASE}/metrics-dictionary`),
+    filterOptions: () => api.get<FilterOptions>(`${BASE}/filter-options`),
+    trends: (filter: CommercialFilter) => api.get<HistoricalTrendsReport>(`${BASE}/trends?${qs(filter)}`),
     getGoal: (month: string) => api.get<CommercialGoalDTO | null>(`${BASE}/goals?month=${month}`),
     setGoal: (period: string, amount: number, currency = 'BRL') => api.put<CommercialGoalDTO>(`${BASE}/goals`, { period, amount, currency }),
     // Ação de escrita no Bitrix24 — vive na rota do módulo de integração (não duplica a lógica de
