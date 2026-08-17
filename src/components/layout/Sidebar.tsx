@@ -13,7 +13,7 @@ import { TabType } from './tabMeta';
 
 interface SidebarProps {
     activeTab: TabType;
-    /** Controla a visibilidade em telas < lg, onde a Sidebar vira um painel off-canvas. */
+    /** Controla a visibilidade em telas < md, onde a Sidebar vira um painel off-canvas. */
     mobileOpen?: boolean;
     /** Chamado ao fechar a navegação mobile (backdrop, Escape ou seleção de item). */
     onCloseMobile?: () => void;
@@ -86,14 +86,16 @@ export function Sidebar({ activeTab, mobileOpen = false, onCloseMobile }: Sideba
 
     // Ferramenta estática (HTML/JS puro, sem passar pelo router da SPA) servida direto de
     // public/tools — roda 100% no navegador do usuário, direto contra o webhook Bitrix24 dele,
-    // por isso abre em nova aba em vez de navegar dentro do app.
+    // por isso abre em nova aba em vez de navegar dentro do app. Portal multi-página (Home,
+    // Cockpit Executivo, Extrator, Forecast Semanal, SDR) que substituiu o antigo
+    // extrator-bitrix.html de arquivo único — ver docs/security/runbooks/ROTATE_BITRIX24_WEBHOOKS.md.
     const externalTools = [
-        { label: 'Extrator Bitrix24', href: '/tools/extrator-bitrix.html', icon: <Download size={20} /> },
+        { label: 'Portal Comercial Bitrix24', href: '/tools/portal-comercial/index.html', icon: <Download size={20} /> },
     ];
 
     return (
         <aside
-            className={`fixed inset-y-0 left-0 z-40 w-64 h-full flex flex-col transition-transform duration-300 bg-surface border-r border-line lg:static lg:translate-x-0 ${
+            className={`fixed inset-y-0 left-0 z-40 w-64 h-full flex flex-col transition-transform duration-300 bg-surface border-r border-line md:static md:translate-x-0 ${
                 mobileOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
         >
