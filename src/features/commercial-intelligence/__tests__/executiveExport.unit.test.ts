@@ -33,6 +33,14 @@ const OVERVIEW: ExecutiveOverview = {
     coverage30: { coverage: null, coverageRecommended: 2, pipelineEligible: 0, remainingGoal: 0 },
     coverage60: { coverage: null, coverageRecommended: 2, pipelineEligible: 0, remainingGoal: 0 },
     coverage90: { coverage: null, coverageRecommended: 2, pipelineEligible: 0, remainingGoal: 0 },
+    coverageProtection: [
+        { period: '2026-08', label: 'AGO/2026', goalAmount: 300_000, pipelineEligible: 300_000, remainingGoal: 200_000, coverage: 1.5, coverageRecommended: 2, status: 'atencao' },
+        { period: '2026-09', label: 'SET/2026', goalAmount: 300_000, pipelineEligible: 250_000, remainingGoal: 300_000, coverage: 0.83, coverageRecommended: 2, status: 'critico' },
+        { period: '2026-10', label: 'OUT/2026', goalAmount: 300_000, pipelineEligible: 400_000, remainingGoal: 300_000, coverage: 1.33, coverageRecommended: 2, status: 'atencao' },
+        { period: '2026-11', label: 'NOV/2026', goalAmount: null, pipelineEligible: 0, remainingGoal: null, coverage: null, coverageRecommended: null, status: 'sem_dados' },
+    ],
+    previousPeriod: { period: '2026-07', closedAmount: 60_000, closedCount: 1, winRate: 40 },
+    forecastConfidence: { score: 72, classification: 'atencao', sampleSize: 8, fieldCompletenessScore: 0.8, stageHistoryCoverage: 0.6, sampleSizePenaltyApplied: false },
     isEmpty: false,
     dataAsOf: NOW.toISOString(),
 };
@@ -46,6 +54,7 @@ const PERFORMANCE: PerformanceMetrics = {
     averageTicket: { created: 25_000, open: 40_000, won: 80_000, lost: 5_000 },
     salesCycle: { meanDays: 26, medianDays: 26, sampleSize: 2 },
     funnel: [],
+    funnelHistoricalTrackingSince: '2026-01-01T00:00:00Z',
 };
 
 const CREATION: PipelineCreation = {
@@ -57,10 +66,11 @@ const CREATION: PipelineCreation = {
     byOwner: [],
     pipelineNeeded: 240_000,
     creationCoverage: 0.5,
-    businessDaysElapsed: 10,
-    businessDaysTotal: 21,
-    expectedByNow: 114_285.71,
+    elapsedBusinessDays: 10,
+    totalBusinessDays: 21,
+    paceExpectedAmount: 114_285.71,
     pacePercent: 105,
+    paceGapAmount: -5_714.29,
 };
 
 const ALERTS: ExecutiveAlert[] = [
