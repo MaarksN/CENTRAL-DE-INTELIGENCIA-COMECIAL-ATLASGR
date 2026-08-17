@@ -45,6 +45,10 @@ servers:
 tags:
   - name: Auth
     description: Cadastro/login/sessão (Better Auth)
+  - name: Auth Extra
+    description: >-
+      Rotas complementares ao fluxo de autenticação que não fazem parte do Better Auth em si
+      (ex.: notificações pós-troca de senha) — requerem sessão autenticada e tenant resolvido
   - name: Companies
     description: Empresas do CRM
   - name: Contacts
@@ -199,6 +203,25 @@ paths:
       responses:
         '200':
           description: Sessão encerrada
+
+  # ───────────────────────────── Auth Extra ─────────────────────────────
+  /auth-extra/welcome-email:
+    post:
+      tags: [Auth Extra]
+      summary: >-
+        Envia e-mail de boas-vindas ao próprio usuário autenticado logo após a troca bem-sucedida
+        da senha temporária/padrão (ChangePasswordGate.tsx) — best-effort, nunca falha a requisição
+        por erro de e-mail
+      responses:
+        '200':
+          description: Solicitação processada (envio de e-mail é best-effort e não bloqueia a resposta)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
 
   # ───────────────────────────── Companies ─────────────────────────────
   /companies:
