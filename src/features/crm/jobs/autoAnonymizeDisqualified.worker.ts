@@ -6,49 +6,59 @@ import { eraseDataSubject } from '../../../shared/services/dataSubjectErasure.se
 
 export const AUTO_ANONYMIZE_QUEUE_NAME = 'auto-anonymize-disqualified-queue';
 
-export function createAutoAnonymizeWorker() {
-    const worker = new Worker(AUTO_ANONYMIZE_QUEUE_NAME, async (job) => {
-        logger.info('Iniciando rotina de anonimização de leads desqualificados há > 90 dias');
-        
-        try {
-            const ninetyDaysAgo = new Date();
-            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+// SEC-007 (Sprint 01/Onda 13): extraído do processor do Worker para ser testável sem precisar de
+// Redis/BullMQ real — o worker.ts abaixo só chama esta função. `eraseDataSubject` (que esta função
+// chama por lead elegível) já é idempotente por si só (ver `tests/integration/lgpd-erasure-cross-
+// tenant.test.ts`), mas isso nunca tinha sido comprovado rodando a VARREDURA inteira duas vezes
+// seguidas — o filtro `contact.name != '[titular anonimizado — LGPD]'` é o que deveria impedir a
+// segunda rodada de reprocessar quem a primeira já tratou.
+export async function runAutoAnonymizeSweep(): Promise<{ anonymizedCount: number }> {
+    logger.info('Iniciando rotina de anonimização de leads desqualificados há > 90 dias');
 
-            // Busca leads desqualificados/perdidos cujo contato ainda não foi anonimizado
-            const leadsToAnonymize = await prisma.lead.findMany({
-                where: {
-                    status: { in: ['Negocios_Perdidos'] },
-                    updatedAt: { lte: ninetyDaysAgo },
-                    contact: {
-                        name: { not: '[titular anonimizado — LGPD]' }
-                    }
-                },
-                select: {
-                    id: true,
-                    organizationId: true,
-                    contactId: true
-                },
-                take: 100
-            });
+    try {
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-            let anonymizedCount = 0;
-            for (const lead of leadsToAnonymize) {
-                if (lead.contactId && lead.organizationId) {
-                    await eraseDataSubject({
-                        organizationId: lead.organizationId,
-                        contactId: lead.contactId
-                    });
-                    anonymizedCount++;
+        // Busca leads desqualificados/perdidos cujo contato ainda não foi anonimizado
+        const leadsToAnonymize = await prisma.lead.findMany({
+            where: {
+                status: { in: ['Negocios_Perdidos'] },
+                updatedAt: { lte: ninetyDaysAgo },
+                contact: {
+                    name: { not: '[titular anonimizado — LGPD]' }
                 }
-            }
+            },
+            select: {
+                id: true,
+                organizationId: true,
+                contactId: true
+            },
+            take: 100
+        });
 
-            logger.info({ anonymizedCount }, 'Anonimização automática de leads concluída');
-            return { anonymizedCount };
-        } catch (err) {
-            logger.error({ err }, 'Erro ao executar worker de anonimização automática');
-            throw err;
+        let anonymizedCount = 0;
+        for (const lead of leadsToAnonymize) {
+            if (lead.contactId && lead.organizationId) {
+                await eraseDataSubject({
+                    organizationId: lead.organizationId,
+                    contactId: lead.contactId
+                });
+                anonymizedCount++;
+            }
         }
-    }, { connection: connection as any });
+
+        logger.info({ anonymizedCount }, 'Anonimização automática de leads concluída');
+        return { anonymizedCount };
+    } catch (err) {
+        logger.error({ err }, 'Erro ao executar worker de anonimização automática');
+        throw err;
+    }
+}
+
+export function createAutoAnonymizeWorker() {
+    const worker = new Worker(AUTO_ANONYMIZE_QUEUE_NAME, async (_job) => runAutoAnonymizeSweep(), {
+        connection: connection as any,
+    });
 
     worker.on('error', (err) => {
         logger.warn({ message: err.message }, 'AutoAnonymize worker error suppressed (Redis offline)');

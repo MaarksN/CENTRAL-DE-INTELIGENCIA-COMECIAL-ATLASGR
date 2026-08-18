@@ -91,11 +91,10 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      # continue-on-error ativo: waiver "GHSA-ggr8-5vv4-36mx — deepmerge-ts via @prisma/config"
-      # em docs/security/AUDIT_WAIVERS.md — ver comentário equivalente em ci.yml.
-      - name: Audit for vulnerabilities
-        run: npm audit --audit-level=high
-        continue-on-error: true # waiver GHSA-ggr8-5vv4-36mx, ver docs/security/AUDIT_WAIVERS.md
+      # SEC-005 (Sprint 01/Onda 13): gate real advisory-por-advisory — ver comentário equivalente
+      # em ci.yml e scripts/security/check-audit-waivers.ts.
+      - name: Audit for vulnerabilities (waiver-aware)
+        run: npm run security:audit-waivers
 
       - name: Run Lint
         run: npm run lint
