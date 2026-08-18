@@ -39,7 +39,7 @@ jobs:
     # Mesmos service containers do ci.yml — sem eles não dá pra rodar test:integration/E2E aqui.
     services:
       postgres:
-        image: pgvector/pgvector:pg15
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: prospector
           POSTGRES_PASSWORD: prospector_test_pass

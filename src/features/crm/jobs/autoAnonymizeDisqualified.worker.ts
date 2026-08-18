@@ -2,6 +2,7 @@ import { Worker, Queue } from 'bullmq';
 import { prisma } from '../../../lib/prisma.js';
 import { logger } from '../../../lib/logger.js';
 import { connection } from '../../../lib/queue/redis.js';
+import { recordDeadLetter, isFinalAttempt } from '../../../lib/queue/deadLetter.js';
 import { requestContext } from '../../../lib/async-context.js';
 import { eraseDataSubject } from '../../../shared/services/dataSubjectErasure.service.js';
 
@@ -75,6 +76,18 @@ export async function runAutoAnonymizeSweep(): Promise<{ anonymizedCount: number
 export function createAutoAnonymizeWorker() {
     const worker = new Worker(AUTO_ANONYMIZE_QUEUE_NAME, async (_job) => runAutoAnonymizeSweep(), {
         connection: connection as any,
+    });
+
+    worker.on('failed', (job, err) => {
+        logger.error({ err, jobId: job?.id }, 'Auto-anonymize worker job falhou');
+        if (!job || !isFinalAttempt(job.attemptsMade, job.opts.attempts)) return;
+        void recordDeadLetter({
+            queue: AUTO_ANONYMIZE_QUEUE_NAME,
+            jobId: job.id,
+            jobName: job.name,
+            attemptsMade: job.attemptsMade,
+            error: err,
+        });
     });
 
     worker.on('error', (err) => {

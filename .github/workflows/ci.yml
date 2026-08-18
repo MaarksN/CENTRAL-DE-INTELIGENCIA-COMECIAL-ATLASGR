@@ -39,7 +39,7 @@ jobs:
 
     services:
       postgres:
-        image: pgvector/pgvector:pg15
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: prospector
           POSTGRES_PASSWORD: prospector_test_pass
@@ -203,7 +203,7 @@ jobs:
     # MEILI_MASTER_KEY estarem no env — ver comentário do job build-and-test).
     services:
       postgres:
-        image: pgvector/pgvector:pg15
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: prospector
           POSTGRES_PASSWORD: prospector_test_pass
