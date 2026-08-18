@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: market-intelligence-fleet-${{ github.ref }}
@@ -259,7 +260,9 @@ jobs:
           manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
           PY
 
-      - name: Commit fleet health or compact derived data
+      - name: Publish fleet health or compact derived data via pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "atlas-market-data-bot"
           git config user.email "130610135+MaarksN@users.noreply.github.com"
@@ -274,15 +277,14 @@ jobs:
             echo "No fleet-data health changes to commit."
             exit 0
           fi
+          BRANCH="data/market-intelligence-fleet-${GITHUB_RUN_ID}"
+          git checkout -b "$BRANCH"
           git commit -m "data(rntrc): registra saúde da frota oficial Ago/2026"
+          git push -u origin "$BRANCH"
 
-          for attempt in 1 2 3 4 5; do
-            git fetch origin main
-            git rebase origin/main
-            if git push origin HEAD:main; then
-              exit 0
-            fi
-            sleep $((attempt * 3))
-          done
-          echo "::error::Saúde da frota foi validada, mas a publicação falhou após 5 tentativas."
-          exit 1
+          PR_URL=$(gh pr create \
+            --title "data(rntrc): registra saúde da frota oficial Ago/2026" \
+            --body "Snapshot/saúde da frota RNTRC gerado automaticamente pelo workflow \`market-intelligence-fleet.yml\` (run ${GITHUB_RUN_ID}). \`main\` é protegida e exige PR + check \`build\`, então este bot publica via PR em vez de push direto." \
+            --base main --head "$BRANCH")
+          echo "Pull request criado: $PR_URL"
+          gh pr merge "$BRANCH" --auto --squash || echo "::warning::Auto-merge não habilitado ou PR requer aprovação manual — revisar $PR_URL."
