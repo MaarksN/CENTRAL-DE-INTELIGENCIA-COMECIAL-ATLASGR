@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "generatedAt": "2026-08-14T03:34:01.165670+00:00",
+  "generatedAt": "2026-08-18T18:03:24.738989+00:00",
   "methodologyVersion": "national-v1-draft",
   "decisionReady": false,
   "decisionBlockers": [
@@ -40,7 +40,7 @@
       "note": "Recurso oficial vigente auditado, porém payload não validável (124 bytes observados). O recurso histórico Jul/2026, catalogado com 10.5 MiB, retornou HTTP 404 em 14/08/2026. Nenhum número de frota foi inferido ou publicado.",
       "competence": "2026-08",
       "downloadedAt": null,
-      "probedAt": "2026-08-14T03:34:01.165670+00:00",
+      "probedAt": "2026-08-18T18:03:24.738989+00:00",
       "sha256": null,
       "municipalUse": "PROXY_UF"
     },
