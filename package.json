@@ -145,6 +145,9 @@
     },
     "openai": {
       "zod": "$zod"
+    },
+    "@langchain/community": {
+      "ioredis": "$ioredis"
     }
   },
   "devDependencies": {
