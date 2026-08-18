@@ -4,6 +4,7 @@
 - Sprint: 01
 - Onda: 13
 - SHA de entrada: `26e29b5` (main pós-merge PR #146, Sprint 00/Onda 12)
+- SHA de saída (deste relatório): `a92a0c7`
 - Branch de trabalho: `claude/sprint-01-seguranca-tenancy-51974`
 - Prioridade: **P0**
 - Agentes: liderança **15 (Segurança Aplicada)**; sequenciais no mesmo slot **01 depois 01A**; apoio **08, 10, 14**; `server.ts`/`package.json` aprovados por **00**.
@@ -147,39 +148,90 @@ real, segundo login real simulando "outro dispositivo", changePassword real, con
 
 ## SEC-007 — RLS + erase/anonymize cross-tenant
 
-**Status: EM CONCLUSÃO — 3 lacunas de teste identificadas, correção delegada e em verificação.**
+**Status: RESOLVIDO — 3 lacunas de teste fechadas, e um bug real de produção encontrado e corrigido no processo.**
 
 Investigação prévia mostrou RLS/tenancy já bem coberto (6 arquivos de teste de integração
 dedicados, isolamento cross-tenant com ID manipulado testado em vários modelos, erase de titular
-com cobertura completa e idempotência da função de erase já comprovada) — 3 lacunas reais:
+com cobertura completa e idempotência da função de erase já comprovada) — 3 lacunas reais
+fechadas:
 
-1. `ConversationSignal` — só coberto "de carona" no teste de erase, sem teste de isolamento
-   dedicado.
-2. `WhatsAppMessage` — mesma situação.
-3. `autoAnonymizeDisqualified.worker.ts` (varredura automática de anonimização) nunca teve teste de
-   idempotência — só a função `eraseDataSubject` que ele chama tinha essa prova.
+1. **`ConversationSignal`** — `tests/integration/conversation-signal-tenant-isolation.test.ts` (3
+   casos: isolamento básico de leitura, ID manipulado, INSERT cross-tenant bloqueado). Achado
+   registrado no teste: a policy RLS deste modelo usa `WITH CHECK (true)` (diferente de `AILog`) —
+   um INSERT cross-tenant "puro" via SQL cru passaria pela policy, mas todo código de produção usa
+   `prisma.create()` (sempre `INSERT ... RETURNING *`), e a policy de SELECT sobre a linha
+   retornada é o que efetivamente bloqueia a escrita na prática. Documentado, não é uma brecha
+   nova — é como a proteção real funciona hoje.
+2. **`WhatsAppMessage`** — `tests/integration/whatsapp-message-tenant-isolation.test.ts` (2 casos:
+   isolamento básico, ID manipulado).
+3. **Idempotência da varredura automática de anonimização** —
+   `tests/integration/auto-anonymize-sweep-idempotency.test.ts` (1 caso, cobrindo setup, 1ª rodada,
+   2ª rodada e cleanup).
 
-Refatoração feita diretamente nesta sessão: `runAutoAnonymizeSweep()` extraído do processor do
-Worker (`src/features/crm/jobs/autoAnonymizeDisqualified.worker.ts`) para ser testável sem exigir
-Redis/BullMQ real — comportamento idêntico, só testabilidade.
+**Bug real de produção encontrado e corrigido ao escrever o teste #3, fora do escopo original mas
+diretamente dentro do escopo do SEC-007 (RLS/LGPD):** `runAutoAnonymizeSweep()` (extraído do
+processor do Worker para ser testável) fazia `prisma.lead.findMany(...)` sem nenhum
+`requestContext.run(...)` próprio. O processor do BullMQ chama essa função fora de qualquer
+requisição HTTP — sem `tenantId`/`bypassRls` no `AsyncLocalStorage`, a RLS de `Lead` nega toda
+linha **silenciosamente** (`findMany` sempre devolvia `[]`, sem lançar erro, "sucesso" nos logs).
+**Resultado real em produção: a varredura diária de anonimização de leads desqualificados há mais
+de 90 dias sempre processava zero leads, todos os dias, desde sempre — nenhuma anonimização
+automática por LGPD realmente acontecia.**
 
-_(preencher ao final: resultado da verificação dos 3 testes novos)_
+Corrigido com o mesmo padrão já usado por `runBitrixSyncTick`
+(`src/features/integrations/bitrix/service/syncRules.ts`, precedente real já existente no repo):
+`runAutoAnonymizeSweep()` agora abre `requestContext.run({ bypassRls: true }, ...)` em volta da
+descoberta cross-tenant (por natureza precisa varrer leads de qualquer organização), enquanto
+`eraseDataSubject` continua escopando cada anonimização ao tenant real dela
+(`requestContext.run({ tenantId: organizationId })`). O teste chama `runAutoAnonymizeSweep()`
+direto, sem nenhum wrapper — exatamente como o processor do BullMQ chama em produção — provando
+que a correção funciona standalone, sem exigir que quem chama a função saiba que precisa embrulhar
+a chamada.
+
+Suíte completa de integração (29 arquivos) rodada 2x consecutivas após todas as adições desta onda:
+`Test Files 29 passed (29)` / `Tests 127 passed (127)` em ambas — sem vazamento de estado entre os
+novos testes.
 
 ---
 
 ## Gate final
 
-_(preencher ao final desta onda)_
+Executado nesta sessão, contra Postgres 16 + pgvector + Redis nativos (sem Docker no sandbox, mesmo
+setup da Sprint 00), branch `claude/sprint-01-seguranca-tenancy-51974`.
 
 ```
-typecheck:
-lint:
-unit — quantidade:
-integration — quantidade:
-e2e — quantidade:
-build:
+typecheck:            PASS — 0 erros
+lint:                  PASS — 0 erros (84 warnings pré-existentes, mesmo baseline da Sprint 00)
+unit:                  PASS — 162 arquivos / 1273 testes
+integration:           PASS — 29 arquivos / 127 testes (Postgres real, migrations do zero)
+build:                 PASS
+security:audit-waivers: PASS (novo gate SEC-005, substitui continue-on-error)
 ```
+
+`test:e2e` não foi re-executado localmente nesta onda (já validado PASS_WITH_NON_BLOCKING_WARNINGS
+na Sprint 00 com o mesmo ambiente; nenhuma mudança desta sprint toca rota/fluxo coberto por E2E de
+forma que justificasse suspeitar de regressão) — **checkpoint**: CI real do PR #148 roda a suíte
+completa (`build-and-test`, `Build & Test Code`, `secret-scan`, `e2e-tests`, `quality`) e será
+conferido antes do merge.
+
+## Achados
+
+| ID | Severidade | Dono | Status | Evidência |
+|---|---|---|---|---|
+| SEC-BUG-001 | **Crítico (LGPD)** | 01A | Corrigido | Worker de anonimização automática nunca executava de fato em produção (RLS negava silenciosamente) — ver SEC-007 acima. Commit `a92a0c7`. |
+| SEC-001-residual | Médio, aceito | 15 | Documentado, não corrigido | ADMIN de uma organização com token de operador ainda enxerga jobs de fila de outras organizações no BullBoard — ferramenta não segmenta por tenant. `docs/security/SECURITY_GUIDE.md`. |
+| SEC-004-drift | Baixo | 15 | Parcialmente corrigido | `.agents/prompts/15-seguranca-aplicada.md` ainda cita hashes de commit incorretos (`2e30b2f`/`543c5b0`/`8b1bc38`) — não corrigido por regra (`.agents/prompts/**` é edição humana, fora do ciclo de onda). |
 
 ## Decisão
 
-_(preencher ao final)_
+### **APROVADA**
+
+Todos os 7 pacotes (SEC-001 a SEC-007) entregues com evidência real de execução — nenhum teste
+marcado como aprovado sem ter rodado. Três correções concretas de código (`requirePlatformOperator`,
+`check-audit-waivers.ts`, hardening do Better Auth) mais um bug real de produção (worker LGPD
+silenciosamente inerte) encontrado e corrigido durante o próprio trabalho de teste, não deixado
+para depois. Dois itens residuais aceitos e documentados explicitamente (não escondidos): a
+segmentação por tenant do BullBoard permanece um débito real, e um documento de prompt (fora do
+escopo de edição de agente) ainda carrega hashes de commit desatualizados.
+
+Nenhum handoff bloqueador aberto ao final desta onda.
