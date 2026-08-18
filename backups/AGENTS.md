@@ -4,7 +4,7 @@
 Esta pasta **não deveria conter arquivos versionados no git**. `/AGENTS.md` → "Segurança e higiene" proíbe explicitamente dumps e backups de banco no repositório.
 
 ## Achado conhecido
-`backups/prospector-*.dump` está atualmente versionado (`git ls-files` confirma rastreamento), contendo dump de banco com dado pessoal real. Ver `/AGENTS.md` → "Segurança e higiene" para o plano de remediação recomendado (remover do próximo commit, avaliar rotação de credencial, decidir sobre reescrita de histórico com o dono do repositório).
+`backups/prospector-*.dump` chegou a ser versionado neste repositório, contendo dump de banco com dado pessoal real. Estado atual (verificado na Sprint 00/Onda 12 — GOV-002): **removido do working tree atual** — `git ls-files` não retorna nenhum `.dump` e esta pasta hoje só contém este `AGENTS.md`; `.gitignore` cobre `backups/*.dump`/`*.sql`/`*.backup`/`*.tar`/`*.tar.gz`/`*.gz` para evitar reincidência. Isso não elimina o risco: **o histórico do git continua recuperável**, o arquivo ainda existe em commits antigos. Reescrever o histórico (`git filter-repo`/BFG) é decisão humana separada, ainda não tomada — ver `/AGENTS.md` → "Segurança e higiene" para o estado completo e as pendências (rotação de credencial embutida, se houver, e a decisão de rewrite).
 
 ## Dono da remediação
 Agente 01 — Plataforma, Segurança e Dados, em conjunto com o Coordenador para a decisão de reescrever histórico (isso é decisão humana, não automática de agente).
