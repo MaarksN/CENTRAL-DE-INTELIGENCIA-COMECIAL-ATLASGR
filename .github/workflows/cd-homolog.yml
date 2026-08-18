@@ -69,6 +69,8 @@ jobs:
       ALLOW_DEV_AUTH_BYPASS: true
       ALLOWED_ORIGINS: http://localhost:3000
       AUTH_RATE_LIMIT_MAX: 500
+      # SEC-001/SEC-002 (Sprint 01/Onda 13): necessário para tests/integration/sec001-bullboard-access.test.ts
+      PLATFORM_OPERATOR_TOKEN: ci-test-operator-token-not-for-production
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -120,6 +122,7 @@ jobs:
           BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
           ALLOWED_ORIGINS=$ALLOWED_ORIGINS
           AUTH_RATE_LIMIT_MAX=$AUTH_RATE_LIMIT_MAX
+          PLATFORM_OPERATOR_TOKEN=$PLATFORM_OPERATOR_TOKEN
           EOF
 
       - name: Run Integration Tests
