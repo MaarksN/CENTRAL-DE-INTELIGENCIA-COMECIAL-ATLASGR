@@ -2,6 +2,7 @@ import { Worker, Queue } from 'bullmq';
 import { prisma } from '../../../lib/prisma.js';
 import { logger } from '../../../lib/logger.js';
 import { connection } from '../../../lib/queue/redis.js';
+import { requestContext } from '../../../lib/async-context.js';
 import { eraseDataSubject } from '../../../shared/services/dataSubjectErasure.service.js';
 
 export const AUTO_ANONYMIZE_QUEUE_NAME = 'auto-anonymize-disqualified-queue';
@@ -19,22 +20,38 @@ export async function runAutoAnonymizeSweep(): Promise<{ anonymizedCount: number
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-        // Busca leads desqualificados/perdidos cujo contato ainda não foi anonimizado
-        const leadsToAnonymize = await prisma.lead.findMany({
-            where: {
-                status: { in: ['Negocios_Perdidos'] },
-                updatedAt: { lte: ninetyDaysAgo },
-                contact: {
-                    name: { not: '[titular anonimizado — LGPD]' }
-                }
-            },
-            select: {
-                id: true,
-                organizationId: true,
-                contactId: true
-            },
-            take: 100
-        });
+        // BUG REAL encontrado ao escrever o teste de idempotência (SEC-007): esta função nunca
+        // abria contexto de RLS próprio. O processor do BullMQ (abaixo) chama
+        // `runAutoAnonymizeSweep()` fora de qualquer requisição HTTP — sem `tenantId`/`bypassRls`
+        // no `AsyncLocalStorage`, a policy RLS de `Lead` nega toda linha silenciosamente
+        // (`findMany` sempre voltava `[]`, sem lançar erro). Na prática, este worker NUNCA
+        // anonimizou nenhum lead em produção — a varredura sempre "concluía com sucesso"
+        // processando zero. Mesmo padrão já resolvido em `runBitrixSyncTick`
+        // (`src/features/integrations/bitrix/service/syncRules.ts`): bypass só para a descoberta
+        // cross-tenant (aqui, "quais leads em QUALQUER organização são elegíveis"); cada
+        // anonimização em si já roda escopada ao tenant certo dentro de `eraseDataSubject`
+        // (`requestContext.run({ tenantId: ... })`, ver dataSubjectErasure.service.ts).
+        const leadsToAnonymize = await requestContext.run({ bypassRls: true }, () =>
+            // IMPORTANTE: `await` a query AQUI DENTRO do callback do run(), não fora — Prisma
+            // devolve um PrismaPromise "lazy" que só dispara (e só enxerga o AsyncLocalStorage
+            // corrente) quando algo dá `.then()`/`await` nela. Ver comentário idêntico em
+            // `runBitrixSyncTick`, que documenta o mesmo bug já descoberto uma vez lá.
+            prisma.lead.findMany({
+                where: {
+                    status: { in: ['Negocios_Perdidos'] },
+                    updatedAt: { lte: ninetyDaysAgo },
+                    contact: {
+                        name: { not: '[titular anonimizado — LGPD]' }
+                    }
+                },
+                select: {
+                    id: true,
+                    organizationId: true,
+                    contactId: true
+                },
+                take: 100
+            })
+        );
 
         let anonymizedCount = 0;
         for (const lead of leadsToAnonymize) {

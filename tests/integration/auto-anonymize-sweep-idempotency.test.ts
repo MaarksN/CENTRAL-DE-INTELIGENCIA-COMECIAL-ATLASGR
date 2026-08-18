@@ -17,32 +17,23 @@ import { ANONYMIZED_CONTACT_NAME } from '../../src/shared/services/dataSubjectEr
 const withBypass = <T>(fn: () => Promise<T>): Promise<T> => requestContext.run({ bypassRls: true }, fn);
 const withTenant = <T>(tenantId: string, fn: () => Promise<T>): Promise<T> => requestContext.run({ tenantId }, fn);
 
-// DECISÃO DE DESIGN (documentada aqui e no relatório final, conforme pedido):
-// `runAutoAnonymizeSweep` faz `prisma.lead.findMany(...)` SEM embrulhar a chamada em nenhum
-// `requestContext.run(...)` próprio — ao contrário do worker cross-tenant análogo já existente no
-// repo (`runBitrixSyncTick`, src/features/integrations/bitrix/service/syncRules.ts), que abre
-// explicitamente `requestContext.run({ bypassRls: true }, ...)` em volta da varredura inicial
-// entre tenants antes de processar cada organização sob seu próprio tenant real.
+// BUG REAL encontrado escrevendo este teste, CORRIGIDO na mesma sprint (SEC-007): até este ponto,
+// `runAutoAnonymizeSweep` fazia `prisma.lead.findMany(...)` sem nenhum `requestContext.run(...)`
+// próprio — ao contrário do worker cross-tenant análogo já existente no repo (`runBitrixSyncTick`,
+// src/features/integrations/bitrix/service/syncRules.ts), que abre explicitamente
+// `requestContext.run({ bypassRls: true }, ...)` em volta da varredura inicial entre tenants.
+// Confirmado empiricamente: sem tenant/bypass ativos, a policy RLS de "Lead" nega todas as linhas
+// silenciosamente (`findMany` sempre devolvia `[]`, sem erro) — como o processor do BullMQ chama a
+// função exatamente assim, sem wrapper algum, o worker de produção NUNCA anonimizava nenhum lead.
+// Corrigido em `src/features/crm/jobs/autoAnonymizeDisqualified.worker.ts`: a função agora abre seu
+// próprio `requestContext.run({ bypassRls: true }, ...)` em volta da descoberta cross-tenant, mesmo
+// padrão do `runBitrixSyncTick`. `eraseDataSubject`, chamado por lead elegível, continua abrindo
+// seu próprio `requestContext.run({ tenantId: organizationId })` (dataSubjectErasure.service.ts) —
+// a anonimização em si roda sob RLS real de tenant, não sob bypass.
 //
-// Confirmado empiricamente contra este Postgres de teste (`prisma.lead.findMany` chamado sem
-// NENHUM contexto ativo, nem sequer o `tenantId: 'test-org-id'` que o `beforeEach` global de
-// tests/helpers/integration-setup.ts injeta): a policy de RLS de "Lead" (FORCE ROW LEVEL SECURITY,
-// USING current_setting('app.current_tenant_id') = "organizationId") nega TODAS as linhas quando
-// não há tenant nem bypass ativos — não lança erro, só devolve lista vazia. Como o processor real
-// do BullMQ (`createAutoAnonymizeWorker`, no mesmo arquivo) chama `runAutoAnonymizeSweep()` do
-// mesmo jeito, sem nenhum wrapper de contexto, o comportamento de PRODUÇÃO hoje é: a varredura
-// nunca encontra nenhum lead para anonimizar (sempre `anonymizedCount: 0`), porque a conexão do
-// worker não tem sessão HTTP nem tenant algum por trás. Isto é uma lacuna real (fora do escopo
-// desta tarefa — instruções explícitas de não alterar código de produção), sinalizada no relatório
-// final para o time decidir se vira um item de correção.
-//
-// Para este teste conseguir exercitar o comportamento de VARREDURA (ler leads de qualquer
-// organização, igual `runBitrixSyncTick` faz), a chamada a `runAutoAnonymizeSweep()` é feita aqui
-// dentro de `requestContext.run({ bypassRls: true }, ...)` — o mesmo padrão que o worker análogo já
-// usa no repositório. `eraseDataSubject`, chamado internamente por lead elegível, abre seu próprio
-// `requestContext.run({ tenantId: organizationId })` (ver dataSubjectErasure.service.ts), então a
-// anonimização em si roda sob RLS real de tenant, não sob bypass.
-const withSweepContext = <T>(fn: () => Promise<T>): Promise<T> => requestContext.run({ bypassRls: true }, fn);
+// Por isso este teste chama `runAutoAnonymizeSweep()` DIRETO, sem nenhum wrapper de contexto — é
+// exatamente o que o processor real do BullMQ faz, e é a prova de que a correção funciona sem
+// exigir que quem chama a função saiba que precisa embrulhar a chamada.
 
 const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 const ORG = `test-auto-anonymize-org-${suffix}`;
@@ -111,7 +102,7 @@ describe('runAutoAnonymizeSweep — idempotência real (Postgres real)', () => {
     expect(leadBeforeSweep.updatedAt.getTime()).toBeLessThan(Date.now() - 89 * 24 * 60 * 60 * 1000);
 
     // --- 1ª rodada: deve encontrar e anonimizar o lead criado acima. ---
-    const firstRun = await withSweepContext(() => runAutoAnonymizeSweep());
+    const firstRun = await runAutoAnonymizeSweep();
     expect(firstRun.anonymizedCount).toBeGreaterThanOrEqual(1);
 
     const contactAfterFirstRun = await withBypass(async () =>
@@ -148,7 +139,7 @@ describe('runAutoAnonymizeSweep — idempotência real (Postgres real)', () => {
     // tests/helpers/integration-setup.ts limpe Lead/Contact/Company sem where entre testes, este
     // arquivo roda sob bypass explícito e não deveria depender disso para ser uma asserção
     // robusta) — a asserção robusta é reconsultar o Contact/Lead específicos que criamos.
-    await expect(withSweepContext(() => runAutoAnonymizeSweep())).resolves.not.toThrow();
+    await expect(runAutoAnonymizeSweep()).resolves.not.toThrow();
 
     const contactAfterSecondRun = await withBypass(async () =>
       prisma.contact.findUniqueOrThrow({ where: { id: contact.id } }),
