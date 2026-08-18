@@ -204,15 +204,15 @@ npm run setup:db:check
 | `npm run lint` | **PASS** |
 | `npm run test:unit` | **PASS** — 161 arquivos / 1266 testes |
 | `npm run test:integration` | **PASS** — 24 arquivos / 114 testes (Postgres real, migrations aplicadas do zero) |
-| `npm run test:e2e` | _(ver abaixo — 1ª tentativa falhou por limitação de ambiente conhecida, retry em andamento)_ |
+| `npm run test:e2e` | **PASS_WITH_NON_BLOCKING_WARNINGS** — 44 passed + 1 flaky (passou no retry) + 5 skipped, 0 falha real, 3.0min (ver abaixo) |
 | `npm run build` | **PASS** — Vite + esbuild (server.cjs), 16.73s, sem erros (avisos de chunk >500kB pré-existentes, não regressão) |
 | `npm run verify:integrations` | **CHECKPOINT EXTERNO** — ver detalhe abaixo |
 | `npm run verify:ai` | **CHECKPOINT EXTERNO** — ver detalhe abaixo |
 | `npm run setup:db:check` | **CHECKPOINT EXTERNO** — ver detalhe abaixo |
 
-### `test:e2e` — 1ª tentativa: falha de ambiente, não do produto
+### `test:e2e` — 1ª tentativa (ambiente) x 2ª tentativa (real)
 
-Primeira execução: **45 failed, 5 skipped**, 100% das falhas com a mesma causa raiz:
+**1ª tentativa**: **45 failed, 5 skipped**, 100% das falhas com a mesma causa raiz:
 
 ```
 Error: browserType.launch: Executable doesn't exist at
@@ -222,8 +222,24 @@ Error: browserType.launch: Executable doesn't exist at
 `playwright.config.ts` já documenta essa exata situação em comentário (linhas 5-11) e expõe
 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` para apontar para o Chromium completo que de fato existe no
 sandbox (`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`, confirmado funcional via
-`--version`). Retry em andamento com essa variável setada — resultado real anexado abaixo assim que
-concluir, sem "PASS N/A" antes disso.
+`--version`) — limitação de ambiente conhecida do projeto, não do produto.
+
+**2ª tentativa**, com `PLAYWRIGHT_CHROMIUM_EXECUTABLE` setado: **PASS_WITH_NON_BLOCKING_WARNINGS**.
+
+```
+44 passed (3.0m)
+1 flaky  — commercial-intelligence-rbac.spec.ts:10 (timeout de 45s no signUp() sob carga do
+           runner, passou no retry — mesma classe de flakiness já documentada em helpers.ts,
+           não uma falha de asserção)
+5 skipped — tests/e2e/visual.spec.ts (test.describe.skip('Regressão visual', ...) — débito de
+           baseline visual Linux já conhecido e documentado em
+           .agents/handoffs/onda-6/14-para-08-baselines-visuais-linux.md, item ainda válido no
+           inventário GOV-006, não uma regressão desta onda)
+```
+
+0 falha real de asserção/produto. Mesmo padrão de veredito (`PASS_WITH_NON_BLOCKING_WARNINGS`) já
+usado nas Fases Finais anteriores para esta exata combinação (1 flaky de timeout de carga + 5
+skipped de visual) — não é uma regressão introduzida por esta onda.
 
 ### `verify:integrations` — detalhe real
 
@@ -269,4 +285,44 @@ via `test:integration` (24/24 passando contra ele), então a extensão `vector` 
 comprovadamente funcionais; o que não pôde ser confirmado é especificamente o script
 `setup:db:check` em si, que assume Docker. Dono sugerido: **14** (harness) — adicionar um caminho
 nativo/Postgres-direto a este script evitaria essa lacuna em ambientes sem Docker no futuro.
+
+---
+
+## Aceite
+
+| Critério | Status |
+|---|---|
+| Roster normativo sem agente inexistente | **Atendido** — GOV-001, 01A/06A/13-18 formalizados, 19/20 removidos e reatribuídos |
+| Ownership sem ambiguidade | **Atendido** — reatribuição explícita de verificação contínua (14+08) e experiência real (02+03+08+14), com a ressalva de gap registrada, não escondida |
+| Baseline executado | **Atendido** — tsc/lint/unit/integration/build/e2e com evidência real e 100% PASS ou PASS_WITH_NON_BLOCKING_WARNINGS; os 3 comandos que dependem de credencial externa/Docker (`verify:integrations`, `verify:ai`, `setup:db:check`) foram executados de verdade e documentados como checkpoint externo com erro real anexado, nunca como "PASS N/A" |
+| Nenhum blocker histórico sem destino | **Atendido** — GOV-006, 83/83 handoffs inventariados, 1 único bloqueador real (`onda-8/09-para-08-10-dominio-producao-e-verificacao-deep-link.md`) com destino explícito (onda-13, dono 09/08/10) |
+| `main` protegida | **Parcialmente verificado** — GOV-004, PR obrigatório e ao menos 1 check obrigatório confirmados por evidência real de produção (GH006); force-push e admin-bypass não confirmáveis com as ferramentas desta sessão, checkpoint externo registrado com dono sugerido (15/10) |
+| `.agents/runs/onda-12.md` publicado | **Atendido** — este arquivo, mais o anexo `onda-12-handoffs.md` |
+
+### Decisão: **APROVADA**
+
+Todos os critérios de aceite desta onda de governança foram cumpridos com evidência real. Os dois
+pontos que não fecham 100% (verificação completa de proteção de branch via API, e as 3 integrações
+externas que exigem credencial/Docker) são **checkpoints externos genuínos**, não falhas do
+trabalho desta onda — foram executados de verdade, produziram erro real, e ficam registrados com
+dono e próximo passo explícitos, conforme a própria regra de `AGENTS.md` sobre dependência externa
+impossível de provisionar localmente. Nenhum teste foi marcado como aprovado sem ter sido executado.
+
+Pendências que sobrevivem a esta onda, todas com dono e destino (não bloqueiam a aprovação da
+governança em si, mas ficam registradas para a Sprint 13 ou antes):
+1. Confirmar em GitHub → Settings → Branches se "Allow force pushes" e "Do not allow bypassing the
+   above settings" estão configurados, e se a lista de checks obrigatórios cobre todo o gate
+   (`ci.yml`), não só `build`. Dono: 15/10.
+2. Rodar `verify:integrations`/`verify:ai`/`setup:db:check` num ambiente com credenciais reais e
+   Docker (produção/homologação/CI) para fechar os 3 checkpoints externos. Dono: 14/08.
+3. O único bloqueador de handoff ainda aberto (deep link mobile de produção). Dono: 09/08/10,
+   destino onda-13.
+4. As ~16 pendências válidas sem bloqueador do inventário GOV-006, destino onda-13.
+
+## Próximos passos sugeridos para a Onda 13
+
+- Endereçar os itens acima na ordem de prioridade já registrada no inventário de handoffs.
+- Reabrir formalmente a Fase Final 0 (rodando o gate completo pós-rotação de credenciais, conforme
+  `final-fase-3.md`) e avançar a Fase Final 5 (Go-Live), hoje bloqueada só pelo item de deep link.
+- Nenhuma feature nova fora do freeze de escopo (GOV-003) até a Sprint 13.
 
