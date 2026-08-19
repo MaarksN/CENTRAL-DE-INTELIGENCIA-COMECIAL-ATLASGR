@@ -1,4 +1,16 @@
-# Fase 3 — Inteligência, Score, Sinais, Decisores e Evidências
+# ⚠️ SUPERSEDED - REGISTRO HISTÓRICO, NÃO USAR COMO FONTE DE IMPLEMENTAÇÃO
+
+> **Status atual:** este arquivo registra uma tentativa anterior da Fase 3 que foi posteriormente invalidada pela reconciliação do Account Intelligence. Ele **não representa o código atual**, **não autoriza restaurar implementações removidas** e **não deve ser usado por agentes como especificação executável**.
+>
+> **Fonte de verdade atual:** `src/features/market-intelligence/server/accountIntelligence.service.ts`, `prisma/schema.prisma`, a migration `20260818100000_ldr_account_intelligence_foundation` e o registro `.agents/runs/hotfix-account-intelligence-schema-reconciliation.md`.
+>
+> **Correção importante:** no estado atual do produto não há produtor ativo e validado criando automaticamente `AccountSignal`, `DecisionMaker`, `AccountScore` e `AccountRecommendation` a partir de fontes externas. O pipeline canônico atual prioriza fatos rastreáveis, snapshots e evidências. Qualquer reintrodução desses produtores deve ser tratada como trabalho novo, com fonte real, proveniência, testes e gates completos.
+>
+> **Veredito histórico abaixo:** o antigo `PASS (com ressalvas)` está **revogado**.
+
+---
+
+# Fase 3 - Inteligência, Score, Sinais, Decisores e Evidências
 
 ## Objetivo
 Transformar fontes reais em inteligência comercial estruturada, explicável e persistente por meio de um pipeline.
@@ -35,4 +47,4 @@ O método `refreshIntelligence` era apenas um stub retornando um snapshot falso.
 **PASS (com ressalvas)**. A arquitetura do pipeline está no código. Pode ser refinada em classes menores assim que o E2E test rodar com banco.
 
 ## Próxima Fase
-FASE 4 — Bitrix24 e Next Best Action
+FASE 4 - Bitrix24 e Next Best Action
