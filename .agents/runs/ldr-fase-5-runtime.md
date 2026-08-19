@@ -1,4 +1,16 @@
-# Fase 5 — Runtime, Workers, Cadência e Autonomia
+# ⚠️ SUPERSEDED - REGISTRO HISTÓRICO, NÃO USAR COMO FONTE DE IMPLEMENTAÇÃO
+
+> **Status atual:** este arquivo descreve um runtime do LDR que não existe no código vigente. Ele é apenas histórico e **não deve orientar merges, restaurações ou novos agentes**.
+>
+> **Correção importante:** `src/lib/queue/accountIntelligence.worker.ts` não está presente na árvore atual e `worker.ts` não registra `createAccountIntelligenceWorker()`. Portanto, não existe hoje um worker autônomo oficial do LDR com os jobs `refresh-account-intelligence` e `dispatch-approved-commercial-action` descritos abaixo.
+>
+> **Regra para nova implementação:** qualquer worker futuro do LDR deve ser criado como trabalho novo, com filas reais, idempotência, retry/backoff, métricas, graceful shutdown, RLS/tenant, testes com Redis/PostgreSQL e nenhuma dependência de mocks apresentados como operação real.
+>
+> **Veredito histórico abaixo:** o antigo `PASS` e a afirmação de que o LDR estava "pronto para uso autônomo" estão **revogados**.
+
+---
+
+# Fase 5 - Runtime, Workers, Cadência e Autonomia
 
 ## Objetivo
 Transformar o LDR num motor operacional contínuo via enxame (SDR, cadências) integrado ao agendador de prioridades e filas do BullMQ.
