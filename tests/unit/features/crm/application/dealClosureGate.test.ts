@@ -36,7 +36,7 @@ describe('ensureManualDealClosureAllowed', () => {
     });
 
     it.each(['ai-closer', 'agent:swarm-1', 'bot_generic', 'swarm-bdr'])(
-        'actorUserId com cara de IA/automação (%s): rejeita e NUNCA persiste o evento',
+        'actorUserId com cara de IA/automação (%s): rejeita e NUNCA cria nota nem persiste o evento',
         async (fakeActor) => {
             const port = buildPort();
 
@@ -44,6 +44,9 @@ describe('ensureManualDealClosureAllowed', () => {
                 ensureManualDealClosureAllowed(port, { organizationId: 'org-1', leadId: 'lead-1', actorUserId: fakeActor }),
             ).rejects.toThrow();
 
+            // A checagem de triggeredBy roda antes de qualquer escrita: uma tentativa rejeitada nunca
+            // deve deixar uma nota de "confirmação manual" falsa no histórico do lead.
+            expect(port.createConfirmationNote).not.toHaveBeenCalled();
             expect(port.saveDealClosureEvent).not.toHaveBeenCalled();
         },
     );

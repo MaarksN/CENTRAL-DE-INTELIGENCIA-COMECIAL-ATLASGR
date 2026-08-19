@@ -76,7 +76,7 @@ describe('CYC-007 — LeadUseCases.updateLeadStatus (Kanban drag)', () => {
         expect(untouched.status).not.toBe('Negocios_Ganhos');
     });
 
-    it('actorUserId com cara de agente de IA: rejeitado (403), lead não é movido, nenhum evento gravado', async () => {
+    it('actorUserId com cara de agente de IA: rejeitado (403), lead não é movido, nenhum evento nem nota gravados', async () => {
         const lead = await seedLead();
 
         await expect(
@@ -88,6 +88,11 @@ describe('CYC-007 — LeadUseCases.updateLeadStatus (Kanban drag)', () => {
 
         const events = await asOrg(ORG, () => prisma.dealClosureEvent.findMany({ where: { organizationId: ORG, leadId: lead.id } }));
         expect(events).toHaveLength(0);
+
+        // A checagem de triggeredBy roda antes de qualquer escrita: uma tentativa rejeitada nunca
+        // deve deixar uma nota falsa de "confirmação manual" no histórico do lead.
+        const notes = await asOrg(ORG, () => prisma.note.findMany({ where: { leadId: lead.id } }));
+        expect(notes).toHaveLength(0);
     });
 
     it('mover para um status que NÃO é "Negócios Ganhos" nunca aciona o gate', async () => {
