@@ -1,4 +1,16 @@
-# Fase 4 — Bitrix24 + Next Best Action + Execução Comercial
+# ⚠️ SUPERSEDED - REGISTRO HISTÓRICO, NÃO USAR COMO FONTE DE IMPLEMENTAÇÃO
+
+> **Status atual:** este arquivo descreve uma tentativa anterior da Fase 4 que não está conectada ao runtime atual. Ele **não representa o estado vigente** e **não deve ser usado para restaurar código removido**.
+>
+> **Correções obrigatórias:** `src/features/market-intelligence/server/actionExecutor.service.ts` foi classificado como stub inativo e removido na varredura de resíduos do LDR. Não existe hoje um executor oficial validado que transforme qualquer `AccountRecommendation` em ação comercial de ponta a ponta. O fallback `RESPONSIBLE_ID = 1` é considerado inseguro e não deve ser reintroduzido.
+>
+> **Regra para nova implementação:** qualquer execução Bitrix deve resolver explicitamente o usuário responsável, ser idempotente, ter estado de aprovação quando aplicável, retornar o identificador externo real e possuir teste de integração com o contrato vigente do Bitrix.
+>
+> **Veredito histórico abaixo:** o antigo `PASS` está **revogado**.
+
+---
+
+# Fase 4 - Bitrix24 + Next Best Action + Execução Comercial
 
 ## Objetivo
 Fazer a inteligência comercial (Next Best Action) virar ações reais (ex: Tarefas) no Bitrix24 e retornar o resultado para a Central.
@@ -32,4 +44,4 @@ Next Best Actions eram armazenadas mas não executadas. A API não efetuava push
 **PASS**. A lógica para fechar o ciclo comercial no CRM está pronta.
 
 ## Próxima Fase
-FASE 5 — Runtime, workers, cadências e autonomia
+FASE 5 - Runtime, workers, cadências e autonomia
