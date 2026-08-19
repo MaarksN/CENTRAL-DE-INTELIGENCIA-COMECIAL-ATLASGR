@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 const SYNTHETIC_MARKERS = /\b(mock|fake|fabricad[oa]?|fict[ií]ci[oa]?|dummy|placeholder|randomNews)\b|Math\.random/i;
@@ -147,6 +148,10 @@ function main() {
   process.exitCode = 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const invokedAsScript = process.argv[1]
+  ? import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
+  : false;
+
+if (invokedAsScript) {
   main();
 }
