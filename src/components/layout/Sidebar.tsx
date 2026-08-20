@@ -40,7 +40,7 @@ export function Sidebar({ activeTab, mobileOpen = false, onCloseMobile }: Sideba
             title: 'Captar',
             items: [
                 { id: 'prospect' as TabType, label: 'Prospecção', icon: <Search size={20} /> },
-                { id: 'market' as TabType, label: 'Market Intelligence', icon: <Globe size={20} /> },
+                { id: 'market-intelligence' as TabType, label: 'Market Intelligence', icon: <Globe size={20} /> },
             ]
         },
         {
@@ -48,8 +48,8 @@ export function Sidebar({ activeTab, mobileOpen = false, onCloseMobile }: Sideba
             items: [
                 { id: 'companies' as TabType, label: 'Empresas', icon: <Building2 size={20} /> },
                 { id: 'contacts' as TabType, label: 'Decisores', icon: <Users size={20} /> },
-                { id: 'mesa' as TabType, label: 'Mesa de Tratamento', icon: <Headset size={20} /> },
-                { id: 'matrix' as TabType, label: 'Matriz de Qualificação', icon: <Target size={20} /> },
+                { id: 'mesa-tratamento' as TabType, label: 'Mesa de Tratamento', icon: <Headset size={20} /> },
+                { id: 'qualification_matrix' as TabType, label: 'Matriz de Qualificação', icon: <Target size={20} /> },
             ]
         },
         {
@@ -70,7 +70,7 @@ export function Sidebar({ activeTab, mobileOpen = false, onCloseMobile }: Sideba
     ];
 
     const analisarItems = canAccessCommercialIntelligence ? [
-        { id: 'commercial-intelligence' as TabType, label: 'Comercial Inteligente', icon: <Gauge size={20} /> },
+        { id: 'commercial_intelligence' as TabType, label: 'Comercial Inteligente', icon: <Gauge size={20} /> },
         { id: 'analytics' as TabType, label: 'Analytics', icon: <LineChart size={20} /> },
         { id: 'reports' as TabType, label: 'Relatórios IA', icon: <FileBarChart size={20} /> },
     ] : [];
@@ -172,7 +172,7 @@ export function Sidebar({ activeTab, mobileOpen = false, onCloseMobile }: Sideba
                             );
                         })}
                     </div>
-                )}
+                ))}
 
                 <div className="space-y-1">
                     <p className="px-3 mb-2 text-[10px] font-black uppercase tracking-widest text-ink-2">IA & Capacitação</p>
@@ -200,7 +200,7 @@ export function Sidebar({ activeTab, mobileOpen = false, onCloseMobile }: Sideba
                             );
                         })}
                     </div>
-                )}
+                ))}
 
                 <div className="space-y-1 pt-4 border-t border-line">
                     {bottomItems.map(tool => {
