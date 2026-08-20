@@ -4,6 +4,25 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/features/market-intelligence/**'
+      - 'public/tools/atlas-market-intelligence/**'
+      - 'scripts/market-intelligence-core-evidence-smoke.ts'
+      - 'tests/unit/market-intelligence/**'
+      - 'tests/python/market_intelligence/**'
+      - 'tsconfig.market-intelligence.json'
+      - '.github/workflows/market-intelligence-ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/features/market-intelligence/**'
+      - 'public/tools/atlas-market-intelligence/**'
+      - 'scripts/market-intelligence-core-evidence-smoke.ts'
+      - 'tests/unit/market-intelligence/**'
+      - 'tests/python/market_intelligence/**'
+      - 'tsconfig.market-intelligence.json'
+      - '.github/workflows/market-intelligence-ci.yml'
   workflow_dispatch:
 
 permissions:
@@ -45,6 +64,9 @@ jobs:
 
       - name: Run Market Intelligence unit tests
         run: npx vitest run tests/unit/market-intelligence
+
+      - name: Verify Core Evidence against published snapshots
+        run: npx tsx scripts/market-intelligence-core-evidence-smoke.ts
 
       - name: Build application
         run: npm run build
