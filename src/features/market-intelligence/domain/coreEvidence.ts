@@ -5,7 +5,7 @@ import type {
     TerritoryRecord,
 } from './MarketIntelligence';
 import { calculateOpportunityScore, type OpportunityWeights } from './scoreEngine';
-import { buildTerritoryCandidates, type OptimizerMunicipality } from './territoryOptimizer';
+import { buildTerritoryCandidates, type OptimizerMunicipality, type TerritoryCandidate } from './territoryOptimizer';
 
 /**
  * Metodologia national-v1.1-core-evidence.
@@ -25,6 +25,15 @@ export const CORE_EVIDENCE_WEIGHTS: OpportunityWeights = {
     whiteSpace: 0,
     territorialEfficiency: 0,
 };
+
+// Sem malha/tempo de deslocamento validado, raios de 250–400 km são cenários exploratórios,
+// não recomendações automáticas de lotação. O Board usa no máximo 200 km até essa camada existir.
+export const CORE_DECISION_MAX_RADIUS_KM = 200;
+// Uma cidade-base precisa ser comercialmente material por si só, e não apenas estar no centro
+// geométrico de um grande círculo. O quartil superior é recalculado a cada snapshot nacional.
+export const CORE_BASE_ICP_PERCENTILE = 0.75;
+// Evita que o Top 5 seja composto por cinco pinos vizinhos representando praticamente a mesma área.
+export const CORE_MAX_MUNICIPALITY_OVERLAP_RATIO = 0.65;
 
 export interface MdfeMunicipalRow {
     ibgeCode: string;
@@ -49,6 +58,13 @@ function percentileScores(values: Map<string, number>): Map<string, number> {
     return result;
 }
 
+function percentileFloor(values: number[], percentile: number): number {
+    const ordered = values.filter(Number.isFinite).sort((a, b) => a - b);
+    if (!ordered.length) return Number.POSITIVE_INFINITY;
+    const bounded = Math.max(0, Math.min(1, percentile));
+    return ordered[Math.floor((ordered.length - 1) * bounded)];
+}
+
 function component(value: number | undefined, confidence: number, availability: ScoreComponent['availability'], reason?: string): ScoreComponent {
     return value === undefined
         ? { value: null, confidence: 0, availability: 'NAO_DISPONIVEL', reason }
@@ -71,6 +87,24 @@ function censusStatus(rows: MunicipalityRecord[]): MunicipalityRecord['competiti
     if (rows.length && rows.every((row) => row.competition.censusStatus === 'CENSO_COMPLETO')) return 'CENSO_COMPLETO';
     if (rows.some((row) => row.competition.censusStatus === 'PESQUISA_PARCIAL')) return 'PESQUISA_PARCIAL';
     return 'NAO_PESQUISADO';
+}
+
+function municipalityOverlapRatio(a: TerritoryCandidate, b: TerritoryCandidate): number {
+    const smallest = Math.min(a.municipalityCodes.length, b.municipalityCodes.length);
+    if (!smallest) return 0;
+    const bCodes = new Set(b.municipalityCodes);
+    let intersection = 0;
+    for (const code of a.municipalityCodes) if (bCodes.has(code)) intersection += 1;
+    return intersection / smallest;
+}
+
+function candidateIsBetter(candidate: TerritoryCandidate, current: TerritoryCandidate): boolean {
+    if (candidate.opportunityScore !== current.opportunityScore) {
+        return candidate.opportunityScore > current.opportunityScore;
+    }
+    if (candidate.confidence !== current.confidence) return candidate.confidence > current.confidence;
+    if (candidate.radiusKm !== current.radiusKm) return candidate.radiusKm < current.radiusKm;
+    return candidate.weightedOpportunityValue > current.weightedOpportunityValue;
 }
 
 export function hydrateCoreEvidence(
@@ -170,15 +204,43 @@ export function buildCoreTerritories(municipalities: MunicipalityRecord[]): Terr
             decisionBlocked: row.scores.confidenceAdjustedOpportunity.value === null,
         }));
 
-    const byCode = new Map(municipalities.map((row) => [row.ibgeCode, row]));
-    const candidates = buildTerritoryCandidates(optimizerRows)
-        .sort((a, b) => b.weightedOpportunityValue - a.weightedOpportunityValue || b.confidence - a.confidence);
+    const baseIcpFloor = percentileFloor(
+        optimizerRows
+            .map((row) => row.icpAccounts)
+            .filter((value): value is number => value !== null && value > 0),
+        CORE_BASE_ICP_PERCENTILE,
+    );
+    const bestByBase = new Map<string, TerritoryCandidate>();
+    for (const candidate of buildTerritoryCandidates(optimizerRows)) {
+        if (candidate.radiusKm > CORE_DECISION_MAX_RADIUS_KM) continue;
+        if ((candidate.base.icpAccounts ?? 0) < baseIcpFloor) continue;
+        const current = bestByBase.get(candidate.base.ibgeCode);
+        if (!current || candidateIsBetter(candidate, current)) bestByBase.set(candidate.base.ibgeCode, candidate);
+    }
 
-    const seenBases = new Set<string>();
+    const rankedCandidates = [...bestByBase.values()].sort(
+        (a, b) => b.opportunityScore - a.opportunityScore
+            || b.confidence - a.confidence
+            || b.weightedOpportunityValue - a.weightedOpportunityValue
+            || a.radiusKm - b.radiusKm,
+    );
+
+    // Diversificação geográfica: o Top 5 precisa representar alternativas de praça, não cinco
+    // centros vizinhos cobrindo quase os mesmos municípios. O mesmo filtro vale aos candidatos
+    // extras para manter a tabela territorial útil e estável.
+    const candidates: TerritoryCandidate[] = [];
+    for (const candidate of rankedCandidates) {
+        const tooSimilar = candidates.some(
+            (selected) => municipalityOverlapRatio(candidate, selected) > CORE_MAX_MUNICIPALITY_OVERLAP_RATIO,
+        );
+        if (tooSimilar) continue;
+        candidates.push(candidate);
+        if (candidates.length >= 100) break;
+    }
+
+    const byCode = new Map(municipalities.map((row) => [row.ibgeCode, row]));
     const territories: TerritoryRecord[] = [];
     for (const candidate of candidates) {
-        if (seenBases.has(candidate.base.ibgeCode)) continue;
-        seenBases.add(candidate.base.ibgeCode);
         const covered = candidate.municipalityCodes
             .map((code) => byCode.get(code))
             .filter((row): row is MunicipalityRecord => Boolean(row));
@@ -236,9 +298,6 @@ export function buildCoreTerritories(municipalities: MunicipalityRecord[]): Terr
             },
             evidenceIds: [...new Set(covered.flatMap((row) => row.evidenceIds))],
         });
-
-        // A UI atual exibe top 5, mas manter alguns candidatos extras permite a aba Territórios.
-        if (territories.length >= 100) break;
     }
     return territories;
 }
