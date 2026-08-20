@@ -62,15 +62,16 @@ export interface MarketIntelligenceSnapshot {
 
 function validateRuntimeReadiness(
     manifest: MarketIntelligenceManifest,
-    municipalities: MunicipalityRecord[],
     territories: TerritoryRecord[],
+    mdfe: { origins: MdfeMunicipalRow[]; destinations: MdfeMunicipalRow[] },
+    scoredMunicipalities?: number,
 ): MarketIntelligenceManifest {
-    const scoredMunicipalities = municipalities.filter(
-        (row) => row.scores.confidenceAdjustedOpportunity.value !== null,
-    ).length;
     const runtimeBlockers: string[] = [];
 
-    if (scoredMunicipalities < MIN_NATIONAL_SCORED_MUNICIPALITIES) {
+    if (!mdfe.origins.length || !mdfe.destinations.length) {
+        runtimeBlockers.push('Snapshot CIOT origem/destino obrigatório não está disponível em runtime.');
+    }
+    if (scoredMunicipalities !== undefined && scoredMunicipalities < MIN_NATIONAL_SCORED_MUNICIPALITIES) {
         runtimeBlockers.push(
             `Core Evidence nacional insuficiente em runtime: ${scoredMunicipalities} municípios pontuados; mínimo operacional ${MIN_NATIONAL_SCORED_MUNICIPALITIES}.`,
         );
@@ -89,24 +90,42 @@ function validateRuntimeReadiness(
 
 export async function loadMarketIntelligenceSnapshot(): Promise<MarketIntelligenceSnapshot> {
     const manifest = await loadMarketManifest();
-    const [municipalitiesBase, publishedTerritories, evidences, mdfe] = await Promise.all([
-        loadMunicipalities(manifest),
+    const [publishedTerritories, evidences, mdfe] = await Promise.all([
         loadTerritories(manifest),
         loadEvidences(manifest),
         loadMdfeMunicipalFlow(),
     ]);
 
-    // O snapshot municipal publicado pode ter sido gerado antes do CIOT mais recente. A hidratação
-    // client-side recompõe somente os componentes matematicamente reproduzíveis a partir dos
-    // arquivos versionados: RNTRC, CIOT e Need=risco PROXY_UF. Nenhuma lacuna de concorrência é
-    // convertida em zero. Quando um territorios.json oficial existir, ele continua tendo precedência.
+    // Caminho rápido de produção: territorios.json é uma visão materializada e validada pelo
+    // Quality Gate contra os snapshots nacionais. Quando ele existe, a UI não baixa nem recalcula
+    // municipios_scored.json no caminho crítico. Ainda exigimos CIOT em runtime para fail-closed.
+    if (publishedTerritories.length) {
+        const runtimeManifest = validateRuntimeReadiness(manifest, publishedTerritories, mdfe);
+        return {
+            manifest: runtimeManifest,
+            municipalities: [],
+            territories: publishedTerritories,
+            evidences,
+        };
+    }
+
+    // Fallback de compatibilidade: enquanto um snapshot territorial materializado ainda não foi
+    // publicado, recompomos somente os componentes matematicamente reproduzíveis no cliente.
+    // Este caminho permanece fail-closed e não transforma lacunas de concorrência em zero.
+    const municipalitiesBase = await loadMunicipalities(manifest);
     const municipalities = mdfe.origins.length || mdfe.destinations.length
         ? hydrateCoreEvidence(municipalitiesBase, mdfe.origins, mdfe.destinations)
         : municipalitiesBase;
-    const territories = publishedTerritories.length
-        ? publishedTerritories
-        : buildCoreTerritories(municipalities);
-    const runtimeManifest = validateRuntimeReadiness(manifest, municipalities, territories);
+    const territories = buildCoreTerritories(municipalities);
+    const scoredMunicipalities = municipalities.filter(
+        (row) => row.scores.confidenceAdjustedOpportunity.value !== null,
+    ).length;
+    const runtimeManifest = validateRuntimeReadiness(
+        manifest,
+        territories,
+        mdfe,
+        scoredMunicipalities,
+    );
 
     return { manifest: runtimeManifest, municipalities, territories, evidences };
 }
