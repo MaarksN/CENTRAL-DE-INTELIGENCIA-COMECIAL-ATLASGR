@@ -70,6 +70,9 @@ jobs:
       - name: Verify and materialize Core Evidence against published snapshots
         run: npx tsx scripts/market-intelligence-core-evidence-smoke.ts --write
 
+      - name: Verify materialized ranking is committed
+        run: git diff --exit-code -- public/tools/atlas-market-intelligence/data/territorios.json
+
       - name: Upload materialized territory ranking
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
