@@ -172,7 +172,7 @@ export function Sidebar({ activeTab, mobileOpen = false, onCloseMobile }: Sideba
                             );
                         })}
                     </div>
-                ))}
+                )}
 
                 <div className="space-y-1">
                     <p className="px-3 mb-2 text-[10px] font-black uppercase tracking-widest text-ink-2">IA & Capacitação</p>
@@ -200,7 +200,7 @@ export function Sidebar({ activeTab, mobileOpen = false, onCloseMobile }: Sideba
                             );
                         })}
                     </div>
-                ))}
+                )}
 
                 <div className="space-y-1 pt-4 border-t border-line">
                     {bottomItems.map(tool => {
