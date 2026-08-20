@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { MunicipalityRecord } from '../src/features/market-intelligence/domain/MarketIntelligence';
 import {
@@ -9,6 +9,7 @@ import {
 } from '../src/features/market-intelligence/domain/coreEvidence';
 
 const DATA_DIR = resolve(process.cwd(), 'public/tools/atlas-market-intelligence/data');
+const WRITE_TERRITORIES = process.argv.includes('--write');
 
 function readJson<T>(filename: string): T {
     return JSON.parse(readFileSync(resolve(DATA_DIR, filename), 'utf8')) as T;
@@ -45,6 +46,12 @@ for (let index = 1; index < territories.length; index += 1) {
     if ((territories[index - 1].opportunityScore ?? 0) < (territories[index].opportunityScore ?? 0)) {
         throw new Error('Ranking territorial não está ordenado por Opportunity Score decrescente.');
     }
+}
+
+if (WRITE_TERRITORIES) {
+    const output = resolve(DATA_DIR, 'territorios.json');
+    writeFileSync(output, `${JSON.stringify(territories, null, 2)}\n`, 'utf8');
+    console.log(`territorios.json materializado com ${territories.length} candidatos em ${output}`);
 }
 
 const top5 = territories.slice(0, 5).map((territory, index) => ({
