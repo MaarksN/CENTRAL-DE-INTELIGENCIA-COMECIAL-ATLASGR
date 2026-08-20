@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MunicipalityRecord } from '../../../src/features/market-intelligence/domain/MarketIntelligence';
 import {
     buildCoreTerritories,
+    CORE_DECISION_MAX_RADIUS_KM,
     hydrateCoreEvidence,
 } from '../../../src/features/market-intelligence/domain/coreEvidence';
 
@@ -73,7 +74,7 @@ describe('Market Intelligence Core Evidence v1.1', () => {
         expect(hydrated.scores.confidenceAdjustedOpportunity.reason).toContain('need:');
     });
 
-    it('gera territórios reais a partir de municípios com score Core Evidence', () => {
+    it('gera territórios decisórios sem ultrapassar o raio conservador enquanto eficiência viária não está calibrada', () => {
         const rows = hydrateCoreEvidence([
             municipality({ ibgeCode: '1', name: 'Ribeirão Preto', uf: 'SP', latitude: -21.17, longitude: -47.81, icp: { total: 500, tierA: 120, tierB: 180, tierC: 200 } }),
             municipality({ ibgeCode: '2', name: 'Sertãozinho', uf: 'SP', latitude: -21.13, longitude: -47.99, icp: { total: 150, tierA: 30, tierB: 50, tierC: 70 } }),
@@ -84,5 +85,6 @@ describe('Market Intelligence Core Evidence v1.1', () => {
         expect(territories[0].opportunityScore).not.toBeNull();
         expect(territories[0].icp.total).toBeGreaterThan(0);
         expect(territories[0].evidenceIds).toContain('mdfe-ciot');
+        expect(territories.every((territory) => territory.radiusKm <= CORE_DECISION_MAX_RADIUS_KM)).toBe(true);
     });
 });
