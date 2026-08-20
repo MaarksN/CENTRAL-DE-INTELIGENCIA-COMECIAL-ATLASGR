@@ -60,16 +60,30 @@ Quando o censo competitivo evoluir, uma metodologia posterior poderá recolocar 
 
 ## Territórios
 
-Quando não há `territorios.json` publicado, o frontend gera candidatos reprodutíveis a partir dos municípios com Core Evidence Score válido usando o `territoryOptimizer` existente:
+Quando não há `territorios.json` publicado, o frontend gera candidatos reprodutíveis a partir dos municípios com Core Evidence Score válido usando o `territoryOptimizer` existente.
 
-- raios: 100, 150, 200, 250, 300 e 400 km;
-- distância Haversine;
-- contas ICP como massa comercial;
-- score municipal ajustado por confiança ponderado pelas contas ICP;
-- até 100 candidatos materializados para navegação;
+O otimizador técnico continua capaz de construir raios de **100, 150, 200, 250, 300 e 400 km** para exploração. A camada decisória, porém, aplica guardrails adicionais porque `territorialEfficiency` ainda não possui malha viária/tempo de deslocamento validado:
+
+- **raio automático máximo de 200 km** para a recomendação de lotação do próximo vendedor;
+- a **cidade-base precisa estar no quartil superior nacional de contas ICP**, recalculado a cada snapshot, evitando que uma cidade pequena vença apenas por ocupar o centro geométrico de um círculo enorme;
+- para cada cidade-base é mantido o raio elegível com maior Opportunity Score, priorizando confiança e, em empate, o menor raio;
+- candidatos com mais de **65% de sobreposição municipal** em relação a um candidato melhor ranqueado são suprimidos, para que o Top 5 represente alternativas territoriais reais em vez de cinco pinos vizinhos sobre a mesma praça;
+- distância geométrica continua sendo Haversine;
+- contas ICP continuam sendo a massa comercial usada na agregação;
 - nenhuma coordenada é inferida quando o município não possui centroide válido.
 
+Esses guardrails são deliberadamente conservadores. Raios acima de 200 km voltam a ser elegíveis para decisão automática somente quando houver uma camada aprovada de tempo de deslocamento/malha viária ou outra evidência operacional equivalente.
+
 Um `territorios.json` publicado futuramente continua tendo precedência sobre a derivação client-side.
+
+## Validação fail-closed em runtime
+
+O manifest publicado pode declarar `decisionReady=true`, mas o frontend revalida essa prontidão a cada carregamento. A decisão volta automaticamente a `false` quando:
+
+- menos de 1.000 municípios possuem Core Evidence Score válido no snapshot nacional; ou
+- nenhum território elegível consegue ser construído.
+
+Isso impede que um arquivo CIOT removido, um snapshot incompleto ou uma publicação quebrada mantenha a interface em estado de decisão liberada.
 
 ## Unit economics
 
@@ -81,7 +95,7 @@ Por isso `potentialMrr`, `breakEvenContracts` e campos econômicos territoriais 
 
 Na metodologia `national-v1.1-core-evidence`, `decisionReady=true` significa:
 
-> existe evidência nacional suficiente para produzir e ordenar territórios candidatos com score ajustado por confiança.
+> existe evidência nacional suficiente para produzir e ordenar territórios candidatos com score ajustado por confiança e os guardrails territoriais da v1.1 foram satisfeitos.
 
 Não significa:
 
@@ -89,7 +103,22 @@ Não significa:
 - garantia de ausência de concorrência;
 - aprovação automática de contratação;
 - ROI aprovado sem premissas econômicas;
-- risco municipal observado quando a fonte é somente UF.
+- risco municipal observado quando a fonte é somente UF;
+- validação de eficiência viária para raios acima de 200 km.
+
+## Gate com snapshots publicados
+
+O workflow `Market Intelligence - Quality Gate` roda também em pull requests que alteram o módulo. Além de fixtures, typecheck, testes e build, ele executa `scripts/market-intelligence-core-evidence-smoke.ts` contra os próprios arquivos nacionais versionados.
+
+O gate falha se:
+
+- houver menos de 5.000 municípios no snapshot-base;
+- CIOT origem ou destino estiver ausente;
+- menos de 1.000 municípios forem pontuáveis;
+- houver menos de cinco territórios candidatos;
+- surgir território sem Opportunity Score;
+- algum território decisório ultrapassar 200 km;
+- o ranking não estiver ordenado por Opportunity Score decrescente.
 
 ## Fontes atualmente materializadas
 
