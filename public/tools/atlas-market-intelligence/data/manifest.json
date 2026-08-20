@@ -86,6 +86,7 @@
     }
   ],
   "files": {
-    "municipalities": "municipios_scored.json"
+    "municipalities": "municipios_scored.json",
+    "territories": "territorios.json"
   }
 }
