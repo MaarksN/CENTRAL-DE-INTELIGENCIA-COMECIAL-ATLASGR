@@ -41,8 +41,8 @@ test.describe('Market Intelligence — módulo de território', () => {
     await expect(page.getByRole('heading', { name: /O território paga a contratação/i })).toBeVisible();
     await expect(page.getByLabel('Território analisado')).toBeVisible();
     await expect(page.getByText('PREMISSAS PENDENTES').first()).toBeVisible();
-    await expect(page.getByText(/TAM ICP observado/i)).toBeVisible();
-    await expect(page.getByText(/SAM derivado/i)).toBeVisible();
+    await expect(page.getByText('TAM ICP observado', { exact: true })).toBeVisible();
+    await expect(page.getByText('SAM derivado', { exact: true })).toBeVisible();
   });
 
   test('volta a bloquear a decisão se o CIOT publicado desaparecer em runtime', async ({ page }) => {
