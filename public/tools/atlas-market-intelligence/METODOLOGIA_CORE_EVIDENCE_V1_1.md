@@ -60,7 +60,7 @@ Quando o censo competitivo evoluir, uma metodologia posterior poderá recolocar 
 
 ## Territórios
 
-Quando não há `territorios.json` publicado, o frontend gera candidatos reprodutíveis a partir dos municípios com Core Evidence Score válido usando o `territoryOptimizer` existente.
+O ranking territorial é calculado a partir dos municípios com Core Evidence Score válido usando o `territoryOptimizer` existente.
 
 O otimizador técnico continua capaz de construir raios de **100, 150, 200, 250, 300 e 400 km** para exploração. A camada decisória, porém, aplica guardrails adicionais porque `territorialEfficiency` ainda não possui malha viária/tempo de deslocamento validado:
 
@@ -74,16 +74,30 @@ O otimizador técnico continua capaz de construir raios de **100, 150, 200, 250,
 
 Esses guardrails são deliberadamente conservadores. Raios acima de 200 km voltam a ser elegíveis para decisão automática somente quando houver uma camada aprovada de tempo de deslocamento/malha viária ou outra evidência operacional equivalente.
 
-Um `territorios.json` publicado futuramente continua tendo precedência sobre a derivação client-side.
+## Visão materializada e caminho rápido da UI
+
+O Quality Gate executa o ranking contra os snapshots nacionais e materializa `public/tools/atlas-market-intelligence/data/territorios.json`.
+
+Quando esse arquivo está publicado no manifest:
+
+- o frontend carrega diretamente os territórios materializados;
+- `municipios_scored.json` deixa de ser baixado e recalculado no caminho crítico do Board;
+- a tela abre com uma visão territorial já validada pelo CI;
+- o cálculo client-side permanece apenas como fallback de compatibilidade para publicações antigas sem `territorios.json`.
+
+A materialização é uma otimização de entrega, não um atalho metodológico: o arquivo só é aceito depois de passar pelos mesmos guardrails e pelo smoke test com snapshots reais.
 
 ## Validação fail-closed em runtime
 
-O manifest publicado pode declarar `decisionReady=true`, mas o frontend revalida essa prontidão a cada carregamento. A decisão volta automaticamente a `false` quando:
+O manifest publicado pode declarar `decisionReady=true`, mas o frontend revalida a prontidão a cada carregamento.
 
-- menos de 1.000 municípios possuem Core Evidence Score válido no snapshot nacional; ou
-- nenhum território elegível consegue ser construído.
+A decisão volta automaticamente a `false` quando:
 
-Isso impede que um arquivo CIOT removido, um snapshot incompleto ou uma publicação quebrada mantenha a interface em estado de decisão liberada.
+- o snapshot CIOT de origem ou de destino obrigatório não está disponível em runtime;
+- no fallback sem `territorios.json`, menos de 1.000 municípios possuem Core Evidence Score válido; ou
+- nenhum território elegível está disponível.
+
+Assim, um ranking materializado não mantém a interface artificialmente verde se uma evidência Core obrigatória desaparecer. No caminho materializado, a cobertura municipal pesada é garantida pelo Quality Gate; no fallback, ela também é recalculada em runtime.
 
 ## Unit economics
 
@@ -108,7 +122,7 @@ Não significa:
 
 ## Gate com snapshots publicados
 
-O workflow `Market Intelligence - Quality Gate` roda também em pull requests que alteram o módulo. Além de fixtures, typecheck, testes e build, ele executa `scripts/market-intelligence-core-evidence-smoke.ts` contra os próprios arquivos nacionais versionados.
+O workflow `Market Intelligence - Quality Gate` roda também em pull requests que alteram o módulo. Além de fixtures, typecheck, testes e build, ele executa `scripts/market-intelligence-core-evidence-smoke.ts --write` contra os próprios arquivos nacionais versionados e publica o `territorios.json` gerado como artefato de CI.
 
 O gate falha se:
 
