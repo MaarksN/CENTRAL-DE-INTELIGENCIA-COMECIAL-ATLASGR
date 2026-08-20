@@ -70,6 +70,7 @@ replaceOnce(
   `    Activity, Layers, FileBarChart, Zap, ChevronRight, Database, CalendarDays, Cpu, Wallet,\n    Target, Plug, Settings as SettingsIcon, LineChart, Gauge, UserCog, Headset, Globe, Repeat, FileSignature`,
 );
 let sidebar = read('src/components/layout/Sidebar.tsx');
+sidebar = sidebar.replace("import { ReactNode } from 'react';\n", '');
 sidebar = sidebar.replace(/\ninterface NavItem \{[\s\S]*?\n\}\n/, '\n');
 const navGroupStart = sidebar.indexOf('    function NavGroup(');
 const navGroupEnd = sidebar.indexOf('\n    return (', navGroupStart);
