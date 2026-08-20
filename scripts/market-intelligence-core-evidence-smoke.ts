@@ -10,6 +10,7 @@ import {
 
 const DATA_DIR = resolve(process.cwd(), 'public/tools/atlas-market-intelligence/data');
 const WRITE_TERRITORIES = process.argv.includes('--write');
+const PUBLISHED_TERRITORY_LIMIT = 10;
 
 function readJson<T>(filename: string): T {
     return JSON.parse(readFileSync(resolve(DATA_DIR, filename), 'utf8')) as T;
@@ -48,13 +49,14 @@ for (let index = 1; index < territories.length; index += 1) {
     }
 }
 
+const publishedTerritories = territories.slice(0, PUBLISHED_TERRITORY_LIMIT);
 if (WRITE_TERRITORIES) {
     const output = resolve(DATA_DIR, 'territorios.json');
-    writeFileSync(output, `${JSON.stringify(territories, null, 2)}\n`, 'utf8');
-    console.log(`territorios.json materializado com ${territories.length} candidatos em ${output}`);
+    writeFileSync(output, `${JSON.stringify(publishedTerritories)}\n`, 'utf8');
+    console.log(`territorios.json materializado com ${publishedTerritories.length} candidatos em ${output}`);
 }
 
-const top5 = territories.slice(0, 5).map((territory, index) => ({
+const top5 = publishedTerritories.slice(0, 5).map((territory, index) => ({
     rank: index + 1,
     baseCity: territory.baseCity,
     uf: territory.uf,
@@ -73,6 +75,7 @@ console.log(JSON.stringify({
     ciotOrigins: origins.length,
     ciotDestinations: destinations.length,
     territoryCandidates: territories.length,
+    publishedTerritories: publishedTerritories.length,
     decisionMaxRadiusKm: CORE_DECISION_MAX_RADIUS_KM,
     top5,
 }, null, 2));
