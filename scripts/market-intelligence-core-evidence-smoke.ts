@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import type { MunicipalityRecord } from '../src/features/market-intelligence/domain/MarketIntelligence';
 import {
     buildCoreTerritories,
+    CORE_DECISION_MAX_RADIUS_KM,
     hydrateCoreEvidence,
     type MdfeMunicipalRow,
 } from '../src/features/market-intelligence/domain/coreEvidence';
@@ -37,6 +38,14 @@ if (territories.length < 5) {
 if (territories.some((territory) => territory.opportunityScore === null)) {
     throw new Error('Ranking territorial contém candidato sem Opportunity Score.');
 }
+if (territories.some((territory) => territory.radiusKm > CORE_DECISION_MAX_RADIUS_KM)) {
+    throw new Error(`Ranking automático excedeu o raio decisório de ${CORE_DECISION_MAX_RADIUS_KM} km.`);
+}
+for (let index = 1; index < territories.length; index += 1) {
+    if ((territories[index - 1].opportunityScore ?? 0) < (territories[index].opportunityScore ?? 0)) {
+        throw new Error('Ranking territorial não está ordenado por Opportunity Score decrescente.');
+    }
+}
 
 const top5 = territories.slice(0, 5).map((territory, index) => ({
     rank: index + 1,
@@ -57,5 +66,6 @@ console.log(JSON.stringify({
     ciotOrigins: origins.length,
     ciotDestinations: destinations.length,
     territoryCandidates: territories.length,
+    decisionMaxRadiusKm: CORE_DECISION_MAX_RADIUS_KM,
     top5,
 }, null, 2));
