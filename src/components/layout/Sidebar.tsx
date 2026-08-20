@@ -4,6 +4,7 @@ import {
     Activity, Layers, FileBarChart, Zap, ChevronRight, Database, CalendarDays, Cpu, Wallet, FileText,
     Target, Plug, Settings as SettingsIcon, Download, LineChart, Gauge, UserCog, Headset
 } from 'lucide-react';
+import { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBrand } from '../../contexts/BrandContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,6 +16,12 @@ interface SidebarProps {
     activeTab: TabType;
     mobileOpen?: boolean;
     onCloseMobile?: () => void;
+}
+
+interface NavItem {
+    id: TabType;
+    label: string;
+    icon: ReactNode;
 }
 
 export function Sidebar({ activeTab, mobileOpen = false, onCloseMobile }: SidebarProps) {
@@ -89,6 +96,36 @@ export function Sidebar({ activeTab, mobileOpen = false, onCloseMobile }: Sideba
     const bottomItems = [
         { id: 'settings' as TabType, label: 'Configurações', icon: <SettingsIcon size={20} /> },
     ];
+
+    function NavGroup({ title, items }: { title?: string; items: NavItem[] }) {
+        if (items.length === 0) return null;
+        return (
+            <div className="space-y-1">
+                {title && (
+                    <p className="px-3 mb-2 text-[10px] font-black uppercase tracking-widest text-ink-2">
+                        {title}
+                    </p>
+                )}
+                {items.map(tool => {
+                    const isActive = activeTab === tool.id;
+                    return (
+                        <button
+                            key={tool.id}
+                            onClick={() => selectTab(tool.id)}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm text-left transition-all ${
+                                isActive
+                                    ? 'bg-brand-active text-[#fff] shadow-md'
+                                    : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
+                            }`}
+                        >
+                            <span className={`shrink-0 ${isActive ? 'opacity-100' : 'opacity-70'}`}>{tool.icon}</span>
+                            <span>{tool.label}</span>
+                        </button>
+                    );
+                })}
+            </div>
+        );
+    }
 
     return (
         <aside
