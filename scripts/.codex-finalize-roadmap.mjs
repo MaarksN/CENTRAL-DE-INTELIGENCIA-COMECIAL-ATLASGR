@@ -22,19 +22,31 @@ function appendOnce(file, marker, block) {
   write(file, `${current.trimEnd()}\n\n${block.trim()}\n`);
 }
 
-// DATA-006: Comercial Inteligente usa o mesmo calendário canônico de Brasília.
 replaceOnce(
   'src/features/commercial-intelligence/application/CommercialIntelligenceUseCases.ts',
   `import { shiftMonth, monthLabelPt, countBusinessDays } from './executiveCalendar';`,
   `import { shiftMonth, monthLabelPt, countBusinessDays } from './executiveCalendar';\nimport { brazilMonthKey, brazilMonthRange } from '../../../shared/time/brazilCalendar.js';`,
 );
+
+const oldMonthRangeBlock = [
+  "function monthRange(period: string): { start: Date; end: Date; daysInMonth: number } {",
+  "    const [year, month] = period.split('-').map(Number);",
+  "    const start = new Date(Date.UTC(year, month - 1, 1));",
+  "    const end = new Date(Date.UTC(year, month, 1));",
+  "    const daysInMonth = Math.round((end.getTime() - start.getTime()) / DAY_MS);",
+  "    return { start, end, daysInMonth };",
+  "}",
+  "",
+  "export function currentPeriod(now = new Date()): string {",
+  "    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;",
+  "}",
+].join('\n');
 replaceOnce(
   'src/features/commercial-intelligence/application/CommercialIntelligenceUseCases.ts',
-  `function monthRange(period: string): { start: Date; end: Date; daysInMonth: number } {\n    const [year, month] = period.split('-').map(Number);\n    const start = new Date(Date.UTC(year, month - 1, 1));\n    const end = new Date(Date.UTC(year, month, 1));\n    const daysInMonth = Math.round((end.getTime() - start.getTime()) / DAY_MS);\n    return { start, end, daysInMonth };\n}\n\nexport function currentPeriod(now = new Date()): string {\n    return \`${now.getUTCFullYear()}-\${String(now.getUTCMonth() + 1).padStart(2, '0')}\`;\n}`,
+  oldMonthRangeBlock,
   `function monthRange(period: string): { start: Date; end: Date; daysInMonth: number } {\n    return brazilMonthRange(period);\n}\n\nexport function currentPeriod(now = new Date()): string {\n    return brazilMonthKey(now);\n}`,
 );
 
-// DATA-008: OpenAPI espelha LEAD_STATUS e leadSchema.
 replaceOnce(
   'docs/openapi.yaml',
   `        - Call/Visita Agendada\n        - Negócios Perdidos\n        - Negócios Ganhos`,
@@ -46,14 +58,12 @@ replaceOnce(
   `        contactId: { type: string, nullable: true }\n        funnel: { type: string, enum: [Lead, Negocio] }\n        title: { type: string, maxLength: 180, nullable: true }\n        amount: { type: number, minimum: 0, nullable: true }\n        currency: { type: string, minLength: 3, maxLength: 3 }\n        probability: { type: integer, minimum: 0, maximum: 100, nullable: true }\n        expectedCloseAt: { type: string, nullable: true }\n        pipelineId: { type: string, nullable: true }\n        pipelineStageId: { type: string, nullable: true }\n        customFields: { type: object, nullable: true, additionalProperties: true }\n        pic:`,
 );
 
-// Atualiza a descrição de escopo do Golden Dataset: o harness agora existe.
 replaceOnce(
   'src/features/intelligence/evaluation/goldenDataset.types.ts',
   ` * Deliberadamente NÃO inclui um harness de scoring automático (LLM-judge, threshold, gate de CI):\n * decidir a metodologia de avaliação (comparação exata? similaridade semântica? juiz por LLM?) é\n * decisão de produto que este dataset não tenta resolver sozinho — ver nota de escopo no audit doc.\n * O que este arquivo garante é que cada caso é ESTRUTURALMENTE válido: os campos \`expected\` usam os`,
   ` * O scoring automático vive em \`goldenDataset.scoring.ts\`: checks determinísticos por categoria,\n * thresholds por caso/categoria/geral e um SemanticJudge opcional para factualidade, aderência ao\n * playbook e risco de alucinação. O gate determinístico roda sempre no CI; o live runner usa as\n * capacidades reais e pode acoplar o LLM judge quando um provedor de IA está configurado.\n * Este arquivo continua garantindo que cada caso é ESTRUTURALMENTE válido: os campos \`expected\` usam os`,
 );
 
-// Gate live do Golden Dataset quando houver provedor real configurado.
 replaceOnce(
   '.github/workflows/ci.yml',
   `      PLATFORM_OPERATOR_TOKEN: ci-test-operator-token-not-for-production\n\n    steps:`,
