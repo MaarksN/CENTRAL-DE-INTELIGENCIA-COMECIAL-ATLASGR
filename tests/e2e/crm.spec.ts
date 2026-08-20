@@ -11,7 +11,7 @@ const TAB_ROUTES: Record<string, string> = {
   'Pipeline CRM': 'crm',
   'Empresas': 'companies',
   'Decisores': 'contacts',
-  'Agenda': 'activities',
+  'Agenda & Atividades': 'activities',
   'Analytics': 'analytics',
 };
 
@@ -33,10 +33,8 @@ test.describe('Navegação principal', () => {
       });
       page.on('pageerror', (err) => consoleErrors.push(err.message));
 
-      // exact: true é necessário para "Agenda": sem isso, o seletor por substring também bate no
-      // botão "Ver agenda completa" do Dashboard (SinglePageDashboard.tsx) — que, por causa da
-      // transição de página (Framer Motion), pode continuar montado por um instante durante a
-      // navegação, causando strict mode violation intermitente.
+      // exact: true evita colisões entre o item da Sidebar e botões/contextos com rótulos parecidos
+      // dentro do conteúdo da página durante transições do Framer Motion.
       await page.getByRole('button', { name: tab, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/app/${route}$`));
       // Espera o skeleton de carregamento (lazy-loaded module) sumir antes de checar erros.
