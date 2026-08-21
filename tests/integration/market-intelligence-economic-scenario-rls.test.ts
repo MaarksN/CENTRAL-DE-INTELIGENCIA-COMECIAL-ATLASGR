@@ -77,13 +77,28 @@ describe('Market Intelligence v1.4 — economic scenario audit', () => {
 
     afterEach(hardDeleteFixture);
 
-    it('salva snapshot canônico no tenant e é idempotente para o mesmo estado econômico', async () => {
+    it('salva snapshot canônico e ignora CRM não aplicado na identidade do cenário', async () => {
         asTenant(ORG_A);
         const first = await economicScenarioService.save(ORG_A, USER_A, baseInput());
-        const second = await economicScenarioService.save(ORG_A, USER_A, baseInput());
+        const sameEconomicsWithUnappliedCrm = baseInput();
+        sameEconomicsWithUnappliedCrm.calibration = {
+            applied: false,
+            snapshot: {
+                quality: 'ALTA',
+                eligible: true,
+                totalClosedSample: 80,
+                monthsWithClosedSample: 4,
+                fromPeriod: '2026-03',
+                toPeriod: '2026-06',
+                recommended: { averageMrrTicket: 9000, winRatePct: 55, salesCycleDays: 20 },
+                blockers: [],
+            },
+        };
+        const second = await economicScenarioService.save(ORG_A, USER_A, sameEconomicsWithUnappliedCrm);
 
         expect(second.id).toBe(first.id);
         expect(second.snapshotHash).toBe(first.snapshotHash);
+        expect(first.snapshot.input.calibration).toEqual({ applied: false, snapshot: null });
         expect(first.snapshot.territory.baseCity).toBe('Guarujá');
         expect(first.snapshot.assessment.economics.monthlyFixedCost).toBeGreaterThan(0);
 
