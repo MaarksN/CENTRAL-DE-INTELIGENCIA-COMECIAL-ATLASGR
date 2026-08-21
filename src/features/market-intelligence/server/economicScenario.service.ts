@@ -4,7 +4,10 @@ import path from 'node:path';
 import { Prisma } from '@prisma/client';
 import { withRlsContext } from '../../../lib/prisma.js';
 import { AppError } from '../../../shared/middlewares/errorHandler.js';
+import { CommercialIntelligenceUseCases, currentPeriod } from '../../commercial-intelligence/application/CommercialIntelligenceUseCases.js';
+import { PrismaCommercialIntelligenceRepository } from '../../commercial-intelligence/infra/PrismaCommercialIntelligenceRepository.js';
 import type { TerritoryRecord, MarketIntelligenceManifest } from '../domain/MarketIntelligence.js';
+import { calibrateSellerEconomicsFromHistory } from '../domain/crmEconomicCalibration.js';
 import {
     CRM_CALIBRATION_VERSION,
     ECONOMIC_MODEL_VERSION,
@@ -20,6 +23,7 @@ import type { EconomicScenarioListQuery, EconomicScenarioSavePayload } from './e
 const DATA_DIR = path.resolve(process.cwd(), 'public/tools/atlas-market-intelligence/data');
 const TERRITORIES_FILE = path.join(DATA_DIR, 'territorios.json');
 const MANIFEST_FILE = path.join(DATA_DIR, 'manifest.json');
+const commercialIntelligenceUseCases = new CommercialIntelligenceUseCases(new PrismaCommercialIntelligenceRepository());
 
 interface CanonicalEconomicEvidence {
     territories: Map<string, TerritoryRecord>;
@@ -94,12 +98,23 @@ async function canonicalEvidence(): Promise<CanonicalEconomicEvidence> {
     return canonicalEvidencePromise;
 }
 
-function assertCalibrationIntegrity(input: EconomicScenarioSavePayload): void {
-    if (!input.calibration.applied) return;
-    const calibration = input.calibration.snapshot;
-    if (!calibration?.eligible) {
-        throw new AppError('A calibração CRM aplicada não possui evidência elegível.', 400);
+async function resolveEffectiveCalibration(
+    organizationId: string,
+    input: EconomicScenarioSavePayload,
+): Promise<EconomicScenarioSavePayload['calibration']> {
+    if (!input.calibration.applied) return { applied: false, snapshot: null };
+
+    // A prova enviada pelo navegador é apenas contexto de UX. Para um snapshot auditável, a fonte
+    // de verdade é recalculada aqui usando o mesmo use case que serve /commercial-intelligence/trends.
+    const trends = await commercialIntelligenceUseCases.historicalTrends(
+        organizationId,
+        { month: currentPeriod() },
+    );
+    const calibration = calibrateSellerEconomicsFromHistory(trends.points);
+    if (!calibration.eligible) {
+        throw new AppError('A calibração CRM atual não possui amostra elegível para selar este snapshot.', 400);
     }
+
     const expected = calibration.recommended;
     const pairs: Array<[string, number, number | null]> = [
         ['Ticket MRR', input.revenue.averageMrrTicket, expected.averageMrrTicket],
@@ -108,9 +123,10 @@ function assertCalibrationIntegrity(input: EconomicScenarioSavePayload): void {
     ];
     for (const [label, actual, calibrated] of pairs) {
         if (calibrated === null || Math.abs(actual - calibrated) > 0.011) {
-            throw new AppError(`${label} diverge do snapshot CRM marcado como aplicado.`, 400);
+            throw new AppError(`${label} diverge da calibração CRM recalculada no servidor. Reaplique os dados do CRM antes de salvar.`, 400);
         }
     }
+    return { applied: true, snapshot: calibration };
 }
 
 function canonicalTerritory(territory: TerritoryRecord) {
@@ -163,14 +179,13 @@ function toDetail(row: ScenarioRow): SavedEconomicScenario {
 
 export const economicScenarioService = {
     async save(organizationId: string, createdBy: string, input: EconomicScenarioSavePayload): Promise<SavedEconomicScenario> {
-        assertCalibrationIntegrity(input);
-        const evidence = await canonicalEvidence();
+        const [evidence, effectiveCalibration] = await Promise.all([
+            canonicalEvidence(),
+            resolveEffectiveCalibration(organizationId, input),
+        ]);
         const territory = evidence.territories.get(input.territoryId);
         if (!territory) throw new AppError('Território não pertence ao ranking canônico publicado.', 400);
 
-        const effectiveCalibration = input.calibration.applied
-            ? input.calibration
-            : { applied: false as const, snapshot: null };
         const model: SellerModelAssumptions = {
             costs: input.costs,
             revenue: { ...input.revenue, samAccounts: null },
