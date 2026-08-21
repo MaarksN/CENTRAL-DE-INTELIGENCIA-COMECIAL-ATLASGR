@@ -1,6 +1,18 @@
 import { test, expect } from '@playwright/test';
 import { signUp, uniqueTestEmail, waitForAppReady } from './helpers';
 
+type EconomicScenarioPostPayload = {
+  label?: string;
+  territoryId: string;
+  serviceableSharePct: number;
+  costs: Record<string, number>;
+  revenue: Record<string, number>;
+  upfrontInvestment: number;
+  policy: Record<string, number | null>;
+  scenario: string;
+  calibration: Record<string, unknown>;
+};
+
 // MI-007 (Sprint 04/Onda 16): este E2E toca a rota real do Market Intelligence e funciona
 // como contrato entre manifest, snapshots publicados e UI. A metodologia territorial continua
 // fail-closed se uma camada obrigatória desaparecer, a calibração econômica só aplica CRM por
@@ -85,7 +97,7 @@ test.describe('Market Intelligence — módulo de território', () => {
       const method = request.method();
 
       if (method === 'POST') {
-        const payload = request.postDataJSON() as Record<string, any>;
+        const payload = request.postDataJSON() as EconomicScenarioPostPayload;
         const input = {
           serviceableSharePct: payload.serviceableSharePct,
           costs: payload.costs,
