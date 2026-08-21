@@ -4,6 +4,9 @@
 --
 -- A tabela é deliberadamente append-only no nível da API. Não existem endpoints de UPDATE/DELETE.
 -- O hash idempotente impede duplicação do mesmo estado econômico dentro da organização.
+-- `createdBy` preserva o identificador histórico do ator, mas não cria FK para o storage de auth:
+-- a trilha precisa sobreviver à remoção/rotação de usuários e não deve depender do nome físico da
+-- tabela gerenciada pelo provedor de autenticação.
 
 CREATE TABLE "MarketIntelligenceEconomicScenario" (
     "id" TEXT NOT NULL,
@@ -50,11 +53,6 @@ ALTER TABLE "MarketIntelligenceEconomicScenario"
     ADD CONSTRAINT "MarketIntelligenceEconomicScenario_organizationId_fkey"
     FOREIGN KEY ("organizationId") REFERENCES "Organization"("id")
     ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "MarketIntelligenceEconomicScenario"
-    ADD CONSTRAINT "MarketIntelligenceEconomicScenario_createdBy_fkey"
-    FOREIGN KEY ("createdBy") REFERENCES "User"("id")
-    ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Row Level Security: mesma política fail-closed usada pelas tabelas tenant-scoped do repositório.
 ALTER TABLE "MarketIntelligenceEconomicScenario" ENABLE ROW LEVEL SECURITY;
