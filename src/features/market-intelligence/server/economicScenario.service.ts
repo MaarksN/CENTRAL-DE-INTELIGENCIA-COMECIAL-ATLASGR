@@ -168,6 +168,9 @@ export const economicScenarioService = {
         const territory = evidence.territories.get(input.territoryId);
         if (!territory) throw new AppError('Território não pertence ao ranking canônico publicado.', 400);
 
+        const effectiveCalibration = input.calibration.applied
+            ? input.calibration
+            : { applied: false as const, snapshot: null };
         const model: SellerModelAssumptions = {
             costs: input.costs,
             revenue: { ...input.revenue, samAccounts: null },
@@ -185,7 +188,7 @@ export const economicScenarioService = {
             auditVersion: ECONOMIC_SCENARIO_AUDIT_VERSION,
             methodologyVersion: evidence.methodologyVersion,
             economicModelVersion: ECONOMIC_MODEL_VERSION,
-            calibrationVersion: input.calibration.snapshot ? CRM_CALIBRATION_VERSION : null,
+            calibrationVersion: effectiveCalibration.snapshot ? CRM_CALIBRATION_VERSION : null,
             territory: canonicalTerritory(territory),
             input: {
                 serviceableSharePct: input.serviceableSharePct,
@@ -194,14 +197,14 @@ export const economicScenarioService = {
                 upfrontInvestment: input.upfrontInvestment,
                 policy: input.policy,
                 scenario: input.scenario,
-                calibration: input.calibration,
+                calibration: effectiveCalibration,
             },
             assessment,
         };
         const snapshotHash = hashSnapshot(snapshot);
         const id = randomUUID();
         const label = input.label?.trim() || `${territory.baseCity}/${territory.uf} · ${input.scenario}`;
-        const calibrationQuality = input.calibration.snapshot?.quality ?? null;
+        const calibrationQuality = effectiveCalibration.snapshot?.quality ?? null;
         const snapshotJson = JSON.stringify(snapshot);
 
         const row = await withRlsContext(async (tx) => {
@@ -214,7 +217,7 @@ export const economicScenarioService = {
                 ) VALUES (
                     ${id},${organizationId},${createdBy},${label},${territory.id},${territory.baseCity},${territory.uf},${territory.radiusKm},
                     ${input.scenario},${assessment.recommendation},${ECONOMIC_SCENARIO_AUDIT_VERSION},${evidence.methodologyVersion},${ECONOMIC_MODEL_VERSION},
-                    ${input.calibration.snapshot ? CRM_CALIBRATION_VERSION : null},${input.calibration.applied},${calibrationQuality},
+                    ${effectiveCalibration.snapshot ? CRM_CALIBRATION_VERSION : null},${effectiveCalibration.applied},${calibrationQuality},
                     ${assessment.tamAccounts},${assessment.samAccounts},${assessment.economics.monthlyFixedCost},${assessment.economics.paybackMonth},
                     ${assessment.economics.roi12Pct},${assessment.economics.roi24Pct},${snapshotHash},${snapshotJson}::jsonb
                 )
