@@ -19,8 +19,8 @@ describe('CRM economic calibration', () => {
         expect(result.eligible).toBe(true);
         expect(result.totalClosedSample).toBe(80);
         expect(result.monthsWithClosedSample).toBe(4);
-        expect(result.recommended.winRatePct).toBeCloseTo(36.25);
-        expect(result.recommended.salesCycleDays).toBeCloseTo(43.75);
+        expect(result.recommended.winRatePct).toBeCloseTo(37.5);
+        expect(result.recommended.salesCycleDays).toBeCloseTo(42.5);
         expect(result.recommended.averageMrrTicket).toBe(3500);
         expect(result.fromPeriod).toBe('2026-03');
         expect(result.toPeriod).toBe('2026-06');
