@@ -2,7 +2,7 @@
  * Cobre a ação "Ligar via SDR de Voz" do motor de automações — o gatilho que faz a IA ligar
  * sozinha para todo lead novo.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@/lib/prisma', () => ({
     prisma: {
@@ -65,6 +65,17 @@ beforeEach(() => {
     automationMock.update.mockResolvedValue({});
     auditLogMock.create.mockResolvedValue({});
     mockCallLead.mockResolvedValue({ sessionId: 'sess-1', callSid: 'CA1', status: 'queued' });
+    // A ação "Ligar via SDR de Voz" só liga dentro da janela comercial (9h-18h, dias úteis,
+    // America/Sao_Paulo — ver coldCall.policy.ts). Sem isso, o teste dependia da hora real do
+    // relógio do runner de CI e falhava sempre que a suíte rodasse fora desse horário (achado
+    // real: falhava consistentemente à noite/madrugada em horário de Brasília). Quarta-feira,
+    // 14h em Brasília — bem dentro da janela, nenhuma condição de borda.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-19T17:00:00Z'));
+});
+
+afterEach(() => {
+    vi.useRealTimers();
 });
 
 describe('Automação "Ligar via SDR de Voz"', () => {
