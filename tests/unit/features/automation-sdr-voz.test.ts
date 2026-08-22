@@ -29,13 +29,13 @@ vi.mock('@/features/integrations/birth-voice/birthVoice.service', () => ({
 // ver automation.engine.ts) antes de discar — sem mockar isso, o teste dependia da hora real do
 // relógio de quem roda a suíte (passava em horário comercial de SP em dia útil, falhava fora
 // disso). A lógica de janela em si já tem cobertura determinística própria em
-// coldCall.policy.test.ts; aqui só precisamos que ela sempre deixe passar.
+// coldCall.policy.test.ts; aqui só precisamos que ela sempre deixe passar. callWindowFromEnv só é
+// repassado como argumento pro isWithinCallWindow já mockado acima, então seu retorno não importa.
 vi.mock('@/features/integrations/birth-voice/coldCall.policy', () => ({
     isWithinCallWindow: vi.fn(() => true),
 }));
-
 vi.mock('@/features/integrations/birth-voice/coldCall.service', () => ({
-    callWindowFromEnv: vi.fn(() => ({ startHour: 9, endHour: 18, weekdaysOnly: true, timeZone: 'America/Sao_Paulo' })),
+    callWindowFromEnv: vi.fn(() => ({})),
 }));
 
 import { prisma } from '@/lib/prisma';
