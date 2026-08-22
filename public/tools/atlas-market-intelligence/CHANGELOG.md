@@ -20,17 +20,19 @@ Categorias: `CORRIGIDO`, `MELHORADO`, `NOVO`, `REMOVIDO`, `DADOS ATUALIZADOS`, `
 - documentação explicita o viés de cidade-base do otimizador atual e a necessidade de `Hub Suitability` antes da recomendação final de residência/lotação;
 - adicionados comandos read-only de QA: `lint:check`, `typecheck`, `typecheck:market-intelligence` e `test:market-intelligence`;
 - governança reforçada para não converter `NAO_DISPONIVEL`, `PROXY` ou `PREMISSA_EDITAVEL` em fato observado;
-- compatibilidade do pipeline CNPJ com identificadores alfanuméricos passou a ser protegida por teste regressivo, evitando coerção silenciosa para dígitos.
+- compatibilidade do pipeline CNPJ com identificadores alfanuméricos passou a ser protegida por teste regressivo, evitando coerção silenciosa para dígitos;
+- QA E2E da rota real passa a validar overflow e responsividade em 1920×1080, 1440×900, 1366×768, tablet e mobile.
 
 ### NOVO
 
 - teste unitário `finalDecisionReadiness.test.ts` protege o gate final contra regressões;
 - bloqueadores econômicos explícitos para SAM, MRR potencial e break-even dos finalistas;
-- requisito formal de `Hub Suitability` no plano final, incluindo materialidade da base, conectividade, tempo de deslocamento, aeroportos quando relevantes e custo operacional;
+- requisito formal de `HubSuitability` no plano final, incluindo materialidade da base, conectividade, tempo de deslocamento, aeroportos quando relevantes e custo operacional;
 - `etl_concorrencia_censo.py`, que materializa cobertura competitiva e rebaixa automaticamente falso `CENSO_COMPLETO`;
 - `concorrencia_censo_cobertura.csv`, protocolo versionado `competition-census-v1` para documentar pesquisa local, provedores nacionais, fontes primárias, registros empresariais, mapas, evidência negativa, revisão, data e confiança;
 - testes Python do censo competitivo para protocolo incompleto, protocolo integral e presença concorrencial isolada;
-- testes de compatibilidade CNPJ alfanumérico para segmento básico e ordem do estabelecimento.
+- testes de compatibilidade CNPJ alfanumérico para segmento básico e ordem do estabelecimento;
+- screenshots de QA responsivo anexadas ao relatório Playwright em cada viewport obrigatório.
 
 ### DADOS ATUALIZADOS / CONFIRMADOS
 
