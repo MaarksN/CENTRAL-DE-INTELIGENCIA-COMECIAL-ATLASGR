@@ -315,7 +315,10 @@ function SellerSimulator() {
             <aside className="space-y-4">
                 <div className="flex gap-1 rounded-2xl border border-slate-200 bg-white p-1.5">
                     {(['CONSERVADOR', 'BASE', 'AGRESSIVO'] as const).map((item) => (
-                        <button key={item} type="button" onClick={() => setScenario(item)} aria-current={scenario === item ? 'true' : undefined} className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5618] ${scenario === item ? 'bg-[#FF5618] text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        // #A63810 = mesmo mix de 65% #FF5618 + preto usado em --color-brand-active
+                        // (globals.css/DQA-19) — texto branco direto sobre #FF5618 só atinge ~3.2:1,
+                        // abaixo do mínimo WCAG AA de 4.5:1 (achado real do axe-core).
+                        <button key={item} type="button" onClick={() => setScenario(item)} aria-current={scenario === item ? 'true' : undefined} className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5618] ${scenario === item ? 'bg-[#A63810] text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
                             {SCENARIO_LABELS[item]}
                         </button>
                     ))}
@@ -429,7 +432,10 @@ export function MarketIntelligenceApp() {
                 </header>
 
                 <nav aria-label="Módulos de Market Intelligence" className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5">
-                    {TABS.map((item) => { const Icon = item.icon; const active = tab === item.id; return <button key={item.id} type="button" onClick={() => setTab(item.id)} aria-current={active ? 'page' : undefined} className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5618] ${active ? 'bg-[#FF5618] text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-[#333333]'}`}><Icon className="h-4 w-4" aria-hidden="true" />{item.label}</button>; })}
+                    {/* #A63810 = mesmo mix de 65% #FF5618 + preto usado em --color-brand-active
+                        (globals.css/DQA-19) — texto branco direto sobre #FF5618 só atinge ~3.2:1,
+                        abaixo do mínimo WCAG AA de 4.5:1 (achado real do axe-core). */}
+                    {TABS.map((item) => { const Icon = item.icon; const active = tab === item.id; return <button key={item.id} type="button" onClick={() => setTab(item.id)} aria-current={active ? 'page' : undefined} className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5618] ${active ? 'bg-[#A63810] text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-[#333333]'}`}><Icon className="h-4 w-4" aria-hidden="true" />{item.label}</button>; })}
                 </nav>
 
                 {tab === 'board' && <BoardView manifest={manifest} territories={territories} />}
