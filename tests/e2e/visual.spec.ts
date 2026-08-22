@@ -12,11 +12,14 @@ import { signUp, uniqueTestEmail, waitForAppReady } from './helpers';
 const SCREENSHOT_OPTIONS = { fullPage: true, maxDiffPixels: 600 };
 // O dashboard também tem a saudação por horário do dia e a data de hoje (greeting()/todayLabel em
 // SinglePageDashboard.tsx — "Bom dia"/"Boa tarde"/"Boa noite" e a data por extenso, cada
-// combinação com largura de texto diferente da baseline capturada num dia/hora diferentes) — essa
-// era a causa de diffs intermitentes de milhares de pixels em runs sem nenhuma mudança real na
-// tela (ex.: 3054px num commit só de docs). Mascarado via data-testid="dashboard-greeting" (bloco
-// puramente informativo, não afeta o layout dos elementos vizinhos) em vez de só alargar o
-// orçamento de diff pra essa tela inteira, que continua no mesmo padrão das outras (600).
+// combinação com largura de texto diferente da baseline capturada num dia/hora diferentes) e o
+// ClockCalendarWidget (relógio ao vivo com segundos, dia/data por extenso, e destaque de "hoje" —
+// uma célula inteira do calendário — que muda de posição conforme o dia do mês em que a baseline
+// foi capturada vs. o dia em que o CI roda). Isso era a causa de diffs intermitentes de milhares
+// de pixels em runs sem nenhuma mudança real na tela (ex.: 3054px num commit só de docs).
+// Mascarado via data-testid (blocos puramente informativos, não afetam o layout dos elementos
+// vizinhos) em vez de só alargar o orçamento de diff pra essa tela inteira, que continua no mesmo
+// padrão das outras (600).
 const DASHBOARD_SCREENSHOT_OPTIONS = { fullPage: true, maxDiffPixels: 600 };
 
 async function setTheme(page: import('@playwright/test').Page, theme: 'light' | 'dark') {
@@ -36,7 +39,7 @@ test.describe('Regressão visual', () => {
       await waitForAppReady(page);
       await expect(page).toHaveScreenshot(`dashboard-${theme}.png`, {
         ...DASHBOARD_SCREENSHOT_OPTIONS,
-        mask: [page.getByTestId('dashboard-greeting')],
+        mask: [page.getByTestId('dashboard-greeting'), page.getByTestId('clock-calendar-widget')],
       });
     });
 
