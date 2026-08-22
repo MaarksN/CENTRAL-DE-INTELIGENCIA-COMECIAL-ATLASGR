@@ -479,6 +479,14 @@ leitura estática de código.
   `text-[#333333]` (cor de tinta clara hardcoded, não reage a dark mode) nos mesmos arquivos — esse
   achado é de tema (claro/escuro), não de marca, e fica fora do escopo desta rodada ("tokenizar
   efeitos multibrand"); registrado aqui para não precisar ser "redescoberto" numa sessão futura.
+  **Bug real encontrado pelo CI de verdade, corrigido** (achado que a leitura estática/execução local
+  não pegou): 3 seletores de cenário/aba dentro do próprio módulo (`MarketIntelligenceApp.tsx:318`,
+  `:432`, `TerritoryEconomicSimulator.tsx:325`) já usavam `bg-[#FF5618] text-white` no estado ativo —
+  a migração desta sessão preservou o bug (virou `bg-brand text-white`, mesma cor computada) sem
+  querer, e o CI do GitHub (não o navegador local) pegou via `axe-core`: 3.18:1 contra o mínimo
+  4.5:1 AA, mesma categoria de DQA-19. Corrigido trocando pra `bg-brand-active` (o token que já existe
+  exatamente pra esse caso, usado com sucesso em `Sidebar.tsx`) — verificado no CI/local depois do
+  fix: 0 violações de contraste nesses 3 elementos.
 - **Validação mobile em rotas principais**: com Postgres/Redis reais provisionados, rodou-se a
   suíte oficial de verdade em vez de leitura estática. `tests/e2e/mobile-sweep.spec.ts` (os 30
   módulos navegáveis, viewport 393×851, sem overflow horizontal/tela branca) e
@@ -497,15 +505,20 @@ leitura estática de código.
   direto do shell alcança o host normalmente, mas o Chromium headless deste ambiente não completa
   o carregamento da fonte a tempo — limitação de ambiente, não regressão). Registrado aqui em vez de
   silenciosamente ignorado, seguindo o protocolo de `visual-qa/SKILL.md`.
-- **Achado de acessibilidade pré-existente, não corrigido** (fora do escopo desta rodada — nav/
-  tipografia/multibrand, não contraste): a primeira rodada de `accessibility.spec.ts` desta sessão
-  (antes de qualquer mudança de código) reportou o `Button` variante `default` (`bg-brand` + texto
-  branco) com contraste 3.18:1 num botão de 12px na tela de Cadência — abaixo do mínimo AA (4.5:1),
-  mesma categoria do bug já documentado DQA-19/`--color-brand-active`, mas não coberto por aquele
-  fix porque `Button.tsx` usa `bg-brand` puro, não `bg-brand-active`. Reexecuções posteriores da
-  mesma suíte (servidor reiniciado) não reproduziram a falha, então fica registrado como achado
-  intermitente/não confirmado de forma estável, não como bug fechado nem descartado — investigar com
-  sessão dedicada de acessibilidade antes de decidir se `Button.tsx` precisa de `bg-brand-active`.
+- **Achado de acessibilidade pré-existente, real, não corrigido** (fora do escopo desta rodada — nav/
+  tipografia/multibrand, não uma auditoria de contraste do design system): o `Button` variante
+  `default` (`bg-brand` + texto branco, sem `bg-brand-active`) falha AA (3.18:1 contra 4.5:1) sempre
+  que renderizado em texto pequeno — confirmado de verdade pelo CI do GitHub (não só localmente,
+  onde a reprodução é instável/dependente de timing de render): apareceu tanto na tela de Cadência
+  quanto — via um `Button` primitivo renderizado dentro do próprio Market Intelligence — nesta rodada.
+  Mesma categoria do bug já corrigido pra Sidebar via `--color-brand-active` (DQA-19), mas
+  `Button.tsx` nunca recebeu o mesmo tratamento. **Não corrigido aqui de propósito**: mudar o
+  variante `default` do `Button` primitivo muda a cor de fundo de todo botão primário do produto —
+  ao contrário dos 3 seletores locais do Market Intelligence corrigidos acima (escopo pontual, no-op
+  visual pra AtlasGR), essa é uma mudança visual ampla que precisa da mesma QA (light/dark, as duas
+  marcas, várias telas) que este documento já reservou pra uma sessão dedicada de acessibilidade —
+  ver precedente idêntico no Pilot 003 (adendo) de `.claude/PILOTS.md`, que também encontrou um bug
+  correlato de contraste durante outra tarefa e optou por reportar em vez de corrigir sozinho.
 
 ## Backlog Tier 2 (o que ainda falta)
 
