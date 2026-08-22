@@ -92,6 +92,40 @@ test.describe('Market Intelligence — módulo de território', () => {
     await expect(page.getByRole('heading', { name: /Ainda não há evidência suficiente para nomear o vendedor 01/i })).toBeVisible();
   });
 
+  test('valida responsividade real, ausência de overflow horizontal e captura evidências visuais', async ({ page }, testInfo) => {
+    const viewports = [
+      { name: 'desktop-1920x1080', width: 1920, height: 1080 },
+      { name: 'desktop-1440x900', width: 1440, height: 900 },
+      { name: 'desktop-1366x768', width: 1366, height: 768 },
+      { name: 'tablet-820x1180', width: 820, height: 1180 },
+      { name: 'mobile-390x844', width: 390, height: 844 },
+    ];
+
+    await page.setViewportSize({ width: viewports[0].width, height: viewports[0].height });
+    await signUp(page, { email: uniqueTestEmail('mi-visual') });
+
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto('/app/market-intelligence');
+      await waitForAppReady(page);
+
+      await expect(page.getByRole('heading', { name: /Onde a Atlas GR deve contratar o próximo vendedor/i })).toBeVisible();
+      const overflow = await page.evaluate(() => ({
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: document.documentElement.clientWidth,
+        bodyWidth: document.body.scrollWidth,
+      }));
+      expect(overflow.documentWidth, `${viewport.name}: documentElement não pode criar overflow horizontal`).toBeLessThanOrEqual(overflow.viewportWidth + 1);
+      expect(overflow.bodyWidth, `${viewport.name}: body não pode criar overflow horizontal`).toBeLessThanOrEqual(overflow.viewportWidth + 1);
+
+      const screenshot = await page.screenshot({ fullPage: true });
+      await testInfo.attach(`market-intelligence-${viewport.name}`, {
+        body: screenshot,
+        contentType: 'image/png',
+      });
+    }
+  });
+
   test('mostra estado de erro quando o manifest não pode ser carregado', async ({ page }) => {
     await page.route('**/tools/atlas-market-intelligence/data/manifest.json', (route) =>
       route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }),
