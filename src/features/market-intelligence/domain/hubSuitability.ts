@@ -83,6 +83,15 @@ function finitePositive(value: number | null): value is number {
     return value !== null && Number.isFinite(value) && value >= 0;
 }
 
+function numericPairs(rows: HubSuitabilityRawRow[], getter: (row: HubSuitabilityRawRow) => number | null): Array<[string, number]> {
+    const pairs: Array<[string, number]> = [];
+    for (const row of rows) {
+        const value = getter(row);
+        if (finitePositive(value)) pairs.push([row.ibgeCode, value]);
+    }
+    return pairs;
+}
+
 /**
  * Materializa somente componentes observáveis/reproduzíveis.
  *
@@ -91,12 +100,12 @@ function finitePositive(value: number | null): value is number {
  * explicitamente versionada e auditável.
  */
 export function materializeHubSuitabilityComponents(rows: HubSuitabilityRawRow[]): HubSuitabilityRecord[] {
-    const icp = percentileMap(rows.filter((row) => finitePositive(row.icpAccounts)).map((row) => [row.ibgeCode, row.icpAccounts]));
-    const rntrc = percentileMap(rows.filter((row) => finitePositive(row.rntrcTransporters)).map((row) => [row.ibgeCode, row.rntrcTransporters]));
-    const fleet = percentileMap(rows.filter((row) => finitePositive(row.cargoFleet)).map((row) => [row.ibgeCode, row.cargoFleet]));
-    const regic = percentileMap(rows.filter((row) => finitePositive(row.regicHierarchyRank)).map((row) => [row.ibgeCode, row.regicHierarchyRank]), true);
-    const road = percentileMap(rows.filter((row) => finitePositive(row.roadDistanceToReferenceCenterKm)).map((row) => [row.ibgeCode, row.roadDistanceToReferenceCenterKm]), true);
-    const airport = percentileMap(rows.filter((row) => finitePositive(row.nearestPublicAirportKm)).map((row) => [row.ibgeCode, row.nearestPublicAirportKm]), true);
+    const icp = percentileMap(numericPairs(rows, (row) => row.icpAccounts));
+    const rntrc = percentileMap(numericPairs(rows, (row) => row.rntrcTransporters));
+    const fleet = percentileMap(numericPairs(rows, (row) => row.cargoFleet));
+    const regic = percentileMap(numericPairs(rows, (row) => row.regicHierarchyRank), true);
+    const road = percentileMap(numericPairs(rows, (row) => row.roadDistanceToReferenceCenterKm), true);
+    const airport = percentileMap(numericPairs(rows, (row) => row.nearestPublicAirportKm), true);
 
     return rows.map((row) => ({
         ibgeCode: row.ibgeCode,
