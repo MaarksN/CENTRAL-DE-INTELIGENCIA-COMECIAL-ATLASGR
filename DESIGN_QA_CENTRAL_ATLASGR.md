@@ -421,6 +421,92 @@ Dois itens do backlog acima foram fechados numa rodada seguinte:
   mesmo formulário indefinidamente, já que `location.state` (ao contrário do singleton antigo)
   sobrevive a reload. Verificado com um spec novo, `tests/e2e/command-palette.spec.ts`.
 
+## Quinto lote — Onda 4 (UX e design system): navegação por persona, tokens de tipografia, efeitos multibrand
+
+Pedido do usuário com 3 frentes: redesenhar a navegação por jornada/persona, validar mobile nas
+rotas principais, e tokenizar tipografia e efeitos multibrand. Diferente das rodadas anteriores,
+esta sessão teve Postgres 16 (+ `pgvector`/`pg_trgm` instalados via `apt-get`) e Redis provisionáveis
+no ambiente — a suíte `tests/e2e/*.spec.ts` real rodou contra o servidor Express de verdade, não só
+leitura estática de código.
+
+| Categoria | Score | O que mudou |
+|---|---|---|
+| Typography | 75 | H1-H3 tokenizados (`--text-h1/h2/h3` + line-height em `@theme`), sem mudança visual. Ainda falta escala de corpo/label tokenizada (fora do escopo pedido nesta rodada). |
+| Design Consistency | 74 | Glow hardcoded pra laranja AtlasGR removido de `Button`/`Card`/`Badge` (3 primitivos) e de `.border-glow-orange`; 53 ocorrências de `#FF5618`/`#E84B13` cru no módulo Market Intelligence convertidas pros tokens `brand`/`brand-2`; `hover:bg-brand-accent` morto (nunca gerava CSS) corrigido pra `hover:bg-brand-2`. |
+| Frontend Architecture | 76 | Sidebar ganhou reordenação por papel (`GROUP_ORDER_BY_ROLE`) sobre a estrutura de jornada já existente — mesmo item set, RBAC inalterado, só ordem de apresentação. |
+| Mobile UX | 58 | Sem alteração de código nesta rodada — mas, pela primeira vez desde a criação da suíte, `mobile-sweep.spec.ts`/`crm-kanban-mobile.spec.ts` rodaram de verdade (não só leitura estática) e confirmaram 0 regressão nas 30 rotas + Kanban. |
+
+- **Navegação por persona**: a Sidebar já era organizada por jornada comercial (Visão Geral → Captar
+  → Qualificar → Relacionar → Fechar → Analisar → IA & Capacitação → Administração, ver nota em
+  `Sidebar.tsx`) desde uma rodada anterior — o que faltava era adaptar essa ordem ao papel de quem
+  está logado. `GROUP_ORDER_BY_ROLE` (`Sidebar.tsx`) reordena os MESMOS grupos (nenhum item some,
+  RBAC continua só nos itens condicionais já existentes) pra abrir a Sidebar no trecho da jornada que
+  aquele papel usa no dia a dia: CLOSER vê Relacionar/Fechar primeiro (não prospecta); GESTOR/ADMIN
+  veem Analisar logo depois de Visão Geral (abrem o app pra decidir, não pra prospectar);
+  VISUALIZADOR segue a mesma prioridade de leitura do Gestor, sem Administração em destaque (não tem
+  os itens extras que só ADMIN ganha). SDR e papel desconhecido mantêm a ordem padrão da jornada
+  (já era a ordem natural de quem prospecta) — nenhuma mudança visual pra esse papel.
+- **Tipografia tokenizada**: os valores `clamp(...)` de `h1`/`h2`/`h3` viviam hardcoded dentro da
+  regra de `@layer base` (débito "Typography: 68... sem tokens de tipografia", nunca corrigido nas
+  4 rodadas anteriores). Agora vivem em `--text-h1`/`--text-h2`/`--text-h3` (+ companion
+  `--text-*--line-height`) dentro do bloco `@theme` — mesmos valores, sem mudança visual, mas
+  reutilizáveis fora de um elemento `<h*>` via as utilities que o Tailwind 4 já gera sozinho
+  (`text-h1`/`text-h2`/`text-h3`) para quando algo precisa da escala de heading sem ser
+  semanticamente um heading.
+- **Efeitos multibrand tokenizados** (bug real, não só limpeza): 3 primitivos compartilhados
+  (`Button` variante `default`, `Card` variante `accent`, `Badge` variante `gradient`) tinham glow
+  em `box-shadow` hardcoded pra laranja AtlasGR (`rgba(255,86,24,...)`) mesmo depois da migração de
+  `bg`/`text`/`border` pra `--brand`/`--brand-2` registrada no terceiro lote — o glow continuava
+  laranja pra usuário Total Trac. Convertidos pra `color-mix(in srgb, var(--brand) N%, transparent)`
+  (matematicamente equivalente ao `rgba` original quando a marca é AtlasGR — no-op visual confirmado
+  via `tests/e2e/visual.spec.ts` nos specs que não dependem de fonte externa). `.border-glow-orange`
+  em `globals.css` (efeito morto, zero uso em `src/`) recebeu o mesmo tratamento e foi renomeado pra
+  `.border-glow-brand`, pra não deixar um efeito reativo-a-marca "novo" já nascer quebrado pra Total
+  Trac no dia em que alguém o usar.
+  **Achado adjacente corrigido** (mesmo arquivo, `Button.tsx`, barato): `hover:bg-brand-accent` no
+  Button `default` nunca gerou nenhuma utility Tailwind real — `--brand-accent` em `globals.css` não
+  tem o prefixo `--color-` que o Tailwind 4 exige pra virar classe, então o hover não mudava a cor de
+  fundo desde sempre (mesma categoria do bug `bg-info-base` já documentado no Pilot 004 de
+  `.claude/PILOTS.md`). Trocado por `hover:bg-brand-2`, que já existe, já é atualizado
+  dinamicamente na troca de marca (`BrandContext.tsx`) e já gera CSS real.
+  **Achado maior, fora de escopo desta rodada** (registrado, não corrigido): o módulo Market
+  Intelligence (`src/features/market-intelligence/components/*.tsx`, 8 arquivos) tinha **53
+  ocorrências** de `text-brand`/`bg-brand`/`ring-brand`/`border-brand` hardcoded como `#FF5618`/
+  `#E84B13` cru — sem nenhum `isAtlas`/`useBrand` no módulo inteiro, e listado na Sidebar pra
+  qualquer marca (grupo "Captar"), então usuário Total Trac via laranja AtlasGR na tela inteira.
+  Corrigido nesta sessão (find-replace mecânico pros tokens `brand`/`brand-2` reais, verificado sem
+  nenhum `#FF5618`/`#E84B13` residual). O mesmo módulo também tem **52 ocorrências** de
+  `text-[#333333]` (cor de tinta clara hardcoded, não reage a dark mode) nos mesmos arquivos — esse
+  achado é de tema (claro/escuro), não de marca, e fica fora do escopo desta rodada ("tokenizar
+  efeitos multibrand"); registrado aqui para não precisar ser "redescoberto" numa sessão futura.
+- **Validação mobile em rotas principais**: com Postgres/Redis reais provisionados, rodou-se a
+  suíte oficial de verdade em vez de leitura estática. `tests/e2e/mobile-sweep.spec.ts` (os 30
+  módulos navegáveis, viewport 393×851, sem overflow horizontal/tela branca) e
+  `tests/e2e/crm-kanban-mobile.spec.ts` (hit targets, drawer, touch-drag real) passaram **antes e
+  depois** das mudanças desta sessão — nenhuma regressão mobile introduzida, e a cobertura mobile já
+  documentada nos Pilotos 001/002 segue válida.
+- **Verificação executada** (suíte real, não só leitura de código): `npm run lint` (0 erros, mesmos
+  99 warnings pré-existentes, nenhum novo), `npx tsc -b --noEmit` (0 erros), `npm run build` (limpo),
+  e Playwright real contra o servidor Express: `mobile-sweep.spec.ts`, `crm-kanban-mobile.spec.ts`,
+  `command-palette.spec.ts`, `crm.spec.ts` e `accessibility.spec.ts` (6/6, incl. Cadência) —
+  todos verdes antes e depois das mudanças.
+  `tests/e2e/visual.spec.ts` **não pôde ser usado como confirmação** nesta sessão: os 5 casos
+  (dashboard/CRM/formulário, light+dark) estouram em "waiting for fonts to load" a 5s — confirmado,
+  revertendo temporariamente as mudanças via `git stash`, que **o mesmo timeout já acontece em
+  `main` sem nenhuma alteração desta sessão** (a fonte Montserrat vem de `fonts.gstatic.com`; `curl`
+  direto do shell alcança o host normalmente, mas o Chromium headless deste ambiente não completa
+  o carregamento da fonte a tempo — limitação de ambiente, não regressão). Registrado aqui em vez de
+  silenciosamente ignorado, seguindo o protocolo de `visual-qa/SKILL.md`.
+- **Achado de acessibilidade pré-existente, não corrigido** (fora do escopo desta rodada — nav/
+  tipografia/multibrand, não contraste): a primeira rodada de `accessibility.spec.ts` desta sessão
+  (antes de qualquer mudança de código) reportou o `Button` variante `default` (`bg-brand` + texto
+  branco) com contraste 3.18:1 num botão de 12px na tela de Cadência — abaixo do mínimo AA (4.5:1),
+  mesma categoria do bug já documentado DQA-19/`--color-brand-active`, mas não coberto por aquele
+  fix porque `Button.tsx` usa `bg-brand` puro, não `bg-brand-active`. Reexecuções posteriores da
+  mesma suíte (servidor reiniciado) não reproduziram a falha, então fica registrado como achado
+  intermitente/não confirmado de forma estável, não como bug fechado nem descartado — investigar com
+  sessão dedicada de acessibilidade antes de decidir se `Button.tsx` precisa de `bg-brand-active`.
+
 ## Backlog Tier 2 (o que ainda falta)
 
 Depois de 4 lotes, o backlog original do Tier 1 está praticamente todo endereçado. O que
