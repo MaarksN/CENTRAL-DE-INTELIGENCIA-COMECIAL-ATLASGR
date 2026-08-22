@@ -12,6 +12,7 @@ import {
 
 const BASE = '/tools/atlas-market-intelligence/data';
 const MIN_NATIONAL_SCORED_MUNICIPALITIES = 1_000;
+const FINALIST_COUNT = 5;
 
 async function readJson<T>(path: string): Promise<T> {
     const response = await fetch(path, { headers: { Accept: 'application/json' } });
@@ -60,6 +61,13 @@ export interface MarketIntelligenceSnapshot {
     evidences: SourceEvidence[];
 }
 
+/**
+ * `decisionReady` é deliberadamente um gate FINAL de contratação.
+ *
+ * O Core Evidence pode ordenar candidatos para investigação mesmo com concorrência parcial,
+ * mas isso não autoriza a Board "Onde contratar agora?". A missão Atlas exige White Space
+ * competitivo auditável e unit economics suficientes para responder as perguntas executivas.
+ */
 function validateRuntimeReadiness(
     manifest: MarketIntelligenceManifest,
     territories: TerritoryRecord[],
@@ -80,6 +88,26 @@ function validateRuntimeReadiness(
         runtimeBlockers.push('Nenhum território elegível pôde ser construído a partir dos snapshots publicados.');
     }
 
+    const competitionDataset = manifest.datasets.find((dataset) => dataset.id === 'competition');
+    if (!competitionDataset || competitionDataset.status !== 'ATUALIZADO') {
+        runtimeBlockers.push('Censo nacional de concorrência ainda não está completo; White Space competitivo final permanece bloqueado.');
+    }
+
+    const finalists = territories.slice(0, FINALIST_COUNT);
+    if (finalists.length && finalists.some((territory) => territory.competition.censusStatus !== 'CENSO_COMPLETO')) {
+        runtimeBlockers.push(`Os ${Math.min(FINALIST_COUNT, finalists.length)} territórios finalistas ainda não possuem CENSO_COMPLETO comparável.`);
+    }
+
+    if (finalists.length && finalists.some((territory) => territory.economics.samAccounts === null)) {
+        runtimeBlockers.push('SAM dos territórios finalistas ainda não está calculado com regra comercial aprovada.');
+    }
+    if (finalists.length && finalists.some((territory) => territory.economics.potentialMrr === null)) {
+        runtimeBlockers.push('MRR potencial dos territórios finalistas depende de PREMISSAS_EDITÁVEIS Atlas ainda não aprovadas.');
+    }
+    if (finalists.length && finalists.some((territory) => territory.economics.breakEvenContracts === null)) {
+        runtimeBlockers.push('Break-even por território ainda não está autorizado por premissas econômicas Atlas validadas.');
+    }
+
     if (!runtimeBlockers.length) return manifest;
     return {
         ...manifest,
@@ -98,7 +126,7 @@ export async function loadMarketIntelligenceSnapshot(): Promise<MarketIntelligen
 
     // Caminho rápido de produção: territorios.json é uma visão materializada e validada pelo
     // Quality Gate contra os snapshots nacionais. Quando ele existe, a UI não baixa nem recalcula
-    // municipios_scored.json no caminho crítico. Ainda exigimos CIOT em runtime para fail-closed.
+    // municipios_scored.json no caminho crítico. Ainda exigimos as evidências finais em runtime.
     if (publishedTerritories.length) {
         const runtimeManifest = validateRuntimeReadiness(manifest, publishedTerritories, mdfe);
         return {
