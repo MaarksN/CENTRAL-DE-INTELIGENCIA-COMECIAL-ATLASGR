@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { signUp, uniqueTestEmail, waitForAppReady } from './helpers';
 
-// MI-007 (Sprint 04/Onda 16): este E2E toca a rota real do Market Intelligence e funciona
-// como contrato entre manifest, snapshots publicados e UI. A metodologia territorial continua
-// fail-closed se uma camada obrigatória desaparecer, e a calibração econômica só aplica CRM por ação explícita.
+// E2E da rota real de Market Intelligence.
+// A Board de contratação é fail-closed: Core Evidence pode gerar candidatos exploratórios,
+// porém o vendedor 01 só é liberado quando os gates competitivos e econômicos finais passam.
 
 test.describe('Market Intelligence — módulo de território', () => {
   test('abre o módulo, navega para Saúde dos Dados e mostra o status real de cada dataset', async ({ page }) => {
@@ -20,14 +20,17 @@ test.describe('Market Intelligence — módulo de território', () => {
     await expect(statusBadge).toBeVisible();
   });
 
-  test('mostra ranking territorial Core Evidence quando os snapshots obrigatórios estão publicados', async ({ page }) => {
-    await signUp(page, { email: uniqueTestEmail('mi-ready') });
+  test('bloqueia a contratação final e preserva candidatos Core Evidence para investigação', async ({ page }) => {
+    await signUp(page, { email: uniqueTestEmail('mi-final-gate') });
     await page.goto('/app/market-intelligence');
     await waitForAppReady(page);
 
-    await expect(page.getByRole('heading', { name: /Top 5 territórios calculados/i })).toBeVisible();
-    await expect(page.getByText(/^#1$/)).toBeVisible();
-    await expect(page.getByText(/Score/i).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Ainda não há evidência suficiente para nomear o vendedor 01/i })).toBeVisible();
+    await expect(page.getByText(/censo nacional de concorrência/i).first()).toBeVisible();
+
+    await page.getByRole('button', { name: 'Territórios' }).click();
+    await expect(page.getByRole('heading', { name: /Territórios calculados/i })).toBeVisible();
+    await expect(page.getByText(/BLOQUEADO|ALTO|MEDIO|BAIXO/).first()).toBeVisible();
   });
 
   test('liga unit economics aos territorios reais sem inventar premissas', async ({ page }) => {
@@ -74,7 +77,7 @@ test.describe('Market Intelligence — módulo de território', () => {
     await expect(page.getByText(/aplicado ao cenário atual/i)).toBeVisible();
   });
 
-  test('volta a bloquear a decisão se o CIOT publicado desaparecer em runtime', async ({ page }) => {
+  test('continua bloqueado se o CIOT publicado desaparecer em runtime', async ({ page }) => {
     await page.route('**/tools/atlas-market-intelligence/data/mdfe_origens_municipios.json', (route) =>
       route.fulfill({ status: 404, contentType: 'application/json', body: '{}' }),
     );
