@@ -8,6 +8,7 @@
   },
   "scripts": {
     "postinstall": "prisma generate",
+    "ship": "tsc --noEmit && npm run build && git add . && git commit -m \"update: melhorias e ajustes\" && git push origin main",
     "dev": "tsx watch server.ts",
     "dev:worker": "tsx watch worker.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
@@ -44,9 +45,9 @@
     "setup:db:check": "tsx scripts/setup-vector-db.ts --check",
     "verify:integrations": "tsx scripts/verify-integrations.ts",
     "verify:ai": "tsx scripts/verify-ai-studio.ts",
+    "verify:openapi-drift": "tsx scripts/verify-openapi-drift.ts",
     "eval:golden": "tsx scripts/evaluate-golden-dataset-live.ts",
     "verify:prod": "tsx scripts/verify-prod.ts",
-    "docs": "typedoc",
     "reset:passwords": "tsx scripts/reset-passwords.ts"
   },
   "dependencies": {
