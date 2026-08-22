@@ -514,10 +514,20 @@ leitura estática de código.
   CRM`/`Formulário de novo contato` incluem a Sidebar no screenshot, então herdam a nova ordem
   `GROUP_ORDER_BY_ROLE.ADMIN` — exatamente o comportamento pretendido, não um bug. Confirmado
   visualmente via `Diff` do Playwright (só a Sidebar e os elementos dinâmicos já tolerados por
-  `maxDiffPixels` mudaram) antes de regenerar; as 5 baselines (`tests/e2e/visual.spec.ts-snapshots/
-  *.png`) foram atualizadas nesta sessão pra refletir a Sidebar reordenada, seguindo o protocolo de
-  `visual-qa/SKILL.md` ("mudança visual intencional exige atualizar a baseline... e justificar o
-  diff, não apenas fazer o teste passar").
+  `maxDiffPixels` mudaram) antes de regenerar.
+  **Correção de método**: a primeira tentativa de regenerar as baselines localmente (Chromium do
+  ambiente desta sessão) produziu PNGs que passavam localmente mas ainda divergiam ~16-29k pixels
+  do que o `e2e-tests`/`build-and-test` reais do CI mediam — o Chromium `1194` pré-instalado neste
+  sandbox não é bit-a-bit idêntico ao Chromium que `npx playwright install --with-deps chromium`
+  baixa no runner `ubuntu-latest` do GitHub Actions (antialiasing/hinting de fonte já é suficiente
+  pra isso). Correção: usado o mecanismo que o próprio repositório já tem pra exatamente esse
+  problema — o job manual `visual-baselines` (`workflow_dispatch` em `.github/workflows/ci.yml`,
+  "Gerar baselines visuais Linux") — disparado nesta branch, que gera os PNGs rodando de verdade no
+  runner do GitHub Actions e os publica como artifact (`visual-snapshots-linux`); os 5 PNGs baixados
+  desse artifact substituíram os gerados localmente antes de commitar. Fica registrado como
+  aprendizado geral: baseline de regressão visual **nunca** deve ser gerada num Chromium diferente
+  do que o CI realmente usa, mesmo que ambos rodem localmente sem erro — o job manual existe
+  precisamente para isso, ver o comentário completo em `.github/workflows/ci.yml` (linhas ~197-210).
 - **Achado de acessibilidade pré-existente, real, não corrigido** (fora do escopo desta rodada — nav/
   tipografia/multibrand, não uma auditoria de contraste do design system): o `Button` variante
   `default` (`bg-brand` + texto branco, sem `bg-brand-active`) falha AA (3.18:1 contra 4.5:1) sempre
