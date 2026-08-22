@@ -25,6 +25,19 @@ vi.mock('@/features/integrations/birth-voice/birthVoice.service', () => ({
     SuppressedNumberError: class SuppressedNumberError extends Error {},
 }));
 
+// O motor também checa a janela comercial de ligação (`isWithinCallWindow`/`callWindowFromEnv`,
+// ver automation.engine.ts) antes de discar — sem mockar isso, o teste dependia da hora real do
+// relógio de quem roda a suíte (passava em horário comercial de SP em dia útil, falhava fora
+// disso). A lógica de janela em si já tem cobertura determinística própria em
+// coldCall.policy.test.ts; aqui só precisamos que ela sempre deixe passar.
+vi.mock('@/features/integrations/birth-voice/coldCall.policy', () => ({
+    isWithinCallWindow: vi.fn(() => true),
+}));
+
+vi.mock('@/features/integrations/birth-voice/coldCall.service', () => ({
+    callWindowFromEnv: vi.fn(() => ({ startHour: 9, endHour: 18, weekdaysOnly: true, timeZone: 'America/Sao_Paulo' })),
+}));
+
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { callLead, SuppressedNumberError } from '@/features/integrations/birth-voice/birthVoice.service';
