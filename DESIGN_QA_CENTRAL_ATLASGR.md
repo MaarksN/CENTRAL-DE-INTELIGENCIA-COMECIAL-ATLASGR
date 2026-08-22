@@ -498,13 +498,26 @@ leitura estática de código.
   e Playwright real contra o servidor Express: `mobile-sweep.spec.ts`, `crm-kanban-mobile.spec.ts`,
   `command-palette.spec.ts`, `crm.spec.ts` e `accessibility.spec.ts` (6/6, incl. Cadência) —
   todos verdes antes e depois das mudanças.
-  `tests/e2e/visual.spec.ts` **não pôde ser usado como confirmação** nesta sessão: os 5 casos
-  (dashboard/CRM/formulário, light+dark) estouram em "waiting for fonts to load" a 5s — confirmado,
-  revertendo temporariamente as mudanças via `git stash`, que **o mesmo timeout já acontece em
-  `main` sem nenhuma alteração desta sessão** (a fonte Montserrat vem de `fonts.gstatic.com`; `curl`
-  direto do shell alcança o host normalmente, mas o Chromium headless deste ambiente não completa
-  o carregamento da fonte a tempo — limitação de ambiente, não regressão). Registrado aqui em vez de
-  silenciosamente ignorado, seguindo o protocolo de `visual-qa/SKILL.md`.
+  `tests/e2e/visual.spec.ts` **não pôde ser usado como confirmação direta** nesta sessão: os 5 casos
+  (dashboard/CRM/formulário, light+dark) estouram em "waiting for fonts to load" a 5s neste ambiente
+  — confirmado, revertendo temporariamente as mudanças via `git stash`, que **o mesmo timeout já
+  acontece em `main` sem nenhuma alteração desta sessão** (a fonte Montserrat vem de
+  `fonts.gstatic.com`; `curl` direto do shell alcança o host normalmente em <1s, mas o Chromium
+  headless deste ambiente às vezes não completa o carregamento a tempo dos 5s — limitação de
+  ambiente/flake, não regressão desta sessão).
+  **Achado real por trás do timeout, encontrado só quando o CI conseguiu passar da fase de fonte**:
+  com um timeout local temporariamente elevado (só para diagnóstico, nunca commitado), os 5
+  screenshots realmente divergiam da baseline — não por flake, mas porque a reordenação de Sidebar
+  por persona (`GROUP_ORDER_BY_ROLE`, ver acima) é uma mudança visual real, e **todo usuário criado
+  via `signUp()` nos testes e2e vira ADMIN automaticamente** (`src/lib/auth.ts:174-187` — quem cria
+  uma organização nova sempre vira ADMIN dela). As 5 baselines cobertas por `dashboard`/`Pipeline
+  CRM`/`Formulário de novo contato` incluem a Sidebar no screenshot, então herdam a nova ordem
+  `GROUP_ORDER_BY_ROLE.ADMIN` — exatamente o comportamento pretendido, não um bug. Confirmado
+  visualmente via `Diff` do Playwright (só a Sidebar e os elementos dinâmicos já tolerados por
+  `maxDiffPixels` mudaram) antes de regenerar; as 5 baselines (`tests/e2e/visual.spec.ts-snapshots/
+  *.png`) foram atualizadas nesta sessão pra refletir a Sidebar reordenada, seguindo o protocolo de
+  `visual-qa/SKILL.md` ("mudança visual intencional exige atualizar a baseline... e justificar o
+  diff, não apenas fazer o teste passar").
 - **Achado de acessibilidade pré-existente, real, não corrigido** (fora do escopo desta rodada — nav/
   tipografia/multibrand, não uma auditoria de contraste do design system): o `Button` variante
   `default` (`bg-brand` + texto branco, sem `bg-brand-active`) falha AA (3.18:1 contra 4.5:1) sempre
