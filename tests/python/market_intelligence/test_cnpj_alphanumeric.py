@@ -1,5 +1,4 @@
 import csv
-import importlib.util
 import io
 import sqlite3
 import sys
@@ -12,12 +11,8 @@ ROOT = Path(__file__).resolve().parents[3]
 TOOLS = ROOT / "public/tools/atlas-market-intelligence"
 sys.path.insert(0, str(TOOLS))
 
-spec = importlib.util.spec_from_file_location("etl_cnpj_atlas", TOOLS / "etl_cnpj_atlas.py")
-etl = importlib.util.module_from_spec(spec)
-assert spec and spec.loader
-spec.loader.exec_module(etl)
-
-import cnpj_company_pipeline as company_pipeline
+import cnpj_company_pipeline as company_pipeline  # noqa: E402
+import etl_cnpj_atlas as etl  # noqa: E402
 
 
 class CnpjAlphanumericCompatibilityTest(unittest.TestCase):
