@@ -282,10 +282,10 @@ export function TerritoryEconomicSimulator({ territories }: Props) {
                 </div>
 
                 <div className="mt-5 grid gap-3 md:grid-cols-4">
-                    <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><MapPinned className="h-4 w-4 text-[#FF5618]" aria-hidden="true" /><p className="mt-2 text-[10px] font-black uppercase text-slate-500">Prioridade territorial</p><p className="mt-1 text-xl font-black text-[#333333]">{selectedTerritory.opportunityScore?.toFixed(1) ?? 'N/A'}</p><p className="text-xs text-slate-500">Confiança {selectedTerritory.confidence}</p></article>
-                    <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><ShieldCheck className="h-4 w-4 text-[#FF5618]" aria-hidden="true" /><p className="mt-2 text-[10px] font-black uppercase text-slate-500">TAM ICP observado</p><p className="mt-1 text-xl font-black text-[#333333]">{assessment.tamAccounts === null ? 'N/A' : integer.format(assessment.tamAccounts)}</p><p className="text-xs text-slate-500">Não é SAM automático</p></article>
-                    <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><Calculator className="h-4 w-4 text-[#FF5618]" aria-hidden="true" /><p className="mt-2 text-[10px] font-black uppercase text-slate-500">SAM derivado</p><p className="mt-1 text-xl font-black text-[#333333]">{assessment.samAccounts === null ? 'PENDENTE' : integer.format(assessment.samAccounts)}</p><p className="text-xs text-slate-500">TAM × % atendível</p></article>
-                    <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><CircleDollarSign className="h-4 w-4 text-[#FF5618]" aria-hidden="true" /><p className="mt-2 text-[10px] font-black uppercase text-slate-500">SOM máximo</p><p className="mt-1 text-xl font-black text-[#333333]">{assessment.economics.maximumCaptureContracts ?? 'PENDENTE'}</p><p className="text-xs text-slate-500">SAM × penetração</p></article>
+                    <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><MapPinned className="h-4 w-4 text-brand" aria-hidden="true" /><p className="mt-2 text-[10px] font-black uppercase text-slate-500">Prioridade territorial</p><p className="mt-1 text-xl font-black text-[#333333]">{selectedTerritory.opportunityScore?.toFixed(1) ?? 'N/A'}</p><p className="text-xs text-slate-500">Confiança {selectedTerritory.confidence}</p></article>
+                    <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><ShieldCheck className="h-4 w-4 text-brand" aria-hidden="true" /><p className="mt-2 text-[10px] font-black uppercase text-slate-500">TAM ICP observado</p><p className="mt-1 text-xl font-black text-[#333333]">{assessment.tamAccounts === null ? 'N/A' : integer.format(assessment.tamAccounts)}</p><p className="text-xs text-slate-500">Não é SAM automático</p></article>
+                    <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><Calculator className="h-4 w-4 text-brand" aria-hidden="true" /><p className="mt-2 text-[10px] font-black uppercase text-slate-500">SAM derivado</p><p className="mt-1 text-xl font-black text-[#333333]">{assessment.samAccounts === null ? 'PENDENTE' : integer.format(assessment.samAccounts)}</p><p className="text-xs text-slate-500">TAM × % atendível</p></article>
+                    <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><CircleDollarSign className="h-4 w-4 text-brand" aria-hidden="true" /><p className="mt-2 text-[10px] font-black uppercase text-slate-500">SOM máximo</p><p className="mt-1 text-xl font-black text-[#333333]">{assessment.economics.maximumCaptureContracts ?? 'PENDENTE'}</p><p className="text-xs text-slate-500">SAM × penetração</p></article>
                 </div>
             </div>
 
@@ -295,9 +295,9 @@ export function TerritoryEconomicSimulator({ territories }: Props) {
             <div className="rounded-3xl border border-slate-200 bg-white p-5 md:p-7" aria-label="Calibração CRM">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex gap-3">
-                        <div className="rounded-2xl bg-slate-100 p-2.5 text-[#FF5618]"><Database className="h-5 w-5" aria-hidden="true" /></div>
+                        <div className="rounded-2xl bg-slate-100 p-2.5 text-brand"><Database className="h-5 w-5" aria-hidden="true" /></div>
                         <div>
-                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#FF5618]">Calibração CRM · 6 meses</p>
+                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">Calibração CRM · 6 meses</p>
                             <h3 className="mt-1 text-lg font-black text-[#333333]">Use o histórico real antes de digitar premissas comerciais</h3>
                             <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">Fonte canônica: Comercial Inteligente / negócios fechados. A aplicação é manual e rastreável. Margem, churn, conversão reunião→oportunidade, produtividade e penetração não são preenchidos por esta calibração.</p>
                         </div>
@@ -367,7 +367,7 @@ export function TerritoryEconomicSimulator({ territories }: Props) {
 
                 <aside className="space-y-4">
                     <div className="flex gap-1 rounded-2xl border border-slate-200 bg-white p-1.5">
-                        {(['CONSERVADOR', 'BASE', 'AGRESSIVO'] as const).map((item) => <button key={item} type="button" onClick={() => setScenario(item)} aria-current={scenario === item ? 'true' : undefined} className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5618] ${scenario === item ? 'bg-[#FF5618] text-white' : 'text-slate-600 hover:bg-slate-50'}`}>{SCENARIO_LABELS[item]}</button>)}
+                        {(['CONSERVADOR', 'BASE', 'AGRESSIVO'] as const).map((item) => <button key={item} type="button" onClick={() => setScenario(item)} aria-current={scenario === item ? 'true' : undefined} className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${scenario === item ? 'bg-brand-active text-white' : 'text-slate-600 hover:bg-slate-50'}`}>{SCENARIO_LABELS[item]}</button>)}
                     </div>
 
                     <div className={`rounded-3xl border p-5 ${recommendationTone(assessment.recommendation)}`}>
