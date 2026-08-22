@@ -109,15 +109,20 @@ expect(screen.getByText('Integrações')).toBeInTheDocument();
         expect(await screen.findByText('não é API oficial Meta')).toBeInTheDocument();
 
         await user.click(screen.getByText('Google Workspace'));
-        expect(await screen.findByText('Google escrita pendente')).toBeInTheDocument();
+        // Timeout maior que o default (1000ms) de propósito: sob CI com vários jobs concorrentes
+        // (Postgres/Redis de outros workers no mesmo runner), a troca de aba + fetch mockado de
+        // /api/google/calendar/upcoming ocasionalmente passa de 1s — achado real (falhou em
+        // build-and-test/quality/SonarQube simultaneamente numa mesma execução, nunca localmente
+        // sem carga). Não é mudança de comportamento, só folga pro ambiente mais lento.
+        expect(await screen.findByText('Google escrita pendente', {}, { timeout: 3000 })).toBeInTheDocument();
         expect(screen.getByText(/criar\/remarcar\/concluir atividades acontece só na Agenda local do Atlas/i)).toBeInTheDocument();
 
         await user.click(screen.getByText('Bitrix24'));
-        expect(await screen.findByText('webhook entrada opcional')).toBeInTheDocument();
+        expect(await screen.findByText('webhook entrada opcional', {}, { timeout: 3000 })).toBeInTheDocument();
         expect(screen.getByText(/Não é espelho bidirecional completo/i)).toBeInTheDocument();
 
         await user.click(screen.getByText('PABX 3CX'));
-        expect(await screen.findByText('gravações dependem de webhook')).toBeInTheDocument();
+        expect(await screen.findByText('gravações dependem de webhook', {}, { timeout: 3000 })).toBeInTheDocument();
         expect(screen.getByText(/não prova, sozinha, gravação de chamadas ou prospecção 24h/i)).toBeInTheDocument();
     });
 
